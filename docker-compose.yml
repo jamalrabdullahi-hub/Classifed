@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: fltcrypto-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fltcrypto
+      POSTGRES_PASSWORD: fltcrypto_local_dev
+      POSTGRES_DB: fltcrypto
+    ports:
+      - '5433:5432'
+    volumes:
+      - fltcrypto-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U fltcrypto -d fltcrypto']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  fltcrypto-pgdata:

@@ -1,0 +1,264 @@
+/*
+ * Deliberately minimal. The brief is explicit: the visible application should be
+ * simple, and effort belongs in the financial backend. No chart library, no
+ * design system, no trading-terminal chrome.
+ */
+
+:root {
+  --bg: #ffffff;
+  --surface: #f7f8fa;
+  --border: #dfe3e8;
+  --text: #14181f;
+  --muted: #5b6472;
+  --accent: #14532d;
+  --accent-text: #ffffff;
+  --danger: #9f1239;
+  --danger-bg: #fef2f4;
+  --ok: #14532d;
+  --ok-bg: #f0fdf4;
+  --warn: #854d0e;
+  --warn-bg: #fefce8;
+  --radius: 6px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216;
+    --surface: #171b21;
+    --border: #2a313a;
+    --text: #e8eaed;
+    --muted: #9aa4b2;
+    --accent: #4ade80;
+    --accent-text: #0f1216;
+    --danger: #fda4af;
+    --danger-bg: #2a1519;
+    --ok: #4ade80;
+    --ok-bg: #122318;
+    --warn: #fcd34d;
+    --warn-bg: #2a2410;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.shell {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+header.bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+header.bar .brand {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+h1 {
+  font-size: 20px;
+  margin: 0 0 16px;
+}
+
+h2 {
+  font-size: 15px;
+  margin: 24px 0 8px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+a {
+  color: inherit;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  background: var(--surface);
+}
+
+.balance {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+button,
+.btn {
+  font: inherit;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+
+button:hover:not(:disabled),
+.btn:hover {
+  border-color: var(--muted);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.primary,
+.btn.primary {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+label {
+  display: block;
+  margin-bottom: 12px;
+}
+
+label span {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+input,
+select {
+  font: inherit;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.error {
+  color: var(--danger);
+  background: var(--danger-bg);
+  border: 1px solid currentColor;
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.ok {
+  color: var(--ok);
+  background: var(--ok-bg);
+  border: 1px solid currentColor;
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.warn {
+  color: var(--warn);
+  background: var(--warn-bg);
+  border: 1px solid currentColor;
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.quote dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.quote dd {
+  margin: 0 0 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.quote .total {
+  font-weight: 700;
+  font-size: 18px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+td,
+th {
+  text-align: left;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+td.amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pos {
+  color: var(--ok);
+}
+
+.neg {
+  color: var(--danger);
+}
+
+.pill {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.countdown {
+  font-variant-numeric: tabular-nums;
+}
