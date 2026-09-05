@@ -8,6 +8,10 @@
 
 generator client {
   provider = "prisma-client-js"
+  // driverAdapters routes queries through @prisma/adapter-pg (node-postgres)
+  // instead of Prisma's own connection handling. Required for Cloudflare
+  // Workers, and harmless on Node. See src/server/db.ts.
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {

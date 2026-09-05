@@ -1,0 +1,5 @@
+# Local Worker secrets for `wrangler dev`. Copy to .dev.vars (gitignored).
+# See docs/cloudflare.md — the Workers path does not yet work for database routes.
+APP_SECRET=
+DATABASE_URL=
+NODE_ENV=development

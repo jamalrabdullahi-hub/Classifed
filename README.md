@@ -218,6 +218,11 @@ The app refuses to boot with `NODE_ENV=production` while providers are mocked,
 so a deployed instance is a staging environment until real providers are wired
 in. It must not hold customer data or real funds in that state.
 
+A Cloudflare Workers deployment was attempted and is **not finished** — the
+Worker builds and serves pages, but every database route returns 500 because
+workerd cannot load Prisma's query engine. [docs/cloudflare.md](docs/cloudflare.md)
+records the exact blocker and what would resolve it.
+
 ## Known gaps for production
 
 - Reconciliation and withdrawal polling run on demand; they need a scheduler.

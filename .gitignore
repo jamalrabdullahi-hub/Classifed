@@ -12,3 +12,10 @@ next-env.d.ts
 coverage/
 .vitest/
 .DS_Store
+
+# Cloudflare / OpenNext build output and local secrets
+.open-next/
+.wrangler/
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
