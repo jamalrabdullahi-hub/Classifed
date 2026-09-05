@@ -15,7 +15,9 @@ the payment reconciliation, the order execution and the withdrawal handling.
 
 ## Running it locally
 
-Requires Docker and Node 20+.
+Requires Node 20+ and Docker. **Docker is for local development only** — it runs
+a disposable Postgres. The server installs PostgreSQL natively; see
+[docs/deployment.md](docs/deployment.md).
 
 ```bash
 npm install
@@ -69,6 +71,20 @@ src/
 Business logic never imports from `next/*`, and never names a vendor. Swapping
 WAAFI for another payment provider is a new adapter directory plus one line in
 `registry.ts`.
+
+### The operator panel
+
+`/admin` is guarded by a layout that redirects non-administrators, and every
+`/api/admin/*` route re-checks independently — a page guard protects rendering,
+not data. Overview, users, KYC review, manual approvals, deposits, withdrawals,
+orders with their execution attempts, treasury, a ledger explorer, reconciliation
+and the audit trail.
+
+An operator can decide three things: a KYC verdict, a manual approval, and a
+user's account status. **There is no "adjust balance" action and there must never
+be one** — corrections are reversing journal entries, not edits. Approvals
+enforce segregation of duties: an administrator cannot approve a request arising
+from their own account. Every decision writes an audit row naming the actor.
 
 ### The ledger
 
@@ -179,6 +195,28 @@ withdrawal minimum. The liquidity and blockchain providers must support it.
 | `npm run reconcile` | Balance, solvency and stuck-record report; exits non-zero when unhealthy |
 | `npm run reconcile -- --rebuild` | Rebuild projections from ledger entries |
 | `npx tsx scripts/walkthrough.ts` | End-to-end API walkthrough |
+| `bash scripts/server-setup.sh` | One-time server bootstrap (Ubuntu, no Docker) |
+| `bash scripts/deploy.sh` | Pull, migrate, build, restart, health-check |
+
+## Deploying
+
+Ubuntu, native PostgreSQL, systemd. Full runbook in
+[docs/deployment.md](docs/deployment.md).
+
+```bash
+git clone git@github.com:jamalrabdullahi-hub/Classifed.git /opt/fltcrypto
+cd /opt/fltcrypto && bash scripts/server-setup.sh
+```
+
+Then, after any push to `main`:
+
+```bash
+ssh root@<server> 'bash /opt/fltcrypto/scripts/deploy.sh'
+```
+
+The app refuses to boot with `NODE_ENV=production` while providers are mocked,
+so a deployed instance is a staging environment until real providers are wired
+in. It must not hold customer data or real funds in that state.
 
 ## Known gaps for production
 
@@ -187,5 +225,7 @@ withdrawal minimum. The liquidity and blockchain providers must support it.
   interface if it is not.
 - `x-forwarded-for` is trusted for IP-keyed rate limits — the deployment must
   put a proxy in front that overwrites it, or those limits can be evaded.
-- No admin UI. Reversals and adjustments exist as services with audit logging,
-  but must currently be invoked from a script.
+- Reversals and adjustments exist as services with audit logging, but are not
+  exposed in the admin panel and must be invoked from a script. This is
+  deliberate: an operator must not be able to move money from a web form.
+- No backups. See [docs/deployment.md](docs/deployment.md).
