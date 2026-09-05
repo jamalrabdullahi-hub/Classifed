@@ -104,3 +104,21 @@ export {
   assertSubmittable,
   type SubmitTradeInput,
 } from './trades';
+export {
+  ADMIN_SESSION_COOKIE,
+  PERMISSIONS,
+  can,
+  assertCan,
+  adminLogin,
+  adminLogout,
+  resolveAdminSession,
+  recordAdminAction,
+  setUserSuspension,
+  setTradingDisabled,
+  setTokenEnabled,
+  setProviderEnabled,
+  type AdminActionContext,
+  type AdminLoginResult,
+  type Permission,
+  type ResolvedAdmin,
+} from './admin';
