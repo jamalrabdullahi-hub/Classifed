@@ -100,9 +100,11 @@ export function adminHandler<TBody, TParams, TResult>(
   },
   fn: (args: AdminHandlerArgs<TBody, TParams>) => Promise<TResult>,
 ) {
+  // The route context is required rather than optional: Next's generated route
+  // types reject an optional second parameter on a dynamic segment.
   return async (
     request: NextRequest,
-    routeContext?: { params: Promise<TParams> },
+    routeContext: { params: Promise<TParams> },
   ): Promise<NextResponse> => {
     const requestId = newId();
 
@@ -130,7 +132,7 @@ export function adminHandler<TBody, TParams, TResult>(
         body = options.schema.parse(await readJson(request));
       }
 
-      const params = ((await routeContext?.params) ?? {}) as TParams;
+      const params = (await routeContext.params) as TParams;
       const data = await fn({ body, params, admin, context, request });
 
       return NextResponse.json({ data, requestId });

@@ -234,7 +234,7 @@ async function verifyCalldata(
  * buy produces no Transfer log, so it returns null rather than zero — "we
  * cannot tell from the logs" is not the same as "you received nothing".
  */
-function extractAmountReceived(
+export function extractAmountReceived(
   logs: readonly Log[],
   buyTokenAddress: string | null,
   takerAddress: string,
