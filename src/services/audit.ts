@@ -123,4 +123,9 @@ export const AuditAction = {
   APPROVAL_REQUESTED: 'approval.requested',
   PROTOCOL_DENIED: 'security.protocol_denied',
   RATE_LIMITED: 'security.rate_limited',
+  // Operator actions. Distinct from the provider/system equivalents so the
+  // audit log answers "what did a human change?" with one filter.
+  ADMIN_USER_STATUS_CHANGED: 'admin.user.status_changed',
+  ADMIN_APPROVAL_DECIDED: 'admin.approval.decided',
+  ADMIN_PROJECTIONS_REBUILT: 'admin.projections.rebuilt',
 } as const;

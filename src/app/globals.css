@@ -262,3 +262,106 @@ td.amount {
 .countdown {
   font-variant-numeric: tabular-nums;
 }
+
+/* --- Operator area ---------------------------------------------------------
+ * The customer app is deliberately narrow. Operator tables are not: they carry
+ * ids, amounts and timestamps side by side. `:has()` widens the shell only for
+ * admin pages, and degrades to the customer width where it is unsupported.
+ */
+main.shell:has(.admin) {
+  max-width: 1100px;
+}
+
+.adminnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+
+.adminnav a {
+  font-size: 13px;
+  padding: 5px 10px;
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: var(--muted);
+}
+
+.adminnav a:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.tile {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  background: var(--surface);
+  text-decoration: none;
+  display: block;
+}
+
+.tile .n {
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.tile.attn .n {
+  color: var(--warn);
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.scroll {
+  overflow-x: auto;
+}
+
+table.dense td,
+table.dense th {
+  padding: 6px 10px 6px 0;
+  font-size: 13px;
+}
+
+table.dense th {
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.inline {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.inline input,
+.inline select {
+  width: auto;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.inline button {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import type { User } from '@prisma/client';
 import { z } from 'zod';
 import { DomainError, ValidationError } from '../domain/errors';
 import { newId } from '../domain/id';
@@ -10,7 +11,7 @@ import {
   type RateLimitRule,
 } from '../services/ratelimit';
 import { withIdempotency } from '../services/idempotency';
-import { requireUser } from './session';
+import { requireAdmin, requireUser } from './session';
 
 /**
  * Route plumbing: one place that turns domain errors into responses, applies
@@ -154,6 +155,62 @@ export function handler<TBody, TResult>(
       }
 
       const data = await run();
+      return NextResponse.json({ data, requestId }, { status: 200 });
+    } catch (error) {
+      return jsonError(error, requestId);
+    }
+  };
+}
+
+interface AdminHandlerArgs<TBody, TParams> {
+  body: TBody;
+  params: TParams;
+  admin: User;
+  context: RequestContext;
+  request: NextRequest;
+}
+
+/**
+ * Route plumbing for the operator API.
+ *
+ * Separate from `handler` for two reasons: these routes take dynamic path
+ * params, and the guard must be `requireAdmin` rather than `requireUser`. Going
+ * through here means an admin endpoint cannot be written without the role check
+ * or without a rate limit.
+ *
+ * Deliberately no idempotency scope: nothing here moves money, so a replayed
+ * request must fail on the underlying state guard rather than silently return a
+ * cached success.
+ */
+export function adminHandler<TBody, TParams, TResult>(
+  options: { schema?: z.ZodType<TBody> },
+  fn: (args: AdminHandlerArgs<TBody, TParams>) => Promise<TResult>,
+) {
+  return async (
+    request: NextRequest,
+    routeContext: { params: Promise<TParams> },
+  ): Promise<NextResponse> => {
+    const requestId = newId();
+
+    try {
+      const admin = await requireAdmin();
+      const context: RequestContext = {
+        requestId,
+        actorType: 'ADMIN',
+        actorUserId: admin.id,
+        ip: clientIp(request),
+        userAgent: request.headers.get('user-agent'),
+      };
+
+      await enforceRateLimit(rateLimitKey('admin', admin.id), RateLimits.API_GENERAL);
+
+      let body = {} as TBody;
+      if (options.schema) {
+        body = options.schema.parse(await readJson(request));
+      }
+
+      const params = await routeContext.params;
+      const data = await fn({ body, params, admin, context, request });
       return NextResponse.json({ data, requestId }, { status: 200 });
     } catch (error) {
       return jsonError(error, requestId);
