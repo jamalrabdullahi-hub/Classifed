@@ -2,7 +2,7 @@
   "name": "flt-exchange",
   "version": "0.1.0",
   "private": true,
-  "description": "FLT Exchange \u2014 non-custodial DEX trading platform",
+  "description": "FLT Exchange — non-custodial DEX trading platform",
   "engines": {
     "node": ">=20.11.0"
   },
@@ -23,7 +23,8 @@
     "db:reset": "pnpm --filter @flt/db reset",
     "db:seed": "pnpm --filter @flt/db seed",
     "db:studio": "pnpm --filter @flt/db studio",
-    "worker": "pnpm --filter @flt/worker start"
+    "worker": "pnpm --filter @flt/worker start",
+    "verify:tokens": "pnpm --filter @flt/db exec tsx ../../scripts/verify-tokens.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
