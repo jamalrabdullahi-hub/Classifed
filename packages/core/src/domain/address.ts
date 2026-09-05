@@ -1,5 +1,5 @@
 import { getAddress, isAddress, isHex } from 'viem';
-import { InvalidAddressError } from './errors.js';
+import { InvalidAddressError } from './errors';
 
 /**
  * Address handling.

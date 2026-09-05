@@ -1,16 +1,16 @@
 import { env } from '@flt/config';
 import { NoopRiskEngine, type RiskEngine } from '@flt/core/risk';
-import { MockRouter } from './dex/mock.js';
-import { ZeroExRouter } from './dex/zeroex.js';
-import type { DEXRouter } from './dex/types.js';
-import { CoinGeckoMarketDataProvider } from './market/coingecko.js';
-import { MockMarketDataProvider } from './market/mock.js';
-import type { MarketDataProvider } from './market/types.js';
-import { ManualReviewKycProvider } from './kyc/manual.js';
-import type { KycProvider } from './kyc/types.js';
-import { ConsoleMailProvider } from './mail/console.js';
-import { ResendMailProvider } from './mail/resend.js';
-import type { MailProvider } from './mail/types.js';
+import { MockRouter } from './dex/mock';
+import { ZeroExRouter } from './dex/zeroex';
+import type { DEXRouter } from './dex/types';
+import { CoinGeckoMarketDataProvider } from './market/coingecko';
+import { MockMarketDataProvider } from './market/mock';
+import type { MarketDataProvider } from './market/types';
+import { ManualReviewKycProvider } from './kyc/manual';
+import type { KycProvider } from './kyc/types';
+import { ConsoleMailProvider } from './mail/console';
+import { ResendMailProvider } from './mail/resend';
+import type { MailProvider } from './mail/types';
 
 /**
  * The ONLY module in the codebase permitted to name a concrete vendor.

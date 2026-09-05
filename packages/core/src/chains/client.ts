@@ -1,5 +1,5 @@
 import { createPublicClient, fallback, http, type PublicClient } from 'viem';
-import { requireChain } from './registry.js';
+import { requireChain } from './registry';
 
 /**
  * Read-only chain clients.

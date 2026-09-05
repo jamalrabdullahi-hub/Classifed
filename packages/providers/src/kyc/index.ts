@@ -4,5 +4,5 @@ export type {
   StartVerificationInput,
   StartVerificationResult,
   VerificationStatus,
-} from './types.js';
-export { ManualReviewKycProvider } from './manual.js';
+} from './types';
+export { ManualReviewKycProvider } from './manual';

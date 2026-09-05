@@ -1,7 +1,7 @@
 import { prisma } from '@flt/db';
-import { RateLimitedError } from '../domain/errors.js';
-import { newId } from '../domain/id.js';
-import { Decimal } from '../domain/money.js';
+import { RateLimitedError } from '../domain/errors';
+import { newId } from '../domain/id';
+import { Decimal } from '../domain/money';
 
 /**
  * Token-bucket rate limiting, backed by Postgres.

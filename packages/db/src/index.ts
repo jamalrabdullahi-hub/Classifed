@@ -4,7 +4,7 @@ export {
   isNotFound,
   isForeignKeyViolation,
   type DbClient,
-} from './client.js';
+} from './client';
 
 export { Prisma } from '@prisma/client';
 

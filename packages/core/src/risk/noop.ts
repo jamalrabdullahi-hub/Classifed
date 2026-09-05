@@ -1,4 +1,4 @@
-import { ALLOW, type RiskDecision, type RiskEngine, type TradeRiskContext } from './types.js';
+import { ALLOW, type RiskDecision, type RiskEngine, type TradeRiskContext } from './types';
 
 /**
  * Phase 1 risk engine: allows everything.

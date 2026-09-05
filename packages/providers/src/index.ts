@@ -5,9 +5,9 @@ export {
   mailProvider,
   riskEngine,
   resetProviders,
-} from './registry.js';
+} from './registry';
 
-export * from './dex/index.js';
-export * from './market/index.js';
-export * from './kyc/index.js';
-export * from './mail/index.js';
+export * from './dex/index';
+export * from './market/index';
+export * from './kyc/index';
+export * from './mail/index';

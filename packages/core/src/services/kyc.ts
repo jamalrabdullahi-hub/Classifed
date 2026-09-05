@@ -7,10 +7,10 @@ import {
   type User,
   prisma,
 } from '@flt/db';
-import { ConflictError, KycRequiredError, NotFoundError, TradingDisabledError } from '../domain/errors.js';
-import { newId } from '../domain/id.js';
-import { accountStateMachine, kycStateMachine } from '../domain/state.js';
-import { AuditAction, audit } from './audit.js';
+import { ConflictError, KycRequiredError, NotFoundError, TradingDisabledError } from '../domain/errors';
+import { newId } from '../domain/id';
+import { accountStateMachine, kycStateMachine } from '../domain/state';
+import { AuditAction, audit } from './audit';
 
 /**
  * KYC onboarding.

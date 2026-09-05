@@ -1,6 +1,6 @@
 import { type DbClient, type User, type UserSession, prisma } from '@flt/db';
-import { newId, randomToken } from '../domain/id.js';
-import { deviceFingerprint, hashToken } from './crypto.js';
+import { newId, randomToken } from '../domain/id';
+import { deviceFingerprint, hashToken } from './crypto/hashing';
 
 /**
  * Session management.

@@ -10,6 +10,7 @@
     "./domain": "./src/domain/index.ts",
     "./chains": "./src/chains/index.ts",
     "./services": "./src/services/index.ts",
+    "./services/*": "./src/services/*.ts",
     "./ports": "./src/ports/index.ts",
     "./risk": "./src/risk/index.ts"
   },

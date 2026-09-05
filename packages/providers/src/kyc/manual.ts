@@ -6,7 +6,7 @@ import type {
   StartVerificationInput,
   StartVerificationResult,
   VerificationStatus,
-} from './types.js';
+} from './types';
 
 /**
  * Manual review.

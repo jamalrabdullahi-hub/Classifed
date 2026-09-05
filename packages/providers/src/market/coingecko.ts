@@ -1,7 +1,7 @@
 import { env } from '@flt/config';
 import { ProviderError } from '@flt/core/domain';
 import { z } from 'zod';
-import type { MarketDataProvider, MarketDataRequest, TokenMarketData } from './types.js';
+import type { MarketDataProvider, MarketDataRequest, TokenMarketData } from './types';
 
 /**
  * CoinGecko adapter, using the contract-address endpoint so tokens are keyed by

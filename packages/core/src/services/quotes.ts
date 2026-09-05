@@ -15,16 +15,16 @@ import {
   TokenDisabledError,
   ValidationError,
   WalletNotVerifiedError,
-} from '../domain/errors.js';
-import { newId } from '../domain/id.js';
-import { Decimal, differenceInBps, toDecimal } from '../domain/money.js';
-import { addressesEqual, checksumAddress } from '../domain/address.js';
-import { assertMayTrade } from './kyc.js';
-import { calldataHash } from './crypto.js';
-import { AuditAction, audit } from './audit.js';
-import { resolveFee, type ResolvedFee } from './fees.js';
-import type { DEXRouter, FirmQuote, IntegratorFee } from '../ports/dex.js';
-import type { RiskEngine } from '../risk/types.js';
+} from '../domain/errors';
+import { newId } from '../domain/id';
+import { Decimal, differenceInBps, toDecimal } from '../domain/money';
+import { addressesEqual, checksumAddress } from '../domain/address';
+import { assertMayTrade } from './kyc';
+import { calldataHash } from './crypto/hashing';
+import { AuditAction, audit } from './audit';
+import { resolveFee, type ResolvedFee } from './fees';
+import type { DEXRouter, FirmQuote, IntegratorFee } from '../ports/dex';
+import type { RiskEngine } from '../risk/types';
 
 /**
  * Quote construction.

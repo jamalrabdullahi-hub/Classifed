@@ -13,16 +13,17 @@ import {
   DomainError,
   UnauthenticatedError,
   ValidationError,
-} from '../domain/errors.js';
-import { newId, randomToken } from '../domain/id.js';
-import { AuditAction, audit } from './audit.js';
-import { hashPassword, hashToken, verifyPassword } from './crypto.js';
+} from '../domain/errors';
+import { newId, randomToken } from '../domain/id';
+import { AuditAction, audit } from './audit';
+import { hashToken } from './crypto/hashing';
+import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from './crypto/passwords';
 import {
   createSession,
   revokeAllSessions,
   type IssuedSession,
   type SessionMetadata,
-} from './sessions.js';
+} from './sessions';
 
 /**
  * Authentication.
@@ -158,7 +159,7 @@ export async function login(
   // time does not reveal which emails are registered.
   const passwordOk = user
     ? await verifyPassword(user.passwordHash, input.password)
-    : await verifyPassword(DUMMY_HASH, input.password);
+    : await verifyPassword(DUMMY_PASSWORD_HASH, input.password);
 
   if (!user || !passwordOk) {
     await audit(prisma, {
@@ -212,14 +213,6 @@ export async function login(
   return { user, issued, mfaRequired };
 }
 
-/**
- * A valid Argon2id hash of a value nobody knows.
- *
- * Verified against when the email is unknown, so an attacker cannot enumerate
- * accounts by measuring how long the request takes.
- */
-const DUMMY_HASH =
-  '$argon2id$v=19$m=19456,t=2,p=1$c29tZS1zdGF0aWMtc2FsdA$Qm9ndXNIYXNoRm9yVGltaW5nRXF1YWxpdHk';
 
 // ── Email verification ──────────────────────────────────────────────────────
 

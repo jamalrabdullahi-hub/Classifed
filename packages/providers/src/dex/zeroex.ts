@@ -10,7 +10,7 @@ import type {
   QuoteRequest,
   RouteSummary,
   TokenTax,
-} from './types.js';
+} from './types';
 
 /**
  * 0x Swap API v2 adapter.

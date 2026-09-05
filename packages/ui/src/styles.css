@@ -1,0 +1,285 @@
+@import 'tailwindcss';
+
+/*
+ * FLT Exchange design foundation.
+ *
+ * The brief is explicit that this must read as financial infrastructure rather
+ * than a crypto casino, so the system is built around a few rules that are
+ * enforced by what the palette makes available:
+ *
+ *   1. **Green and red are data, not decoration.** They appear only on real
+ *      profit/loss and real status. Nothing celebratory is coloured. There is
+ *      deliberately no "success gradient" or accent-on-accent treatment to
+ *      reach for.
+ *   2. **Numbers align.** Every figure uses tabular numerals, so a column of
+ *      balances reads as a column rather than as ragged text.
+ *   3. **One accent.** A single restrained blue carries interaction. Emphasis
+ *      comes from weight, spacing and hierarchy instead of from more colour.
+ *   4. **Calm surfaces.** Three elevation steps, low-contrast borders, and no
+ *      shadow heavier than a hairline. Density without noise.
+ *
+ * Light and dark are both first-class. The dark theme is the primary design
+ * target — this is a tool people look at for long stretches.
+ */
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* ── Light ─────────────────────────────────────────────────────────────────
+ * Warm-neutral paper rather than pure white, which is harsh over long sessions
+ * and makes borders look heavier than they are.
+ */
+:root {
+  --canvas: #fbfbfd;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f4f5f8;
+  --surface-hover: #f0f2f6;
+
+  --border: #e3e6ec;
+  --border-strong: #cdd2dc;
+  --border-focus: #3d6ae0;
+
+  --text: #0e1116;
+  --text-muted: #5a6474;
+  --text-subtle: #8a93a3;
+  --text-inverse: #ffffff;
+
+  --accent: #3d6ae0;
+  --accent-hover: #3159cc;
+  --accent-subtle: #eef2fd;
+  --accent-border: #c3d0f7;
+  --accent-text: #2c4fb5;
+
+  --positive: #12783f;
+  --positive-subtle: #eaf6ee;
+  --positive-border: #bfe3cc;
+
+  --negative: #c02a37;
+  --negative-subtle: #fdeef0;
+  --negative-border: #f4c7cd;
+
+  --warning: #96650b;
+  --warning-subtle: #fdf5e6;
+  --warning-border: #efd9a8;
+
+  --info: #24608f;
+  --info-subtle: #eaf3fa;
+  --info-border: #bcd8ec;
+
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.05);
+  --shadow-md: 0 4px 12px -2px rgb(15 23 42 / 0.08), 0 2px 4px -2px rgb(15 23 42 / 0.04);
+  --shadow-lg: 0 16px 40px -8px rgb(15 23 42 / 0.14), 0 4px 12px -4px rgb(15 23 42 / 0.06);
+}
+
+/* ── Dark ──────────────────────────────────────────────────────────────────
+ * Near-black with a blue cast rather than neutral grey. Reads as a screen made
+ * for looking at data, not as an inverted document.
+ */
+[data-theme='dark'] {
+  --canvas: #0a0c11;
+  --surface: #111419;
+  --surface-raised: #171b22;
+  --surface-sunken: #0d1015;
+  --surface-hover: #1c212a;
+
+  --border: #232833;
+  --border-strong: #333a48;
+  --border-focus: #6e8bff;
+
+  --text: #e9ecf2;
+  --text-muted: #99a2b2;
+  --text-subtle: #6b7484;
+  --text-inverse: #0a0c11;
+
+  --accent: #6e8bff;
+  --accent-hover: #8aa1ff;
+  --accent-subtle: #161b2e;
+  --accent-border: #2c3660;
+  --accent-text: #a3b6ff;
+
+  --positive: #3fb950;
+  --positive-subtle: #0e1f14;
+  --positive-border: #1d3f26;
+
+  --negative: #f85149;
+  --negative-subtle: #24120f;
+  --negative-border: #4a1f1c;
+
+  --warning: #d29922;
+  --warning-subtle: #211a0c;
+  --warning-border: #443519;
+
+  --info: #58a6ff;
+  --info-subtle: #0d1b2a;
+  --info-border: #1d3350;
+
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 16px 40px -8px rgb(0 0 0 / 0.6), 0 4px 12px -4px rgb(0 0 0 / 0.4);
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-hover: var(--surface-hover);
+
+  --color-border-default: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-border-focus: var(--border-focus);
+
+  --color-content: var(--text);
+  --color-content-muted: var(--text-muted);
+  --color-content-subtle: var(--text-subtle);
+  --color-content-inverse: var(--text-inverse);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-accent-border: var(--accent-border);
+  --color-accent-text: var(--accent-text);
+
+  --color-positive: var(--positive);
+  --color-positive-subtle: var(--positive-subtle);
+  --color-positive-border: var(--positive-border);
+
+  --color-negative: var(--negative);
+  --color-negative-subtle: var(--negative-subtle);
+  --color-negative-border: var(--negative-border);
+
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-warning-border: var(--warning-border);
+
+  --color-info: var(--info);
+  --color-info-subtle: var(--info-subtle);
+  --color-info-border: var(--info-border);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+
+  --font-sans:
+    'InterVariable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono:
+    'JetBrains Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', monospace;
+
+  /* Slightly tighter than Tailwind's defaults. Financial interfaces are dense,
+   * and the default scale leaves too much air between related figures. */
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    /* The viewer's scrollbar should match the theme rather than flashing white
+     * on a dark page. */
+    color-scheme: light;
+  }
+
+  [data-theme='dark'] html,
+  html:has([data-theme='dark']) {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--canvas);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /*
+   * Every number in this application is tabular.
+   *
+   * Applied by default rather than per-component, because the failure mode —
+   * a column of balances that jitters as digits change — is exactly the kind
+   * of detail that makes an interface feel unserious.
+   */
+  .num,
+  input[type='number'],
+  table td,
+  table th {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  ::selection {
+    background-color: var(--accent-subtle);
+    color: var(--accent-text);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 2px;
+  }
+
+  /* Respect a stated preference for less motion. Nothing here is essential. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Wide content — routes, tables, calldata — scrolls inside its own container
+   * so the page body never scrolls sideways. */
+  .scroll-x {
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .scroll-x::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .scroll-x::-webkit-scrollbar-thumb {
+    background-color: var(--border-strong);
+    border-radius: 3px;
+  }
+
+  /* Hairline grid used behind hero sections. Subtle enough to read as texture
+   * rather than as decoration. */
+  .grid-texture {
+    background-image:
+      linear-gradient(to right, var(--border) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+  }
+
+  @keyframes flt-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
+
+  .animate-pulse-slow {
+    animation: flt-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes flt-fade-up {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  .animate-fade-up {
+    animation: flt-fade-up 0.18s ease-out;
+  }
+}

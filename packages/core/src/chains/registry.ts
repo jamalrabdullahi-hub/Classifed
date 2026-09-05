@@ -1,8 +1,8 @@
 import { base } from 'viem/chains';
 import type { Chain as ViemChain } from 'viem';
 import { env } from '@flt/config';
-import { UnsupportedChainError } from '../domain/errors.js';
-import type { Address } from '../domain/address.js';
+import { UnsupportedChainError } from '../domain/errors';
+import type { Address } from '../domain/address';
 
 /**
  * Chain registry.

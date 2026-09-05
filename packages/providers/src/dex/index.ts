@@ -10,6 +10,6 @@ export type {
   RouteSummary,
   TokenTax,
   UnsignedTransaction,
-} from './types.js';
-export { MockRouter } from './mock.js';
-export { ZeroExRouter } from './zeroex.js';
+} from './types';
+export { MockRouter } from './mock';
+export { ZeroExRouter } from './zeroex';

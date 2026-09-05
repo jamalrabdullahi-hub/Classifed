@@ -1,7 +1,7 @@
 import { FeeType, type AccountType, type DbClient, type FeeConfig } from '@flt/db';
 import { env } from '@flt/config';
-import { normalizeAddress } from '../domain/address.js';
-import { applyBps } from '../domain/money.js';
+import { normalizeAddress } from '../domain/address';
+import { applyBps } from '../domain/money';
 
 /**
  * Fee resolution.

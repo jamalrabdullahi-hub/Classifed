@@ -1,47 +1,18 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { hash as argonHash, verify as argonVerify } from '@node-rs/argon2';
 import { env } from '@flt/config';
 
 /**
- * Cryptographic primitives, in one place so the choices are auditable.
+ * Hashing and symmetric encryption.
  *
- * The distinction that matters here: **passwords are slow-hashed, tokens are
+ * Pure Node built-ins, deliberately free of native dependencies so the modules
+ * on the hot path — session resolution on every request — carry no compiled
+ * binary into the bundle. Password hashing lives in `./passwords`.
+ *
+ * The distinction that matters: **passwords are slow-hashed, tokens are
  * fast-hashed.** A password is low-entropy and needs Argon2id to make guessing
  * expensive. A session token is 256 bits of CSPRNG output, so SHA-256 is
- * sufficient and the speed is a feature — it runs on every authenticated
- * request.
+ * sufficient and its speed is a feature.
  */
-
-// ── Passwords ───────────────────────────────────────────────────────────────
-
-/**
- * Argon2id at OWASP's recommended floor: 19 MiB memory, 2 iterations,
- * 1 degree of parallelism.
- */
-const ARGON_OPTIONS = {
-  memoryCost: 19_456,
-  timeCost: 2,
-  parallelism: 1,
-} as const;
-
-export async function hashPassword(password: string): Promise<string> {
-  return argonHash(password, ARGON_OPTIONS);
-}
-
-/**
- * Verifies a password. Returns false rather than throwing on a malformed hash,
- * so a corrupted row denies access instead of returning a 500 that tells an
- * attacker the account exists.
- */
-export async function verifyPassword(hash: string, password: string): Promise<boolean> {
-  try {
-    return await argonVerify(hash, password);
-  } catch {
-    return false;
-  }
-}
-
-// ── Tokens ──────────────────────────────────────────────────────────────────
 
 /**
  * Hash for a high-entropy secret: session tokens, email tokens, recovery codes.
@@ -75,14 +46,12 @@ function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
 
   const entries = Object.entries(value as Record<string, unknown>)
-    .filter(([, v]) => v !== undefined)
+    .filter(([, entry]) => entry !== undefined)
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-    .map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`);
+    .map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`);
 
   return `{${entries.join(',')}}`;
 }
-
-// ── Symmetric encryption ────────────────────────────────────────────────────
 
 /**
  * AES-256-GCM, for MFA secrets at rest.
@@ -91,7 +60,7 @@ function canonicalJson(value: unknown): string {
  * encrypted with a key held outside the database. A dump of the database alone
  * then yields no working second factors.
  *
- * Format: base64(iv ‖ authTag ‖ ciphertext). The IV is random per encryption,
+ * Format: base64(iv | authTag | ciphertext). The IV is random per encryption,
  * which is what makes GCM safe to reuse a key with.
  */
 const IV_LENGTH = 12;
@@ -129,13 +98,11 @@ export function decryptSecret(payload: string): string {
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
 }
 
-// ── Device fingerprinting ───────────────────────────────────────────────────
-
 /**
  * A stable, non-identifying device fingerprint.
  *
  * Salted with APP_SECRET so the stored value is not a plain hash of the user
- * agent, and cannot be correlated across deployments.
+ * agent and cannot be correlated across deployments.
  */
 export function deviceFingerprint(userAgent: string | null, deviceCookie: string | null): string {
   return createHash('sha256')

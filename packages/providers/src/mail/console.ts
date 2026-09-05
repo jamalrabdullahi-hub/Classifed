@@ -4,7 +4,7 @@ import type {
   PasswordResetEmail,
   SecurityAlertEmail,
   VerificationEmail,
-} from './types.js';
+} from './types';
 
 /**
  * Development mail: prints the message to stdout.

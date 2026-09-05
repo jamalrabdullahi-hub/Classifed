@@ -10,4 +10,4 @@ export type {
   RouteSummary,
   TokenTax,
   UnsignedTransaction,
-} from './dex.js';
+} from './dex';

@@ -4,7 +4,7 @@ import {
   QuoteStatus,
   TransactionStatus,
 } from '@flt/db';
-import { IllegalTransitionError } from './errors.js';
+import { IllegalTransitionError } from './errors';
 
 /**
  * A state machine is a plain transition table: state -> allowed next states.

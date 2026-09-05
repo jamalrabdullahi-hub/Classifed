@@ -13,12 +13,12 @@ import {
   SignatureVerificationError,
   UnsupportedChainError,
   ValidationError,
-} from '../domain/errors.js';
-import { newId, randomToken } from '../domain/id.js';
-import { addressesEqual, checksumAddress, normalizeAddress } from '../domain/address.js';
-import { isSupportedChain, requireChain } from '../chains/registry.js';
-import { publicClient } from '../chains/client.js';
-import { AuditAction, audit } from './audit.js';
+} from '../domain/errors';
+import { newId, randomToken } from '../domain/id';
+import { addressesEqual, checksumAddress, normalizeAddress } from '../domain/address';
+import { isSupportedChain, requireChain } from '../chains/registry';
+import { publicClient } from '../chains/client';
+import { AuditAction, audit } from './audit';
 
 /**
  * Wallet linking.

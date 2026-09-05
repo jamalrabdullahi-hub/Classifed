@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { MarketDataProvider, MarketDataRequest, TokenMarketData } from './types.js';
+import type { MarketDataProvider, MarketDataRequest, TokenMarketData } from './types';
 
 /**
  * Deterministic market data for development.

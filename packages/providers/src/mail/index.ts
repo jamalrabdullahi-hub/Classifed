@@ -3,6 +3,6 @@ export type {
   PasswordResetEmail,
   SecurityAlertEmail,
   VerificationEmail,
-} from './types.js';
-export { ConsoleMailProvider } from './console.js';
-export { ResendMailProvider } from './resend.js';
+} from './types';
+export { ConsoleMailProvider } from './console';
+export { ResendMailProvider } from './resend';

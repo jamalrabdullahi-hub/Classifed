@@ -1,10 +1,11 @@
 import { ActorType, type DbClient, type User, prisma } from '@flt/db';
 import * as OTPAuth from 'otpauth';
-import { ConflictError, NotFoundError, ValidationError } from '../domain/errors.js';
-import { newId, recoveryCode } from '../domain/id.js';
-import { AuditAction, audit } from './audit.js';
-import { decryptSecret, encryptSecret, hashToken, verifyPassword } from './crypto.js';
-import { revokeAllSessions } from './sessions.js';
+import { ConflictError, NotFoundError, ValidationError } from '../domain/errors';
+import { newId, recoveryCode } from '../domain/id';
+import { AuditAction, audit } from './audit';
+import { decryptSecret, encryptSecret, hashToken } from './crypto/hashing';
+import { verifyPassword } from './crypto/passwords';
+import { revokeAllSessions } from './sessions';
 
 /**
  * TOTP multi-factor authentication (RFC 6238).

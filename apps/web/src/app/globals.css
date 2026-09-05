@@ -1,0 +1,6 @@
+@import '@flt/ui/styles.css';
+
+/* App-level source registration for Tailwind v4. The design system lives in a
+ * workspace package, so its class names must be scanned explicitly. */
+@source '../../../../packages/ui/src/**/*.{ts,tsx}';
+@source '../**/*.{ts,tsx}';

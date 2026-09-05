@@ -1,6 +1,6 @@
 import { Decimal as DecimalJs } from 'decimal.js';
 import { formatUnits, parseUnits } from 'viem';
-import { ValidationError } from './errors.js';
+import { ValidationError } from './errors';
 
 /**
  * Amount handling.

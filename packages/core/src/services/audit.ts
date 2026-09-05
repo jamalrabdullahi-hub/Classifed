@@ -1,5 +1,5 @@
 import { ActorType, type DbClient, type Prisma } from '@flt/db';
-import { newId } from '../domain/id.js';
+import { newId } from '../domain/id';
 
 /**
  * Append-only audit trail.

@@ -5,7 +5,7 @@ import type {
   PasswordResetEmail,
   SecurityAlertEmail,
   VerificationEmail,
-} from './types.js';
+} from './types';
 
 /**
  * Resend adapter.

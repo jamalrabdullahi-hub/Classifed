@@ -1,7 +1,7 @@
 import { IdempotencyStatus, isUniqueViolation, prisma } from '@flt/db';
-import { IdempotencyConflictError, IdempotencyInProgressError } from '../domain/errors.js';
-import { newId } from '../domain/id.js';
-import { hashRequest } from './crypto.js';
+import { IdempotencyConflictError, IdempotencyInProgressError } from '../domain/errors';
+import { newId } from '../domain/id';
+import { hashRequest } from './crypto/hashing';
 
 /**
  * Idempotency for mutating endpoints.

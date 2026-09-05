@@ -1,4 +1,4 @@
-export { audit, redact, AuditAction, type AuditContext, type AuditInput } from './audit.js';
+export { audit, redact, AuditAction, type AuditContext, type AuditInput } from './audit';
 export {
   hashPassword,
   verifyPassword,
@@ -9,7 +9,7 @@ export {
   decryptSecret,
   deviceFingerprint,
   calldataHash,
-} from './crypto.js';
+} from './crypto/index';
 export {
   consumeToken,
   enforceRateLimit,
@@ -18,8 +18,8 @@ export {
   RateLimits,
   type RateLimitRule,
   type RateLimitResult,
-} from './ratelimit.js';
-export { withIdempotency, pruneIdempotencyRecords, type IdempotentResult } from './idempotency.js';
+} from './ratelimit';
+export { withIdempotency, pruneIdempotencyRecords, type IdempotentResult } from './idempotency';
 export {
   SESSION_COOKIE,
   DEVICE_COOKIE,
@@ -36,7 +36,7 @@ export {
   type IssuedSession,
   type ResolvedSession,
   type SessionMetadata,
-} from './sessions.js';
+} from './sessions';
 export {
   register,
   login,
@@ -50,7 +50,7 @@ export {
   normalizeEmail,
   type LoginResult,
   type RegisterResult,
-} from './auth.js';
+} from './auth';
 export {
   beginEnrollment,
   confirmEnrollment,
@@ -58,7 +58,7 @@ export {
   disableMfa,
   mfaStatus,
   type EnrollmentChallenge,
-} from './mfa.js';
+} from './mfa';
 export {
   submitKyc,
   decideKyc,
@@ -66,7 +66,7 @@ export {
   assertMayTrade,
   mayTrade,
   type SubmitKycInput,
-} from './kyc.js';
+} from './kyc';
 export {
   createLinkChallenge,
   completeLink,
@@ -78,7 +78,7 @@ export {
   walletMatches,
   pruneWalletNonces,
   type LinkChallenge,
-} from './wallets.js';
+} from './wallets';
 export {
   resolveFee,
   estimateFeeAmount,
@@ -86,7 +86,7 @@ export {
   NO_FEE,
   type FeeContext,
   type ResolvedFee,
-} from './fees.js';
+} from './fees';
 export {
   createQuote,
   loadActiveQuote,
@@ -94,7 +94,7 @@ export {
   type QuoteContext,
   type QuoteResult,
   type QuoteWarning,
-} from './quotes.js';
+} from './quotes';
 export {
   submitTrade,
   recordApproval,
@@ -103,4 +103,4 @@ export {
   getTransaction,
   assertSubmittable,
   type SubmitTradeInput,
-} from './trades.js';
+} from './trades';

@@ -8,7 +8,7 @@ import type {
   ProviderMeta,
   QuoteRequest,
   RouteSummary,
-} from './types.js';
+} from './types';
 
 /**
  * Deterministic simulator. No network, no API key.

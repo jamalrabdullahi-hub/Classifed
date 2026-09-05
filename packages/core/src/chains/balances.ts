@@ -1,7 +1,7 @@
 import { erc20Abi, type Address as ViemAddress } from 'viem';
-import { checksumAddress, isNativeToken, type Address } from '../domain/address.js';
-import { publicClient } from './client.js';
-import { requireChain } from './registry.js';
+import { checksumAddress, isNativeToken, type Address } from '../domain/address';
+import { publicClient } from './client';
+import { requireChain } from './registry';
 
 /**
  * On-chain balance reads.

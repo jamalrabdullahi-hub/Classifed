@@ -14,13 +14,13 @@ import {
   NotFoundError,
   QuoteAlreadyUsedError,
   ValidationError,
-} from '../domain/errors.js';
-import { newId } from '../domain/id.js';
-import { assertTxHash, checksumAddress } from '../domain/address.js';
-import { transactionStateMachine } from '../domain/state.js';
-import { AuditAction, audit } from './audit.js';
-import { loadActiveQuote } from './quotes.js';
-import { getWallet } from './wallets.js';
+} from '../domain/errors';
+import { newId } from '../domain/id';
+import { assertTxHash, checksumAddress } from '../domain/address';
+import { transactionStateMachine } from '../domain/state';
+import { AuditAction, audit } from './audit';
+import { loadActiveQuote } from './quotes';
+import { getWallet } from './wallets';
 
 /**
  * Trade submission.
