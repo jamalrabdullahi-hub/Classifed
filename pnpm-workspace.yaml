@@ -1,0 +1,31 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# Prisma's tarballs are large; the default fetch timeout is not enough on a
+# slow link.
+fetchTimeout: 600000
+fetchRetries: 5
+fetchRetryMintimeout: 20000
+fetchRetryMaxtimeout: 120000
+networkConcurrency: 8
+
+# pnpm blocks dependency postinstall scripts unless they are listed here.
+#
+# Allowed — these genuinely need to run:
+#   prisma / @prisma/*  fetch the query engine for this platform
+#   esbuild             fetches its platform binary
+#
+# Denied — optional native performance addons pulled in transitively by
+# WalletConnect, all with pure-JS fallbacks. Building them would require a C++
+# toolchain on every machine that clones this repo, for no functional gain:
+#   bufferutil, utf-8-validate   optional `ws` speedups
+#   keccak                       ethereum-cryptography v2 uses @noble/hashes
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  prisma: true
+  esbuild: true
+  bufferutil: false
+  keccak: false
+  utf-8-validate: false

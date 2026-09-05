@@ -1,21 +1,40 @@
+# Dependencies
 node_modules/
+.pnpm-store/
+
+# Build output
 .next/
 out/
 dist/
+build/
+.turbo/
 *.tsbuildinfo
-next-env.d.ts
 
+# Environment — never commit secrets
 .env
-.env.*
+.env.local
+.env.*.local
 !.env.example
 
-coverage/
-.vitest/
-.DS_Store
+# Prisma
+packages/db/prisma/*.db
+packages/db/prisma/*.db-journal
 
-# Cloudflare / OpenNext build output and local secrets
-.open-next/
-.wrangler/
-.dev.vars
-.dev.vars.*
-!.dev.vars.example
+# Test output
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

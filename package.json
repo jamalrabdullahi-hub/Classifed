@@ -1,51 +1,34 @@
 {
-  "name": "fltcrypto",
+  "name": "flt-exchange",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
+  "description": "FLT Exchange \u2014 non-custodial DEX trading platform",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "packageManager": "pnpm@12.3.4",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "typecheck": "tsc --noEmit",
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json,css}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,md,json,css}\"",
     "db:up": "docker compose up -d",
-    "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy",
-    "db:reset": "prisma migrate reset --force",
-    "db:seed": "tsx prisma/seed.ts",
-    "db:generate": "prisma generate",
-    "reconcile": "tsx scripts/reconcile.ts",
-    "test": "vitest run",
-    "test:unit": "vitest run tests/unit",
-    "test:integration": "vitest run tests/integration",
-    "test:watch": "vitest",
-    "cf:build": "opennextjs-cloudflare build",
-    "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "cf:deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
-  "dependencies": {
-    "@prisma/adapter-pg": "^6.19.3",
-    "@prisma/client": "^6.1.0",
-    "decimal.js": "^10.4.3",
-    "next": "^15.1.0",
-    "pg": "^8.23.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "zod": "^3.24.1"
+    "db:down": "docker compose down",
+    "db:migrate": "pnpm --filter @flt/db migrate:dev",
+    "db:deploy": "pnpm --filter @flt/db migrate:deploy",
+    "db:reset": "pnpm --filter @flt/db reset",
+    "db:seed": "pnpm --filter @flt/db seed",
+    "db:studio": "pnpm --filter @flt/db studio",
+    "worker": "pnpm --filter @flt/worker start"
   },
   "devDependencies": {
-    "@opennextjs/cloudflare": "^1.20.6",
-    "@types/node": "^22.10.2",
-    "@types/pg": "^8.23.1",
-    "@types/react": "^19.0.2",
-    "@types/react-dom": "^19.0.2",
-    "prisma": "^6.1.0",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.2",
-    "vitest": "^2.1.8",
-    "wrangler": "^4.129.0"
+    "@types/node": "^22.10.5",
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.3"
   }
 }

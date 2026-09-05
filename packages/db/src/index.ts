@@ -1,0 +1,55 @@
+export {
+  prisma,
+  isUniqueViolation,
+  isNotFound,
+  isForeignKeyViolation,
+  type DbClient,
+} from './client.js';
+
+export { Prisma } from '@prisma/client';
+
+export type {
+  User,
+  UserSession,
+  UserDevice,
+  MfaSecret,
+  MfaRecoveryCode,
+  EmailToken,
+  KycProfile,
+  KycDocument,
+  Wallet,
+  WalletConnection,
+  WalletLinkNonce,
+  Chain,
+  Token,
+  DexProvider,
+  MarketDataCache,
+  Quote,
+  Transaction,
+  TransactionEvent,
+  PortfolioSnapshot,
+  FeeConfig,
+  AdminUser,
+  AdminSession,
+  AdminAction,
+  AuditLog,
+  IdempotencyRecord,
+  RateLimitBucket,
+} from '@prisma/client';
+
+export {
+  AccountStatus,
+  AccountType,
+  KycStatus,
+  EmailTokenKind,
+  MfaMethod,
+  TokenVerificationTier,
+  ProviderKind,
+  QuoteStatus,
+  TransactionKind,
+  TransactionStatus,
+  FeeType,
+  ActorType,
+  AdminRole,
+  IdempotencyStatus,
+} from '@prisma/client';

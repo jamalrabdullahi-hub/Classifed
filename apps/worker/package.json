@@ -1,0 +1,26 @@
+{
+  "name": "@flt/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@flt/config": "workspace:*",
+    "@flt/core": "workspace:*",
+    "@flt/db": "workspace:*",
+    "@flt/providers": "workspace:*",
+    "viem": "^2.21.60"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}

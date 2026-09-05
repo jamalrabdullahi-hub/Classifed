@@ -1,0 +1,32 @@
+{
+  "name": "@flt/providers",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./dex": "./src/dex/index.ts",
+    "./market": "./src/market/index.ts",
+    "./kyc": "./src/kyc/index.ts",
+    "./mail": "./src/mail/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@flt/config": "workspace:*",
+    "@flt/core": "workspace:*",
+    "@flt/db": "workspace:*",
+    "decimal.js": "^10.4.3",
+    "viem": "^2.21.60",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}

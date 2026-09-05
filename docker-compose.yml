@@ -1,21 +1,25 @@
+# Local development dependencies only. The application itself runs on the host
+# via `pnpm dev`; production deployment is native Node + Postgres on a VPS
+# (see deploy/).
 services:
   postgres:
     image: postgres:17-alpine
-    container_name: fltcrypto-postgres
+    container_name: flt-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: fltcrypto
-      POSTGRES_PASSWORD: fltcrypto_local_dev
-      POSTGRES_DB: fltcrypto
+      POSTGRES_USER: flt
+      POSTGRES_PASSWORD: flt_dev_password
+      POSTGRES_DB: flt_exchange
     ports:
+      # 5433 on the host, so a local Postgres on 5432 is not shadowed.
       - '5433:5432'
     volumes:
-      - fltcrypto-pgdata:/var/lib/postgresql/data
+      - flt-postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U fltcrypto -d fltcrypto']
+      test: ['CMD-SHELL', 'pg_isready -U flt -d flt_exchange']
       interval: 5s
       timeout: 5s
-      retries: 20
+      retries: 10
 
 volumes:
-  fltcrypto-pgdata:
+  flt-postgres-data:
