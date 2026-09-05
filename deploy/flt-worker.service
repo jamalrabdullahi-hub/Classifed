@@ -1,0 +1,37 @@
+[Unit]
+Description=FLT Exchange transaction monitor
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=flt
+Group=flt
+WorkingDirectory=/opt/flt-exchange/apps/worker
+EnvironmentFile=/opt/flt-exchange/.env
+ExecStart=/opt/flt-exchange/node_modules/.bin/tsx src/index.ts
+Restart=always
+RestartSec=10
+
+# The worker handles SIGTERM and finishes its in-flight pass, so give it time
+# rather than killing a transaction mid-transition.
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=flt-worker
+
+[Install]
+WantedBy=multi-user.target
