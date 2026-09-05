@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { AccountStatus } from '@flt/db';
 import { CustodyNote } from '@/components/brand';
 import { TopNav } from '@/components/nav';
+import { Providers } from '@/components/providers';
 import { currentUser } from '@/server/session';
 
 /**
@@ -22,7 +23,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (user.accountStatus === AccountStatus.SUSPENDED) redirect('/suspended');
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <Providers>
+      <div className="flex min-h-screen flex-col">
       <TopNav email={user.email} />
 
       <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-8 sm:px-6">{children}</main>
@@ -36,6 +38,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </p>
         </div>
       </footer>
-    </div>
+      </div>
+    </Providers>
   );
 }

@@ -63,6 +63,17 @@ export interface PriceRequest {
   slippageBps: number;
   /** Integrator fee to embed in the route. Omitted means no fee. */
   fee?: IntegratorFee;
+
+  /**
+   * Token decimals, for adapters that need to reason about scale.
+   *
+   * An aggregator reads decimals from the chain and ignores these. They are
+   * here because an adapter cannot otherwise tell a 6-decimal amount from an
+   * 18-decimal one, and any adapter doing its own arithmetic — a simulator, or
+   * a direct pool integration — needs that to produce sanely scaled output.
+   */
+  sellTokenDecimals?: number;
+  buyTokenDecimals?: number;
 }
 
 export interface IntegratorFee {

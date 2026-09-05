@@ -13,14 +13,14 @@ const nextConfig = {
   typescript: { ignoreBuildErrors: false },
   poweredByHeader: false,
 
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, webpack }) => {
     if (isServer) {
       // `serverExternalPackages` does not reach modules imported *through* a
       // package listed in `transpilePackages`, and argon2 is reached that way
       // (app -> @flt/core -> @node-rs/argon2). Without this, webpack tries to
       // parse the compiled .node binary as JavaScript and the build fails.
-      // Requiring it at runtime is also the correct behaviour for a native
-      // addon: the right platform binary is chosen by Node, not by the bundle.
+      // Requiring it at runtime is also correct for a native addon: Node picks
+      // the right platform binary, not the bundle.
       config.externals = [...(config.externals ?? []), '@node-rs/argon2'];
     } else {
       // Password hashing must never be reachable from the browser bundle.
@@ -28,6 +28,14 @@ const nextConfig = {
       // error rather than a shipped binary.
       config.resolve.fallback = { ...config.resolve.fallback, '@node-rs/argon2': false };
     }
+
+    // The `wagmi/connectors` barrel reaches Coinbase's SDK, which dynamically
+    // imports a family of optional @x402 payment modules that are not installed
+    // and that this product never calls. They are guarded by a helper that
+    // tolerates a failed import, so ignoring the whole namespace is safe — and
+    // aliasing them one at a time turned into whack-a-mole.
+    config.plugins.push(new webpack.IgnorePlugin({ resourceRegExp: /^@x402\// }));
+
     return config;
   },
 

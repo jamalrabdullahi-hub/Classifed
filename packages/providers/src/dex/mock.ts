@@ -39,9 +39,6 @@ const MOCK_SLUG = 'mock';
 const MOCK_ALLOWANCE_TARGET = '0x0000000000000000000000000000000000005A1E';
 const MOCK_ROUTER = '0x000000000000000000000000000000000000D3F0';
 
-/** Notional pool depth, in base units of the sell token. Drives impact. */
-const POOL_DEPTH = 5_000_000n;
-
 export class MockRouter implements DEXRouter {
   readonly meta: ProviderMeta = {
     slug: MOCK_SLUG,
@@ -161,17 +158,30 @@ export class MockRouter implements DEXRouter {
       return { liquidityAvailable: false as const };
     }
 
-    // A pair whose seeded depth is tiny has no route at all, so the
-    // "no liquidity" path is reachable in development.
-    const depth = this.poolDepth(request);
-    if (depth < sellAmount / 100n) {
+    // A small seeded share of pairs have no route at all, so the "no liquidity"
+    // path is reachable in development. Keyed on the pair rather than on size,
+    // because a pair that quotes at one amount and refuses at another would be
+    // confusing rather than instructive.
+    if (this.hasNoRoute(request)) {
       return { liquidityAvailable: false as const };
     }
+
+    const depth = this.poolDepth(request, sellAmount);
 
     // Constant product: out = (in * depth) / (depth + in). Impact therefore
     // grows superlinearly with size, exactly as a real AMM does.
     const baseRate = this.rate(request);
-    const grossOut = (sellAmount * baseRate * depth) / ((depth + sellAmount) * 10_000n);
+    const curved = (sellAmount * baseRate * depth) / ((depth + sellAmount) * 10_000n);
+
+    // Correct for the decimal difference between the two tokens. The rate is
+    // in whole-token terms, so without this a pair with different decimals
+    // quotes an output off by orders of magnitude.
+    const sellDecimals = request.sellTokenDecimals ?? 18;
+    const buyDecimals = request.buyTokenDecimals ?? 18;
+    const grossOut =
+      buyDecimals >= sellDecimals
+        ? curved * 10n ** BigInt(buyDecimals - sellDecimals)
+        : curved / 10n ** BigInt(sellDecimals - buyDecimals);
 
     const feeBps = BigInt(request.fee?.bps ?? 0);
     const feeAmount = (grossOut * feeBps) / 10_000n;
@@ -191,24 +201,62 @@ export class MockRouter implements DEXRouter {
     };
   }
 
-  /** Seeded exchange rate, in basis points, stable per token pair. */
+  /**
+   * True for a small, seeded share of pairs, so the interface's "no route"
+   * state is exercised in development rather than discovered in production.
+   */
+  private hasNoRoute(request: PriceRequest): boolean {
+    const digest = this.hash({
+      route: [request.sellTokenAddress, request.buyTokenAddress].sort().join(':').toLowerCase(),
+    });
+    // Roughly one pair in thirty-two.
+    return BigInt(`0x${digest.slice(0, 4)}`) % 32n === 0n;
+  }
+
+  /**
+   * Seeded exchange rate in basis points, stable per pair.
+   *
+   * A rate of 10000 means one whole sell token buys one whole buy token. It is
+   * expressed in whole-token terms rather than base units so the decimal
+   * correction in `price` can apply it to any pair — without that, a 0.5 ETH
+   * (18dp) order into USDC (6dp) would quote a number twelve orders of
+   * magnitude too large and the interface would look broken.
+   */
   private rate(request: PriceRequest): bigint {
     const digest = this.hash({
       a: request.sellTokenAddress.toLowerCase(),
       b: request.buyTokenAddress.toLowerCase(),
     });
-    // 0.5x to 2.5x, deterministic per pair.
+    // 0.5x to 2.5x in whole-token terms, deterministic per pair.
     return 5_000n + (BigInt(`0x${digest.slice(0, 8)}`) % 20_000n);
   }
 
-  private poolDepth(request: PriceRequest): bigint {
+  /**
+   * Notional pool depth, expressed as a multiple of the order size.
+   *
+   * Depth has to be relative rather than absolute: the adapter is not told a
+   * token's decimals, so a fixed constant is simultaneously enormous for USDC
+   * (6dp) and negligible for ETH (18dp). Anchoring depth to the order's own
+   * magnitude keeps the constant-product curve producing realistic impact for
+   * any token.
+   *
+   * The multiplier is seeded per pair, so a given pair is consistently deep or
+   * consistently thin, and the impact a user sees does not jump around between
+   * quotes for no reason.
+   */
+  private poolDepth(request: PriceRequest, sellAmount: bigint): bigint {
     const digest = this.hash({
       pool: [request.sellTokenAddress, request.buyTokenAddress].sort().join(':').toLowerCase(),
     });
-    // Most pairs are deep; roughly one in sixteen is shallow enough to refuse
-    // large orders, so the impact ceiling is exercised.
-    const multiplier = 1n + (BigInt(`0x${digest.slice(0, 4)}`) % 16n);
-    return POOL_DEPTH * multiplier;
+
+    // 12x to 1200x the order size, which spans roughly 8% impact down to 0.08%.
+    const multiplier = 12n + (BigInt(`0x${digest.slice(0, 4)}`) % 1_188n);
+
+    // Anchored to the order's order-of-magnitude rather than the order itself,
+    // so impact still grows as the user increases the amount instead of the
+    // pool growing with them.
+    const magnitude = 10n ** BigInt(String(sellAmount).length);
+    return (magnitude * multiplier) / 10n;
   }
 
   private route(request: PriceRequest): RouteSummary {

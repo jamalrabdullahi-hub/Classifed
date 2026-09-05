@@ -139,6 +139,9 @@ importers:
       '@flt/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      lucide-react:
+        specifier: ^0.469.0
+        version: 0.469.0(react@19.2.8)
       next:
         specifier: ^15.1.4
         version: 15.5.25(@playwright/test@1.62.1)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -191,6 +194,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.62.11
         version: 5.102.8(react@19.2.8)
+      lucide-react:
+        specifier: ^0.469.0
+        version: 0.469.0(react@19.2.8)
       next:
         specifier: ^15.1.4
         version: 15.5.25(@playwright/test@1.62.1)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)

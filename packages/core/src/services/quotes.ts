@@ -140,6 +140,8 @@ export async function createQuote(
     sellTokenAddress: context.sellToken.address,
     buyTokenAddress: context.buyToken.address,
     sellAmount: context.sellAmount,
+    sellTokenDecimals: context.sellToken.decimals,
+    buyTokenDecimals: context.buyToken.decimals,
     takerAddress: checksumAddress(context.wallet.address),
     slippageBps,
     ...(integratorFee ? { fee: integratorFee } : {}),
@@ -287,6 +289,8 @@ async function computePriceImpact(
       sellTokenAddress: context.sellToken.address,
       buyTokenAddress: context.buyToken.address,
       sellAmount: reference,
+      sellTokenDecimals: context.sellToken.decimals,
+      buyTokenDecimals: context.buyToken.decimals,
       slippageBps,
     });
 
