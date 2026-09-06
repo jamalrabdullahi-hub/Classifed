@@ -1,4 +1,4 @@
-# Dependencies
+﻿# Dependencies
 node_modules/
 .pnpm-store/
 
@@ -10,7 +10,7 @@ build/
 .turbo/
 *.tsbuildinfo
 
-# Environment — never commit secrets
+# Environment â€” never commit secrets
 .env
 .env.local
 .env.*.local
@@ -41,4 +41,6 @@ Thumbs.db
 
 # Brand: generated review sheet, and the licensed typeface (never commit the font)
 brand/review.html
+brand/ui-directions.html
 brand/fonts/
+
