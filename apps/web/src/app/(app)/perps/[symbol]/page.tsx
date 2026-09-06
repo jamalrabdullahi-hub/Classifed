@@ -1,9 +1,6 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { env } from '@flt/config';
-import { ArrowLeft } from 'lucide-react';
-import { Button } from '@flt/ui';
 import { annualisedFundingRate } from '@flt/core/domain';
 import { getOfferedMarket, listOfferedMarkets } from '@flt/core/services/perps';
 import { perpVenue } from '@flt/providers';
@@ -51,13 +48,6 @@ export default async function PerpMarketPage({
 
   return (
     <div className="space-y-4">
-      <Button asChild variant="ghost" size="sm" className="-ml-2">
-        <Link href="/perps">
-          <ArrowLeft className="size-3.5" />
-          All markets
-        </Link>
-      </Button>
-
       <PerpTerminal
         market={{
           symbol: market.symbol,
