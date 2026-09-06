@@ -23,16 +23,49 @@ import {
  * apply. The reason is required in both directions — re-enabling something that
  * was disabled for a reason is as worth recording as the disabling was.
  */
+/**
+ * What each toggle actually does, said plainly.
+ *
+ * An operator disabling something should know its blast radius before
+ * confirming, and the three cases differ: a token stops quoting, a provider
+ * fails the whole route closed, a fee rule silently changes what customers pay.
+ */
+const DESCRIPTIONS: Record<'token' | 'provider' | 'fee', { enable: string; disable: string }> = {
+  token: {
+    disable:
+      'This token disappears from markets and new quotes for it are refused. Existing on-chain balances are unaffected — FLT does not hold them.',
+    enable: 'This token becomes tradeable again and reappears in markets.',
+  },
+  provider: {
+    disable:
+      'Quoting through this provider stops immediately. If it is the active provider, quoting fails closed rather than routing elsewhere.',
+    enable: 'This provider becomes available for routing again.',
+  },
+  fee: {
+    disable:
+      'This rule stops applying to new quotes. Pricing falls back to the next most specific rule, which may mean charging nothing. Quotes already priced by it are unaffected.',
+    enable: 'This rule applies to new quotes again wherever it is the most specific match.',
+  },
+};
+
 export function ToggleControl({
   endpoint,
   enabled,
   label,
   kind,
+  action,
 }: {
   endpoint: string;
   enabled: boolean;
   label: string;
-  kind: 'token' | 'provider';
+  kind: 'token' | 'provider' | 'fee';
+  /**
+   * Merged into the request body.
+   *
+   * Routes whose payload is a discriminated union need their action named;
+   * routes that take a bare `{ enabled, reason }` leave this out.
+   */
+  action?: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -49,7 +82,7 @@ export function ToggleControl({
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ enabled: !enabled, reason }),
+        body: JSON.stringify({ ...(action ? { action } : {}), enabled: !enabled, reason }),
       });
 
       const payload = await response.json();
@@ -89,13 +122,7 @@ export function ToggleControl({
               {enabled ? 'Disable' : 'Enable'} {label}
             </DialogTitle>
             <DialogDescription>
-              {enabled
-                ? kind === 'token'
-                  ? 'This token disappears from markets and new quotes for it are refused. Existing on-chain balances are unaffected — FLT does not hold them.'
-                  : 'Quoting through this provider stops immediately. If it is the active provider, quoting fails closed rather than routing elsewhere.'
-                : kind === 'token'
-                  ? 'This token becomes tradeable again and reappears in markets.'
-                  : 'This provider becomes available for routing again.'}
+              {DESCRIPTIONS[kind][enabled ? 'disable' : 'enable']}
             </DialogDescription>
           </DialogHeader>
 

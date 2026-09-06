@@ -1,10 +1,13 @@
 import {
   AccountStatus,
+  type AccountType,
   ActorType,
   AdminRole,
   type AdminSession,
   type AdminUser,
   type DbClient,
+  type FeeConfig,
+  FeeType,
   prisma,
 } from '@flt/db';
 import {
@@ -14,6 +17,8 @@ import {
   ValidationError,
 } from '../domain/errors';
 import { newId, randomToken } from '../domain/id';
+import { checksumAddress } from '../domain/address';
+import { MAX_FEE_BPS } from './fees';
 import { accountStateMachine } from '../domain/state';
 import { hashToken } from './crypto/hashing';
 import { verifyPassword } from './crypto/passwords';
@@ -415,6 +420,176 @@ export async function setPerpMarketEnabled(
         maxLeverage: market.maxLeverage,
       },
       after: { isEnabled: input.enabled, maxLeverage },
+      reason: input.reason,
+    });
+  });
+}
+
+
+/**
+ * Creates or edits a fee rule.
+ *
+ * Fee rules were previously reachable only through direct database access,
+ * which made every pricing decision a deployment. `PERMISSIONS.MANAGE_FEES` has
+ * existed since the panel was built and been checked by nothing; this is its
+ * first consumer.
+ *
+ * Rules are never deleted, only disabled. A quote records the rule that priced
+ * it (`Quote.feeConfigId`), and although that column survives deletion by
+ * setting itself null, a historical quote whose rule cannot be named is an
+ * audit trail with a hole in it.
+ */
+export async function upsertFeeConfig(
+  context: AdminActionContext,
+  input: {
+    /** Omitted creates a new rule. */
+    feeConfigId?: string | null;
+    name: string;
+    feeType: FeeType;
+    bps?: number | null;
+    fixedAmount?: string | null;
+    chainId?: number | null;
+    tokenAddress?: string | null;
+    accountType?: AccountType | null;
+    validFrom?: Date | null;
+    validUntil?: Date | null;
+    priority: number;
+    isEnabled: boolean;
+    reason: string;
+  },
+): Promise<FeeConfig> {
+  assertCan(context.admin, PERMISSIONS.MANAGE_FEES);
+
+  if (!input.name.trim()) {
+    throw new ValidationError('A fee rule needs a name');
+  }
+
+  if (input.feeType === FeeType.PERCENTAGE) {
+    if (input.bps === null || input.bps === undefined) {
+      throw new ValidationError('A percentage rule needs a rate in basis points');
+    }
+    if (!Number.isInteger(input.bps) || input.bps < 0) {
+      throw new ValidationError('Basis points must be a whole number of at least zero');
+    }
+    // Refused here rather than silently clamped at resolution time, so an
+    // operator setting 2000 bps is told the rule is impossible instead of
+    // discovering later that it quietly became 1000.
+    if (input.bps > MAX_FEE_BPS) {
+      throw new ValidationError(
+        `The maximum fee is ${MAX_FEE_BPS} basis points (${MAX_FEE_BPS / 100}%)`,
+        { bps: input.bps, max: MAX_FEE_BPS },
+      );
+    }
+  } else if (!input.fixedAmount || !/^\d+$/.test(input.fixedAmount)) {
+    throw new ValidationError('A fixed rule needs an amount in base units');
+  }
+
+  if (input.validFrom && input.validUntil && input.validUntil <= input.validFrom) {
+    throw new ValidationError('The end of a validity window must come after its start');
+  }
+
+  // Normalised so the resolver's lowercased comparison matches, and so an
+  // unparseable address is rejected now rather than silently excluding the rule
+  // from every future quote.
+  const tokenAddress = input.tokenAddress ? checksumAddress(input.tokenAddress) : null;
+
+  const existing = input.feeConfigId
+    ? await prisma.feeConfig.findUnique({ where: { id: input.feeConfigId } })
+    : null;
+
+  if (input.feeConfigId && !existing) throw new NotFoundError('Fee rule');
+
+  const data = {
+    name: input.name.trim(),
+    feeType: input.feeType,
+    bps: input.feeType === FeeType.PERCENTAGE ? (input.bps ?? 0) : null,
+    fixedAmount: input.feeType === FeeType.FIXED ? (input.fixedAmount ?? null) : null,
+    chainId: input.chainId ?? null,
+    tokenAddress,
+    accountType: input.accountType ?? null,
+    validFrom: input.validFrom ?? null,
+    validUntil: input.validUntil ?? null,
+    priority: input.priority,
+    isEnabled: input.isEnabled,
+  };
+
+  return prisma.$transaction(async (tx) => {
+    const saved = existing
+      ? await tx.feeConfig.update({ where: { id: existing.id }, data })
+      : await tx.feeConfig.create({ data: { id: newId(), ...data } });
+
+    await recordAdminAction(tx, context, {
+      action: AuditAction.ADMIN_FEE_CHANGED,
+      entityType: 'FeeConfig',
+      entityId: saved.id,
+      before: existing
+        ? { name: existing.name, bps: existing.bps, isEnabled: existing.isEnabled }
+        : null,
+      after: { name: saved.name, bps: saved.bps, isEnabled: saved.isEnabled },
+      reason: input.reason,
+    });
+
+    return saved;
+  });
+}
+
+/** Enables or disables a fee rule without editing its terms. */
+export async function setFeeConfigEnabled(
+  context: AdminActionContext,
+  input: { feeConfigId: string; enabled: boolean; reason: string },
+): Promise<void> {
+  assertCan(context.admin, PERMISSIONS.MANAGE_FEES);
+
+  const config = await prisma.feeConfig.findUnique({ where: { id: input.feeConfigId } });
+  if (!config) throw new NotFoundError('Fee rule');
+
+  await prisma.$transaction(async (tx) => {
+    await tx.feeConfig.update({
+      where: { id: config.id },
+      data: { isEnabled: input.enabled },
+    });
+
+    await recordAdminAction(tx, context, {
+      action: AuditAction.ADMIN_FEE_CHANGED,
+      entityType: 'FeeConfig',
+      entityId: config.id,
+      before: { name: config.name, isEnabled: config.isEnabled, bps: config.bps },
+      after: { isEnabled: input.enabled },
+      reason: input.reason,
+    });
+  });
+}
+
+/**
+ * Moves a customer between pricing tiers.
+ *
+ * `accountType` already narrows fee resolution and already reaches the risk
+ * engine, but was writable only at registration — so tiered pricing existed as
+ * a mechanism with no way to put anyone in a tier.
+ */
+export async function setAccountType(
+  context: AdminActionContext,
+  input: { userId: string; accountType: AccountType; reason: string },
+): Promise<void> {
+  assertCan(context.admin, PERMISSIONS.MANAGE_FEES);
+
+  const user = await prisma.user.findUnique({ where: { id: input.userId } });
+  if (!user) throw new NotFoundError('User');
+
+  if (user.accountType === input.accountType) return;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: user.id },
+      data: { accountType: input.accountType },
+    });
+
+    await recordAdminAction(tx, context, {
+      action: AuditAction.ADMIN_FEE_CHANGED,
+      entityType: 'User',
+      entityId: user.id,
+      before: { accountType: user.accountType },
+      after: { accountType: input.accountType },
       reason: input.reason,
     });
   });

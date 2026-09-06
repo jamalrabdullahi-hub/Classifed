@@ -3,6 +3,7 @@ import { prisma } from '@flt/db';
 import { env } from '@flt/config';
 import {
   Badge,
+  Button,
   Card,
   EmptyState,
   Notice,
@@ -14,6 +15,9 @@ import {
   TR,
   Table,
 } from '@flt/ui';
+import { PERMISSIONS, can } from '@flt/core/services/admin';
+import { FeeRuleForm } from '@/components/fee-rule-form';
+import { ToggleControl } from '@/components/toggle-control';
 import { requireAdminPage } from '@/server/session';
 
 export const metadata: Metadata = { title: 'Fees' };
@@ -28,19 +32,31 @@ export const dynamic = 'force-dynamic';
  * alongside the rule it overrides rather than replacing it.
  */
 export default async function FeesPage() {
-  await requireAdminPage();
+  const admin = await requireAdminPage();
 
   const configs = await prisma.feeConfig.findMany({
     orderBy: [{ isEnabled: 'desc' }, { priority: 'desc' }],
   });
 
   const recipient = env().FLT_FEE_RECIPIENT_ADDRESS;
+  const editable = can(admin, PERMISSIONS.MANAGE_FEES);
 
   return (
     <div className="space-y-6">
       <SectionHeader
         title="Fees"
         description="Resolved most-specific-first: chain and token, then chain, then account type, then the default."
+        action={
+          editable ? (
+            <FeeRuleForm
+              trigger={
+                <Button variant="primary" size="sm">
+                  New rule
+                </Button>
+              }
+            />
+          ) : null
+        }
       />
 
       {!recipient ? (
@@ -64,6 +80,7 @@ export default async function FeesPage() {
                 <TH numeric>Priority</TH>
                 <TH>Window</TH>
                 <TH>Status</TH>
+                <TH />
               </TR>
             </THead>
             <TBody>
@@ -101,10 +118,42 @@ export default async function FeesPage() {
                   </TD>
                   <TD>
                     {config.isEnabled ? (
-                      <Badge tone="positive">Enabled</Badge>
+                      <Badge tone="neutral">Enabled</Badge>
                     ) : (
-                      <Badge tone="neutral">Disabled</Badge>
+                      <Badge tone="negative">Disabled</Badge>
                     )}
+                  </TD>
+                  <TD>
+                    {editable ? (
+                      <div className="flex items-center justify-end gap-1.5">
+                        <FeeRuleForm
+                          rule={{
+                            id: config.id,
+                            name: config.name,
+                            feeType: config.feeType,
+                            bps: config.bps,
+                            fixedAmount: config.fixedAmount,
+                            chainId: config.chainId,
+                            tokenAddress: config.tokenAddress,
+                            accountType: config.accountType,
+                            priority: config.priority,
+                            isEnabled: config.isEnabled,
+                          }}
+                          trigger={
+                            <Button variant="ghost" size="sm">
+                              Edit
+                            </Button>
+                          }
+                        />
+                        <ToggleControl
+                          endpoint={`/api/fees/${config.id}`}
+                          enabled={config.isEnabled}
+                          label={config.name}
+                          kind="fee"
+                          action="toggle"
+                        />
+                      </div>
+                    ) : null}
                   </TD>
                 </TR>
               ))}

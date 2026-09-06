@@ -23,6 +23,7 @@ import {
 import { explorerAddressUrl, explorerTxUrl } from '@flt/core/chains';
 import { PERMISSIONS, can } from '@flt/core/services/admin';
 import { UserControls } from './user-controls';
+import { TierControl } from '@/components/tier-control';
 import { requireAdminPage } from '@/server/session';
 
 export const metadata: Metadata = { title: 'User' };
@@ -37,6 +38,7 @@ export const dynamic = 'force-dynamic';
  */
 export default async function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdminPage();
+  const canPrice = can(admin, PERMISSIONS.MANAGE_FEES);
   const { id } = await params;
 
   const user = await prisma.user.findUnique({
@@ -195,7 +197,18 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
             </CardHeader>
             <CardContent className="divide-y divide-[var(--border)]">
               <DetailRow label="Status" value={user.accountStatus.replace(/_/g, ' ')} emphasis />
-              <DetailRow label="Type" value={user.accountType} />
+              <DetailRow
+                label="Type"
+                value={
+                  <span className="flex items-center gap-2">
+                    {user.accountType}
+                    {canPrice ? (
+                      <TierControl userId={user.id} current={user.accountType} />
+                    ) : null}
+                  </span>
+                }
+                hint="Pricing tier. Only changes what this account is charged."
+              />
               <DetailRow
                 label="Email confirmed"
                 value={user.emailVerifiedAt ? 'Yes' : 'No'}
