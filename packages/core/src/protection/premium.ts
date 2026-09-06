@@ -156,6 +156,113 @@ export function waterfallLeverageBound(
   };
 }
 
+// ── Eligibility ─────────────────────────────────────────────────────────────
+
+export type IneligibleReason =
+  | 'ALREADY_PAST_BOUNDARY'
+  | 'INSIDE_MARGIN_ZONE'
+  | 'NO_LIQUIDATION_REFERENCE';
+
+export interface Eligibility {
+  eligible: boolean;
+  reason: IneligibleReason | null;
+  /** How far the position has travelled from entry toward liquidation, in [0, 1]. */
+  proximity: Decimal;
+  message: string | null;
+}
+
+/**
+ * Whether protection may still be bought on a position that already exists.
+ *
+ * §3: a participant must not be able to wait until a position is failing and
+ * then insure it. Two deterministic refusals, neither of which needs a
+ * parameter the specification has not defined:
+ *
+ * **Already past the boundary.** If the price has moved further against the
+ * position than the boundary this policy would set, the covered event has
+ * already happened. Selling cover for it is selling a claim, not a risk.
+ *
+ * **Inside the margin zone.** If the position has travelled at least
+ * `marginZoneEntry` of the distance from entry to the venue's liquidation
+ * price, the margin engine is already the operative mechanism. The
+ * specification's example puts this near the point where roughly a 5% adverse
+ * move exhausts margin on a 10x position — i.e. at the liquidation boundary
+ * itself — so the default here is 1.0, meaning refuse only once liquidation is
+ * reached, and any stricter value is an explicit operator choice.
+ *
+ * Note this is proximity, not a fixed percentage: the same rule applies at
+ * every leverage, because the distance to liquidation is what changes.
+ */
+export function protectionEligibility(params: {
+  side: PerpSide;
+  entryPrice: Decimal;
+  currentPrice: Decimal;
+  liquidationPrice: Decimal | null;
+  /** The boundary the prospective policy would set. */
+  boundary: Decimal;
+  /** Fraction of the distance to liquidation at which cover is refused. */
+  marginZoneEntry?: Decimal;
+}): Eligibility {
+  const { side, entryPrice, currentPrice, liquidationPrice, boundary } = params;
+  const zoneEntry = params.marginZoneEntry ?? new Decimal(1);
+
+  const pastBoundary =
+    side === 'LONG' ? currentPrice.lessThanOrEqualTo(boundary) : currentPrice.greaterThanOrEqualTo(boundary);
+
+  const proximity = liquidationPrice
+    ? liquidationProximityFraction(side, entryPrice, currentPrice, liquidationPrice)
+    : new Decimal(0);
+
+  if (pastBoundary) {
+    return {
+      eligible: false,
+      reason: 'ALREADY_PAST_BOUNDARY',
+      proximity,
+      message:
+        'This position has already moved past the boundary the policy would set, so the ' +
+        'covered event has already happened. Protection cannot be bought against a loss ' +
+        'that has already occurred.',
+    };
+  }
+
+  if (liquidationPrice && proximity.greaterThanOrEqualTo(zoneEntry)) {
+    return {
+      eligible: false,
+      reason: 'INSIDE_MARGIN_ZONE',
+      proximity,
+      message:
+        'This position is already inside the margin zone, where the venue\'s liquidation ' +
+        'engine is the operative mechanism. Protection has to be in place before a position ' +
+        'reaches that point.',
+    };
+  }
+
+  return { eligible: true, reason: null, proximity, message: null };
+}
+
+/**
+ * Distance travelled from entry toward liquidation, clipped to [0, 1].
+ *
+ * Zero while the position is in profit — a winning position has not travelled
+ * toward liquidation at all, and a negative proximity would compare wrongly
+ * against any threshold.
+ */
+function liquidationProximityFraction(
+  side: PerpSide,
+  entryPrice: Decimal,
+  currentPrice: Decimal,
+  liquidationPrice: Decimal,
+): Decimal {
+  const span = side === 'LONG' ? entryPrice.minus(liquidationPrice) : liquidationPrice.minus(entryPrice);
+  if (span.lessThanOrEqualTo(0)) return new Decimal(0);
+
+  const travelled = side === 'LONG' ? entryPrice.minus(currentPrice) : currentPrice.minus(entryPrice);
+  const fraction = travelled.dividedBy(span);
+
+  if (fraction.isNegative()) return new Decimal(0);
+  return fraction.greaterThan(1) ? new Decimal(1) : fraction;
+}
+
 /**
  * Converts a USD position size into contracts.
  *

@@ -14,6 +14,7 @@ import { newId } from '../domain/id';
 import { Decimal } from '../domain/money';
 import { publicClient } from '../chains/client';
 import { protectionStateMachine } from '../protection/state';
+import { protectionEligibility } from '../protection/premium';
 import { assertMayTrade } from './kyc';
 import { AuditAction, audit } from './audit';
 import { quoteProtection } from './protection-quote';
@@ -146,6 +147,33 @@ export async function preparePurchase(
     throw new ValidationError(quote.refusal ?? 'Protection cannot cover this position', {
       maxLeverage: quote.waterfall.maxWholeLeverage,
     });
+  }
+
+  /**
+   * §3: cover cannot be bought on a position that is already failing.
+   *
+   * Only applies when a position already exists. Buying cover alongside a new
+   * position is the normal case and has nothing to be past yet — the entry and
+   * the current price are the same number.
+   */
+  const positions = await venue.getPositions({ address: context.wallet.address });
+  const existing = positions.find((candidate) => candidate.symbol === symbol);
+
+  if (existing) {
+    const eligibility = protectionEligibility({
+      side: existing.side,
+      entryPrice: new Decimal(existing.entryPrice),
+      currentPrice: quote.markPrice,
+      liquidationPrice: existing.liquidationPrice ? new Decimal(existing.liquidationPrice) : null,
+      boundary: quote.boundary,
+    });
+
+    if (!eligibility.eligible) {
+      throw new ValidationError(eligibility.message ?? 'This position cannot be protected', {
+        reason: eligibility.reason,
+        proximity: eligibility.proximity.toFixed(),
+      });
+    }
   }
 
   const policy = await prisma.protectionPolicy.create({

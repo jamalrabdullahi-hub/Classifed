@@ -7,6 +7,7 @@ import { zScoreForPercentile } from '../src/protection/zscore';
 import {
   calculatePremium,
   contractsForUsd,
+  protectionEligibility,
   waterfallLeverageBound,
   DEFAULT_OPERATOR_FEE_BPS,
 } from '../src/protection/premium';
@@ -193,6 +194,91 @@ describe('the waterfall bound', () => {
     // A short's loss is unbounded above, so the same D permits slightly less
     // leverage. Equal bounds would mean one side's arithmetic was wrong.
     expect(short.lessThan(long)).toBe(true);
+  });
+});
+
+describe('eligibility (§3)', () => {
+  const base = {
+    side: 'LONG' as const,
+    entryPrice: D(100),
+    liquidationPrice: D(95),
+    boundary: D(97),
+  };
+
+  it('allows cover on a position that is down but still short of the boundary', () => {
+    // §3's own example: down 3%, boundary at 97 — still eligible.
+    const result = protectionEligibility({ ...base, currentPrice: D(98) });
+    expect(result.eligible).toBe(true);
+    expect(result.proximity.toNumber()).toBeCloseTo(0.4, 9);
+  });
+
+  it('refuses once the price has already passed the boundary', () => {
+    const result = protectionEligibility({ ...base, currentPrice: D('96.5') });
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe('ALREADY_PAST_BOUNDARY');
+  });
+
+  it('refuses at the boundary exactly, not just beyond it', () => {
+    expect(protectionEligibility({ ...base, currentPrice: D(97) }).eligible).toBe(false);
+  });
+
+  it('refuses once the position is inside the margin zone', () => {
+    // Boundary moved out of the way so the margin rule is what bites.
+    const result = protectionEligibility({
+      ...base,
+      boundary: D(90),
+      currentPrice: D(95),
+      marginZoneEntry: D('0.9'),
+    });
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe('INSIDE_MARGIN_ZONE');
+  });
+
+  it('treats a position in profit as having travelled nowhere', () => {
+    const result = protectionEligibility({ ...base, currentPrice: D(120) });
+    expect(result.eligible).toBe(true);
+    expect(result.proximity.toNumber()).toBe(0);
+  });
+
+  it('applies the same rule at every leverage, because proximity is relative', () => {
+    // 10x liquidates near 95; 2x near 55. The same 50% proximity is refused in
+    // both when the threshold is 0.5, despite very different price moves.
+    for (const [liq, price] of [
+      [95, 97.5],
+      [55, 77.5],
+    ] as const) {
+      const result = protectionEligibility({
+        side: 'LONG',
+        entryPrice: D(100),
+        liquidationPrice: D(liq),
+        boundary: D(1),
+        currentPrice: D(price),
+        marginZoneEntry: D('0.5'),
+      });
+      expect(result.proximity.toNumber()).toBeCloseTo(0.5, 9);
+      expect(result.eligible).toBe(false);
+    }
+  });
+
+  it('mirrors for a short', () => {
+    const short = {
+      side: 'SHORT' as const,
+      entryPrice: D(100),
+      liquidationPrice: D(105),
+      boundary: D(103),
+    };
+    expect(protectionEligibility({ ...short, currentPrice: D(102) }).eligible).toBe(true);
+    expect(protectionEligibility({ ...short, currentPrice: D(104) }).eligible).toBe(false);
+  });
+
+  it('still checks the boundary when the venue reports no liquidation price', () => {
+    const result = protectionEligibility({
+      ...base,
+      liquidationPrice: null,
+      currentPrice: D('96.5'),
+    });
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe('ALREADY_PAST_BOUNDARY');
   });
 });
 
