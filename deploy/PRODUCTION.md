@@ -51,9 +51,10 @@ Configured with live production credentials, provided directly by you:
 - `MARKET_DATA_PROVIDER=coingecko`, `PRICE_HISTORY_PROVIDER=geckoterminal` —
   both on the free keyless tier, so subject to that tier's rate limits
 
-**Perpetual futures** are built but switched off (`PERPS_ENABLED=false`). Before
-turning them on, read the section below — several of the items there are
-prerequisites rather than nice-to-haves.
+**Perpetual futures are live on this deployment** (`PERPS_ENABLED=true`,
+`PERP_VENUE=hyperliquid`). The signing step is not built, so a user can reach
+the order ticket but cannot submit an order. Read the section below before
+treating the feature as finished.
 
 **Not yet configured — a real gap, not a cosmetic one:**
 
@@ -97,12 +98,27 @@ operated by FLT. Margin is posted by the user's own wallet to the venue; FLT
 prepares orders, applies its own limits, and records what it prepared. It never
 holds collateral, never signs, and never submits.
 
-### Switched off by default
+### Off by default, on here
 
-`PERPS_ENABLED=false`. The feature is inert until set to `true`, and
-`PERP_VENUE=mock` is refused in production for the same reason `DEX_ROUTER=mock`
-is: a simulated venue quotes positions that do not exist and liquidation prices
-for collateral nobody posted.
+The code defaults to `PERPS_ENABLED=false`, and `PERP_VENUE=mock` is refused in
+production for the same reason `DEX_ROUTER=mock` is: a simulated venue quotes
+positions that do not exist and liquidation prices for collateral nobody posted.
+
+This deployment has it enabled against the real venue:
+
+    PERPS_ENABLED=true
+    PERP_VENUE=hyperliquid
+    PERP_MAX_LEVERAGE=10
+    PERP_BUILDER_FEE_BPS=0
+
+Three markets are offered — BTC, ETH and SOL — each capped at 10x against venue
+maximums of 40x, 25x and 20x. They were enabled by direct SQL during initial
+provisioning because there was no operator session yet; **every later change
+should go through the admin panel** so it lands in the admin action log.
+
+The registry is populated by `pnpm sync:perp-markets BTC ETH SOL`, which reads
+asset ids from the live venue rather than trusting hardcoded ones, creates rows
+disabled, and never re-enables a market an operator has taken off sale.
 
 ### Limits FLT sets independently of the venue
 
@@ -129,6 +145,11 @@ the real venue, because doing so needs USDC bridged to Hyperliquid and a real
 position opened. **The signing step is not wired up in the interface at all** —
 the review screen prepares and records an order and then says plainly that it
 cannot submit it. Nothing can currently reach the venue.
+
+This is the state a user meets today: they can browse markets with live prices,
+size a position, see its margin and estimated liquidation price, and then be
+told the order cannot be sent. That is deliberate and honest, but it is not a
+finished feature.
 
 Completing it needs the venue's own client library in the browser: the agent key
 is generated there, never transmitted, and signs orders locally. See the note at
