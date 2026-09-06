@@ -9,7 +9,7 @@ User=flt
 Group=flt
 WorkingDirectory=/opt/flt-exchange/apps/web
 EnvironmentFile=/opt/flt-exchange/.env
-ExecStart=/usr/bin/node_modules/.bin/next start --port 3000
+ExecStart=/opt/flt-exchange/apps/web/node_modules/.bin/next start --port 3000
 Restart=always
 RestartSec=5
 

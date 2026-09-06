@@ -9,7 +9,7 @@ User=flt
 Group=flt
 WorkingDirectory=/opt/flt-exchange/apps/worker
 EnvironmentFile=/opt/flt-exchange/.env
-ExecStart=/opt/flt-exchange/node_modules/.bin/tsx src/index.ts
+ExecStart=/opt/flt-exchange/apps/worker/node_modules/.bin/tsx src/index.ts
 Restart=always
 RestartSec=10
 
