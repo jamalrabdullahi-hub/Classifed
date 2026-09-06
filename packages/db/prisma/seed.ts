@@ -186,29 +186,15 @@ async function main(): Promise<void> {
   console.info('  fees       Default 0 bps');
 
   // ── Perpetual markets ────────────────────────────────────────────────────
-  // A deliberately short list. The venue lists hundreds; offering a market is a
-  // decision, and the seed should not imply otherwise. Leverage caps here are
-  // FLT's own and sit below what the venue permits.
-  const perpVenueSlug = process.env.PERP_VENUE ?? 'mock';
-  const perpMarkets = [
-    { symbol: 'BTC', name: 'Bitcoin', venueAssetId: 0, venueMaxLeverage: 40, maxLeverage: 10, sizeDecimals: 5, minSize: '0.00001' },
-    { symbol: 'ETH', name: 'Ethereum', venueAssetId: 1, venueMaxLeverage: 25, maxLeverage: 10, sizeDecimals: 4, minSize: '0.0001' },
-    { symbol: 'SOL', name: 'Solana', venueAssetId: 5, venueMaxLeverage: 20, maxLeverage: 10, sizeDecimals: 2, minSize: '0.01' },
-  ];
-
-  for (const market of perpMarkets) {
-    await prisma.perpMarket.upsert({
-      where: { venueSlug_symbol: { venueSlug: perpVenueSlug, symbol: market.symbol } },
-      create: {
-        id: randomUUID(),
-        venueSlug: perpVenueSlug,
-        ...market,
-        isEnabled: true,
-      },
-      update: {},
-    });
-  }
-  console.info(`  perps      ${perpMarkets.length} markets on ${perpVenueSlug}`);
+  // Deliberately not seeded with hardcoded venue asset ids. A venue's asset id
+  // is its own numbering and a wrong one does not fail loudly — it submits an
+  // order against a different market than the one displayed. The registry is
+  // populated from the live venue instead:
+  //
+  //   pnpm sync:perp-markets BTC ETH SOL
+  //
+  // which reads the ids from the venue and creates the rows disabled, because
+  // listing a market is not the same as deciding to offer it.
 
   // ── Administrator ────────────────────────────────────────────────────────
   const adminEmail = process.env.SEED_ADMIN_EMAIL ?? 'admin@fltexchange.local';
