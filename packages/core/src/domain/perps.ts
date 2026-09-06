@@ -192,20 +192,49 @@ export function initialMargin(size: string, price: string, leverage: number): st
 /**
  * Maintenance margin: the floor below which the position is liquidated.
  *
- * Expressed as a fraction of notional. Hyperliquid sets it at half the initial
- * margin required at the market's maximum leverage, so a 40x market maintains
- * at 1/80 of notional. Venues differ here; a venue-reported value always wins.
+ * Expressed as a fraction of notional.
+ *
+ * The default rule — half the initial margin required at the market's maximum
+ * leverage, so a 40x market maintains at 1/80 of notional — is **Hyperliquid's
+ * rule, not a universal one**. Most venues use a tiered schedule where the
+ * fraction rises with position size, and several use a flat per-market rate
+ * unrelated to max leverage. This module is venue-agnostic, so the rule is an
+ * argument with a documented default rather than an assumption baked into the
+ * arithmetic.
+ *
+ * `override` is a fraction of notional supplied by the venue adapter, and wins
+ * outright when present. A venue-reported value always beats a derived one,
+ * exactly as with liquidation prices.
  */
-export function maintenanceMarginFraction(maxLeverage: number): string {
+export function maintenanceMarginFraction(
+  maxLeverage: number,
+  override?: string | null,
+): string {
+  if (override !== undefined && override !== null) {
+    const fraction = new Decimal(override);
+    if (!fraction.isFinite() || fraction.isNegative() || fraction.greaterThanOrEqualTo(1)) {
+      throw new ValidationError(
+        'Maintenance margin fraction must be a fraction of notional in [0, 1)',
+        { override },
+      );
+    }
+    return fraction.toFixed();
+  }
+
   if (!Number.isInteger(maxLeverage) || maxLeverage < 1) {
     throw new ValidationError('Max leverage must be a whole number of at least 1', { maxLeverage });
   }
   return new Decimal(1).dividedBy(new Decimal(maxLeverage).times(2)).toFixed();
 }
 
-export function maintenanceMargin(size: string, price: string, maxLeverage: number): string {
+export function maintenanceMargin(
+  size: string,
+  price: string,
+  maxLeverage: number,
+  maintenanceFraction?: string | null,
+): string {
   return new Decimal(notional(size, price))
-    .times(maintenanceMarginFraction(maxLeverage))
+    .times(maintenanceMarginFraction(maxLeverage, maintenanceFraction))
     .toFixed();
 }
 
@@ -269,11 +298,15 @@ export function estimateLiquidationPrice(params: {
   entryPrice: string;
   leverage: number;
   maxLeverage: number;
+  /** Venue-reported maintenance fraction, when it publishes one. Wins if set. */
+  maintenanceFraction?: string | null;
 }): string | null {
   const entry = positiveDecimal(params.entryPrice, 'entryPrice');
   assertLeverage(params.leverage, params.maxLeverage);
 
-  const mmf = new Decimal(maintenanceMarginFraction(params.maxLeverage));
+  const mmf = new Decimal(
+    maintenanceMarginFraction(params.maxLeverage, params.maintenanceFraction),
+  );
   const sign = new Decimal(sideSign(params.side));
 
   const marginPerContract = entry.dividedBy(params.leverage);
