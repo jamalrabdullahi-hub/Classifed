@@ -1,5 +1,5 @@
 import { env } from '@flt/config';
-import { ProviderError } from '@flt/core/domain';
+import { ProviderError, isNativeToken } from '@flt/core/domain';
 import { z } from 'zod';
 import type { MarketDataProvider, MarketDataRequest, TokenMarketData } from './types';
 
@@ -37,28 +37,75 @@ export class CoinGeckoMarketDataProvider implements MarketDataProvider {
     const platform = PLATFORM_BY_CHAIN[request.chainId];
     if (!platform || request.tokenAddresses.length === 0) return [];
 
-    const params = new URLSearchParams({
-      contract_addresses: request.tokenAddresses.join(','),
-      vs_currencies: 'usd',
-      include_24hr_change: 'true',
-      include_24hr_vol: 'true',
-      include_market_cap: 'true',
-    });
+    /*
+     * The native asset is carried through the system as a sentinel address,
+     * which is not a real contract. Sending it to the contract-price endpoint
+     * makes CoinGecko reject the ENTIRE batch, so one pseudo-address would cost
+     * every other token its price rather than just its own. It is split out and
+     * priced through the coin endpoint instead.
+     */
+    const contracts = request.tokenAddresses.filter((address) => !isNativeToken(address));
+    const natives = request.tokenAddresses.filter((address) => isNativeToken(address));
 
-    const payload = await this.call(
-      `/simple/token_price/${platform}?${params.toString()}`,
-      responseSchema,
-    );
     const fetchedAt = new Date();
+    const results: TokenMarketData[] = [];
 
-    // Keyed by lowercased address in the response; tokens CoinGecko does not
-    // know are simply absent, and the caller renders them as unpriced.
-    return request.tokenAddresses.flatMap((address) => {
-      const entry = payload[address.toLowerCase()];
-      if (!entry) return [];
+    /*
+     * Requests are chunked because the keyless tier rejects more than one
+     * contract address per call outright (error 10012) — and it rejects the
+     * whole request, so an unchunked batch returns nothing at all rather than
+     * a truncated list. Verified against the live API: two addresses already
+     * fail. Keyed tiers lift the limit, so a key buys back the batching.
+     */
+    const chunkSize = env().COINGECKO_API_KEY ? 50 : 1;
+    const chunks: string[][] = [];
+    for (let index = 0; index < contracts.length; index += chunkSize) {
+      chunks.push(contracts.slice(index, index + chunkSize));
+    }
 
-      return [
-        {
+    let failures = 0;
+
+    for (const [index, chunk] of chunks.entries()) {
+      // Space the calls out on the keyless tier, whose per-minute allowance is
+      // small enough that a tight loop over a token list trips it.
+      if (index > 0 && !env().COINGECKO_API_KEY) await sleep(1_500);
+
+      const params = new URLSearchParams({
+        contract_addresses: chunk.join(','),
+        vs_currencies: 'usd',
+        include_24hr_change: 'true',
+        include_24hr_vol: 'true',
+        include_market_cap: 'true',
+      });
+
+      let payload: z.infer<typeof responseSchema>;
+      try {
+        payload = await this.call(
+          `/simple/token_price/${platform}?${params.toString()}`,
+          responseSchema,
+        );
+      } catch (error) {
+        /*
+         * One chunk failing must not cost the others their prices. The
+         * interface promises a partial result, and a rate limit part-way
+         * through a token list is the normal case on a free tier, not an
+         * exceptional one.
+         */
+        failures += 1;
+        console.warn('[coingecko] chunk failed', {
+          tokens: chunk.length,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        continue;
+      }
+
+      // Keyed by lowercased address in the response; tokens CoinGecko does not
+      // know are simply absent, and the caller renders them as unpriced.
+      for (const address of chunk) {
+        const entry = payload[address.toLowerCase()];
+        if (!entry) continue;
+
+        results.push({
           chainId: request.chainId,
           tokenAddress: address,
           priceUsd: numberToString(entry.usd),
@@ -70,9 +117,57 @@ export class CoinGeckoMarketDataProvider implements MarketDataProvider {
           marketCapUsd: numberToString(entry.usd_market_cap, 2),
           source: this.name,
           fetchedAt,
-        },
-      ];
-    });
+        });
+      }
+    }
+
+    // Every chunk failing is an outage, not a partial result, and the caller
+    // should hear about it rather than silently cache an empty refresh.
+    if (chunks.length > 0 && failures === chunks.length) {
+      throw new ProviderError(this.name, 'Market data provider is unavailable', {
+        retryable: true,
+      });
+    }
+
+    for (const address of natives) {
+      const coin = NATIVE_COIN_BY_CHAIN[request.chainId];
+      if (!coin) continue;
+
+      const params = new URLSearchParams({
+        ids: coin,
+        vs_currencies: 'usd',
+        include_24hr_change: 'true',
+        include_24hr_vol: 'true',
+        include_market_cap: 'true',
+      });
+
+      // Guarded like the chunks above: the native asset failing must not cost
+      // every ERC-20 in the same refresh its price.
+      try {
+        const payload = await this.call(`/simple/price?${params.toString()}`, responseSchema);
+        const entry = payload[coin];
+        if (!entry) continue;
+
+        results.push({
+          chainId: request.chainId,
+          tokenAddress: address,
+          priceUsd: numberToString(entry.usd),
+          change24hPct: numberToString(entry.usd_24h_change, 4),
+          volume24hUsd: numberToString(entry.usd_24h_vol, 2),
+          liquidityUsd: null,
+          marketCapUsd: numberToString(entry.usd_market_cap, 2),
+          source: this.name,
+          fetchedAt,
+        });
+      } catch (error) {
+        console.warn('[coingecko] native asset price failed', {
+          chainId: request.chainId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    return results;
   }
 
   async getNativeAssetPrice(chainId: number): Promise<string | null> {
@@ -142,6 +237,10 @@ export class CoinGeckoMarketDataProvider implements MarketDataProvider {
     const key = env().COINGECKO_API_KEY;
     return key ? { 'x-cg-pro-api-key': key, accept: 'application/json' } : { accept: 'application/json' };
   }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function numberToString(value: number | null | undefined, decimals = 8): string | null {
