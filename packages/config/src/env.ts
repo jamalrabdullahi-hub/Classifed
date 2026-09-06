@@ -87,6 +87,51 @@ const schema = z.object({
    */
   PERP_MAX_LEVERAGE: z.coerce.number().int().min(1).max(100).default(10),
 
+  // ── Position protection ──────────────────────────────────────────────────
+
+  /**
+   * Whether protection is sold at all, and whether leveraged trading requires
+   * it.
+   *
+   * `required` is the product decision that leveraged access is gated on
+   * holding protection: the ticket refuses to prepare a leveraged order
+   * without a policy, and the leverage a user may choose is capped by the
+   * waterfall bound rather than by PERP_MAX_LEVERAGE alone.
+   */
+  PROTECTION_MODE: z.enum(['off', 'optional', 'required']).default('off'),
+
+  /**
+   * FLT's cut, in basis points of the participant's contribution, charged on
+   * top of it. 1000 = 10%. Never deducted from the contribution: the pool must
+   * receive the full amount the mathematics requires or it is underfunded
+   * while every individual policy looks correctly priced.
+   */
+  PROTECTION_OPERATOR_FEE_BPS: z.coerce.number().int().min(0).max(5_000).default(1_000),
+
+  /**
+   * Where participants' contributions are sent.
+   *
+   * Deliberately separate from FLT_FEE_RECIPIENT_ADDRESS. §19 forbids mixing
+   * participant protection funds with operator revenue, and the cheapest way
+   * to guarantee that is for them never to arrive at the same address.
+   *
+   * Until this is set to an address with a defined controller and a published
+   * mandate, no claim can be paid — the engine will price protection but
+   * refuse to sell it.
+   */
+  PROTECTION_POOL_ADDRESS: optionalAddress,
+
+  /**
+   * The stablecoin premiums are paid in, and the chain it lives on.
+   *
+   * Defaults to USDC on Base, which is where the rest of the platform routes.
+   * A premium denominated in a volatile asset would change value between the
+   * quote and the transfer, so this is deliberately a stablecoin address
+   * rather than a choice offered per trade.
+   */
+  PROTECTION_PREMIUM_TOKEN_ADDRESS: optionalAddress,
+  PROTECTION_PREMIUM_CHAIN_ID: z.coerce.number().int().positive().default(8453),
+
   // ── Fees ─────────────────────────────────────────────────────────────────
   FLT_FEE_RECIPIENT_ADDRESS: optionalAddress,
 
@@ -165,6 +210,33 @@ function load(): Env {
     }
     if (value.PERP_BUILDER_FEE_BPS > 0 && !value.HYPERLIQUID_BUILDER_ADDRESS) {
       problems.push('PERP_BUILDER_FEE_BPS requires HYPERLIQUID_BUILDER_ADDRESS');
+    }
+    // Selling protection without a pool would take a premium against a claim
+    // that could never be paid. Pricing it is fine; charging for it is not.
+    if (value.PROTECTION_MODE !== 'off' && !value.PROTECTION_POOL_ADDRESS) {
+      problems.push('PROTECTION_MODE requires PROTECTION_POOL_ADDRESS');
+    }
+    // A premium has to be payable in something, and it must not be the
+    // volatile asset being protected.
+    if (value.PROTECTION_MODE !== 'off' && !value.PROTECTION_PREMIUM_TOKEN_ADDRESS) {
+      problems.push('PROTECTION_MODE requires PROTECTION_PREMIUM_TOKEN_ADDRESS');
+    }
+    if (value.PROTECTION_MODE !== 'off' && !value.FLT_FEE_RECIPIENT_ADDRESS) {
+      problems.push('PROTECTION_MODE requires FLT_FEE_RECIPIENT_ADDRESS to receive the fee');
+    }
+    // The two must not be the same address, or participant capital and FLT's
+    // revenue land in one balance and §19's separation is lost at the first
+    // transfer.
+    if (
+      value.PROTECTION_POOL_ADDRESS &&
+      value.FLT_FEE_RECIPIENT_ADDRESS &&
+      value.PROTECTION_POOL_ADDRESS.toLowerCase() ===
+        value.FLT_FEE_RECIPIENT_ADDRESS.toLowerCase()
+    ) {
+      problems.push(
+        'PROTECTION_POOL_ADDRESS must differ from FLT_FEE_RECIPIENT_ADDRESS — ' +
+          'participant funds and operator revenue cannot share an address',
+      );
     }
     if (value.MAIL_PROVIDER === 'resend' && !value.RESEND_API_KEY) {
       problems.push('MAIL_PROVIDER=resend requires RESEND_API_KEY');

@@ -139,6 +139,12 @@ export interface PerpOrderIntent {
   slippageBps: number;
   /** Close-only: never increases exposure, only reduces or flattens. */
   reduceOnly: boolean;
+  /**
+   * The protection percentile the participant chose, when protection is being
+   * bought alongside the trade. Absent on a close or an unleveraged open,
+   * neither of which requires cover.
+   */
+  protectionPercentile?: number;
 }
 
 // ── Position arithmetic ─────────────────────────────────────────────────────

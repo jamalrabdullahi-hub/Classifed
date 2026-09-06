@@ -1116,6 +1116,27 @@ model ProtectionPolicy {
   /// balance FLT custodies. See the section comment above.
   declaredContribution String @default("0")
 
+  /// ── Premium, when the policy is bought rather than merely calculated ────
+  ///
+  /// Two amounts, never one. The contribution is risk capital and goes to the
+  /// pool; the fee is FLT's revenue and goes to FLT. They are settled by two
+  /// separate transfers to two separate addresses precisely so that no later
+  /// query can accidentally treat them as one balance.
+  ///
+  /// FLT never holds either. The participant signs both transfers from their
+  /// own wallet; these columns record what was asked for and what was paid.
+  premiumContribution String?
+  premiumOperatorFee  String?
+  premiumTotal        String?
+  premiumTokenAddress String?
+  premiumChainId      Int?
+  poolAddress         String?
+  operatorAddress     String?
+  /// The transfers the participant made, once each is verified on-chain.
+  poolTxHash          String?
+  operatorTxHash      String?
+  paidAt              DateTime?
+
   calculatedAt DateTime?
   /// Omni only: when the next rebase is due.
   nextRebaseAt DateTime?

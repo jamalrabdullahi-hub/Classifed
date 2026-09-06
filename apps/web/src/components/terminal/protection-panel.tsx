@@ -91,10 +91,21 @@ interface LivePosition {
   notionalValue: string | null;
 }
 
+/**
+ * The cover levels offered, matching the order ticket's presets exactly.
+ *
+ * These are the familiar σ-band figures. Read one-tailed — as a downside
+ * boundary must be — 68% is z = 0.47, 95% is z = 1.64 and 99.7% is z = 2.75,
+ * which is why the panel prints the z it used rather than leaving the reader
+ * to assume the two-tailed 1σ/2σ/3σ values.
+ *
+ * Two more are kept beyond the presets because the calculator is where someone
+ * explores the shape of the curve, not just the three points they can buy.
+ */
 const PERCENTILES = [
+  { value: 0.68, label: '68%' },
   { value: 0.95, label: '95%' },
-  { value: 0.99, label: '99%' },
-  { value: 0.9973, label: '99.73%' },
+  { value: 0.997, label: '99.7%' },
   { value: 0.9999, label: '99.99%' },
 ];
 
@@ -111,7 +122,7 @@ export function ProtectionPanel({
   symbol: string;
   markPrice: string | null;
 }) {
-  const [percentile, setPercentile] = useState(0.9973);
+  const [percentile, setPercentile] = useState(0.95);
   const [horizonDays, setHorizonDays] = useState(10);
   const [position, setPosition] = useState<LivePosition | null>(null);
   const [calculation, setCalculation] = useState<Calculation | null>(null);

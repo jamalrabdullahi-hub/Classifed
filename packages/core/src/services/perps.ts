@@ -27,6 +27,7 @@ import {
   type PerpSide,
 } from '../domain/perps';
 import { assertMayTrade } from './kyc';
+import { protectionRequired, quoteProtection } from './protection-quote';
 import { AuditAction, audit } from './audit';
 import type {
   OrderPreview,
@@ -198,6 +199,45 @@ export async function prepareOpen(
     throw new ValidationError('Slippage must be between 0 and 1000 basis points', {
       slippageBps: intent.slippageBps,
     });
+  }
+
+  /**
+   * Leverage requires protection, and protection bounds the leverage.
+   *
+   * The waterfall the product promises is: insurance first, margin second. It
+   * holds only while the protection boundary sits between the mark and the
+   * venue's liquidation price, and above a certain leverage it simply does
+   * not — the venue closes the position before the boundary is reached, and
+   * the cover would have been sold against an event that cannot happen.
+   *
+   * So this refuses rather than warns, and it refuses on a bound recomputed
+   * from live volatility. The same leverage is sound on a quiet day and
+   * unsound on a violent one; a fixed cap would be wrong on both.
+   */
+  if (intent.leverage > 1 && protectionRequired() && !intent.reduceOnly) {
+    const quote = await quoteProtection(venue, {
+      symbol: market.symbol,
+      side: intent.side,
+      usdNotional: new Decimal(intent.size).times(market.markPrice ?? '0'),
+      leverage: intent.leverage,
+      percentile: intent.protectionPercentile,
+    });
+
+    if (!quote.waterfallHolds) {
+      throw new ValidationError(quote.refusal ?? 'Protection cannot cover this position', {
+        maxLeverage: quote.waterfall.maxWholeLeverage,
+        boundary: quote.boundary.toFixed(),
+        liquidation: quote.estimatedLiquidation?.toFixed() ?? null,
+      });
+    }
+
+    if (!quote.sellable) {
+      throw new ValidationError(
+        'Leveraged trading requires protection, and protection is not currently available to ' +
+          'buy on this deployment. Only unleveraged positions can be opened.',
+        { protectionMode: env().PROTECTION_MODE },
+      );
+    }
   }
 
   const fee = builderFee();

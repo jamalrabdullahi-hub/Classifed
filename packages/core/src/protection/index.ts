@@ -17,5 +17,6 @@ export * from './zscore';
 export * from './volatility';
 export * from './peril';
 export * from './contribution';
+export * from './premium';
 export * from './policies';
 export * from './state';

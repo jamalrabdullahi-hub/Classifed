@@ -5,6 +5,9 @@ import { prepareClose, prepareOpen } from '@flt/core/services/perps';
 import { RateLimits } from '@flt/core/services/ratelimit';
 import { perpVenue } from '@flt/providers';
 import { handler } from '@/server/api';
+import { ValidationError, Decimal, NotFoundError } from '@flt/core/domain';
+import { contractsForUsd } from '@flt/core/protection';
+import type { PerpVenue } from '@flt/core/ports';
 
 /**
  * Prepares a perpetual order for the client to sign.
@@ -29,6 +32,17 @@ const schema = z.object({
   side: z.enum(['LONG', 'SHORT']).optional(),
   /** Omitted on a close means close the whole position. */
   size: decimalString.optional(),
+  /**
+   * Position size in USD, which is how the ticket asks for it.
+   *
+   * Preferred over `size` on an open: the conversion to contracts happens on
+   * the server at the server's own mark, so the browser's rounding is never
+   * what gets traded. `size` remains accepted for closes and for API callers
+   * that genuinely think in contracts.
+   */
+  usdNotional: decimalString.optional(),
+  /** The cover level chosen, when protection is being bought with the trade. */
+  protectionPercentile: z.coerce.number().gt(0.5).lt(1).optional(),
   leverage: z.coerce.number().int().min(1).max(100).optional(),
   marginMode: z.enum(['ISOLATED', 'CROSS']).default('ISOLATED'),
   limitPrice: decimalString.nullish(),
@@ -56,9 +70,19 @@ export const POST = handler(
       return { orderId: order.id, action, kind: 'CLOSE' as const };
     }
 
-    if (!body.side || !body.size || !body.leverage) {
-      throw new Error('Opening a position requires a side, a size and a leverage');
+    if (!body.side || !body.leverage || (!body.size && !body.usdNotional)) {
+      throw new ValidationError(
+        'Opening a position requires a side, a leverage, and a size in either dollars or contracts',
+      );
     }
+
+    // Dollars are converted here rather than in the browser, so the contract
+    // count that reaches the venue is the one this server computed from its
+    // own mark price. Rounded down, so the position is never worth more than
+    // the dollars the user approved.
+    const size = body.usdNotional
+      ? await sizeFromUsd(venue, body.symbol, body.usdNotional)
+      : body.size!;
 
     const result = await prepareOpen(venue, {
       user,
@@ -66,12 +90,13 @@ export const POST = handler(
       intent: {
         symbol: body.symbol,
         side: body.side,
-        size: body.size,
+        size,
         leverage: body.leverage,
         marginMode: body.marginMode ?? 'ISOLATED',
         limitPrice: body.limitPrice ?? null,
         slippageBps: body.slippageBps ?? 50,
         reduceOnly: body.reduceOnly ?? false,
+        protectionPercentile: body.protectionPercentile,
       },
       ip: context.ip,
       userAgent: context.userAgent,
@@ -88,3 +113,16 @@ export const POST = handler(
     };
   },
 );
+
+async function sizeFromUsd(venue: PerpVenue, symbol: string, usd: string): Promise<string> {
+  const market = await venue.getMarket(symbol);
+  if (!market) throw new NotFoundError('Market');
+  if (!market.markPrice) {
+    throw new ValidationError('The venue is not quoting this market', { symbol });
+  }
+  return contractsForUsd(
+    new Decimal(usd),
+    new Decimal(market.markPrice),
+    market.sizeDecimals,
+  ).toFixed();
+}

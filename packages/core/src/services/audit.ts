@@ -171,6 +171,7 @@ export const AuditAction = {
   PROTECTION_POLICY_CANCELLED: 'protection.policy.cancelled',
   PROTECTION_FUNDING_DECLARED: 'protection.funding.declared',
   PROTECTION_REDUCTION_ADVISED: 'protection.reduction.advised',
+  PROTECTION_PREMIUM_PAID: 'protection.premium.paid',
 
   // Security
   RATE_LIMITED: 'security.rate_limited',
