@@ -8,7 +8,11 @@ import {
 } from '@flt/core/domain';
 import { ValidationError } from '@flt/core/domain';
 import type {
+  Candle,
+  OrderBook,
   OrderPreview,
+  PerpCandleInterval,
+  PerpTrade,
   PerpAccountRef,
   PerpAccountSummary,
   PerpMarket,
@@ -53,6 +57,20 @@ const MOCK_SLUG = 'mock';
 /** Recognisably fake — nobody should mistake this for a venue that holds money. */
 const MOCK_ENDPOINT = 'https://mock.invalid/exchange';
 
+const MOCK_INTERVAL_MINUTES: Record<PerpCandleInterval, number> = {
+  '1m': 1,
+  '5m': 5,
+  '15m': 15,
+  '1h': 60,
+  '4h': 240,
+  '1d': 1440,
+};
+
+/** Prices are carried as numbers only inside the candle generator. */
+function round(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 interface MockMarketSpec {
   symbol: string;
   name: string;
@@ -91,6 +109,89 @@ export class MockPerpVenue implements PerpVenue {
   async getMarket(symbol: string): Promise<PerpMarket | null> {
     const spec = MARKETS.find((m) => m.symbol === symbol.toUpperCase());
     return spec ? this.toMarket(spec) : null;
+  }
+
+  async getOrderBook(symbol: string, depth = 12): Promise<OrderBook> {
+    const market = await this.requireMarket(symbol);
+    const mid = new Decimal(market.markPrice as string);
+    const tick = mid.dividedBy(20_000).toDecimalPlaces(2, Decimal.ROUND_UP);
+
+    // Sizes decay away from the touch with a deterministic wobble, so the depth
+    // bars in the ladder are uneven the way a real book is. A perfectly smooth
+    // book would let a rendering bug in the depth overlay pass unnoticed.
+    const level = (index: number, direction: 1 | -1) => {
+      const price = mid.plus(tick.times(index + 1).times(direction));
+      const wobble = (this.roll(`${market.symbol}:${direction}:${index}`) % 70) / 100;
+      return {
+        price: price.toFixed(2),
+        size: new Decimal(1.2).plus(index * 0.28).plus(wobble).toFixed(4),
+        orderCount: (this.roll(`n:${market.symbol}:${direction}:${index}`) % 40) + 1,
+      };
+    };
+
+    return {
+      symbol: market.symbol,
+      bids: Array.from({ length: depth }, (_, i) => level(i, -1)),
+      asks: Array.from({ length: depth }, (_, i) => level(i, 1)),
+      capturedAt: new Date(),
+    };
+  }
+
+  async getCandles(
+    symbol: string,
+    interval: PerpCandleInterval,
+    limit = 200,
+  ): Promise<Candle[]> {
+    const market = await this.requireMarket(symbol);
+    const minutes = MOCK_INTERVAL_MINUTES[interval];
+    const step = minutes * 60;
+    const now = Math.floor(Date.now() / 1000);
+    const start = now - step * limit;
+
+    const candles: Candle[] = [];
+    let close = Number(market.markPrice) * 0.94;
+
+    for (let i = 0; i < limit; i += 1) {
+      const seed = this.roll(`${market.symbol}:${interval}:${i}`);
+      // A bounded random walk with a gentle upward drift, so the chart has a
+      // shape rather than being noise around a flat line.
+      const drift = 0.0006;
+      const move = ((seed % 2000) / 1000 - 1) * 0.008 + drift;
+      const open = close;
+      close = open * (1 + move);
+      const high = Math.max(open, close) * (1 + (seed % 40) / 10_000);
+      const low = Math.min(open, close) * (1 - (seed % 37) / 10_000);
+
+      candles.push({
+        time: start + i * step,
+        open: round(open),
+        high: round(high),
+        low: round(low),
+        close: round(close),
+        volume: Math.round(40 + (seed % 260)),
+      });
+    }
+
+    return candles;
+  }
+
+  async getRecentTrades(symbol: string, limit = 40): Promise<PerpTrade[]> {
+    const market = await this.requireMarket(symbol);
+    const mid = new Decimal(market.markPrice as string);
+    const now = Date.now();
+
+    return Array.from({ length: limit }, (_, i) => {
+      const seed = this.roll(`trade:${market.symbol}:${i}`);
+      const buy = seed % 2 === 0;
+      const offset = new Decimal((seed % 9) - 4).dividedBy(10);
+
+      return {
+        price: mid.plus(offset).toFixed(2),
+        size: new Decimal(0.02).plus((seed % 300) / 1000).toFixed(4),
+        side: buy ? ('BUY' as const) : ('SELL' as const),
+        at: new Date(now - i * 2_400),
+      };
+    });
   }
 
   async getPositions(account: PerpAccountRef): Promise<PerpPosition[]> {

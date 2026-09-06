@@ -3,12 +3,12 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { env } from '@flt/config';
 import { ArrowLeft } from 'lucide-react';
-import { Button, Card, CardContent, CardHeader, CardTitle, SectionHeader, Stat } from '@flt/ui';
-import { Decimal, annualisedFundingRate, formatUsd } from '@flt/core/domain';
-import { getOfferedMarket } from '@flt/core/services/perps';
+import { Button } from '@flt/ui';
+import { annualisedFundingRate } from '@flt/core/domain';
+import { getOfferedMarket, listOfferedMarkets } from '@flt/core/services/perps';
 import { perpVenue } from '@flt/providers';
 import { requireUserPage } from '@/server/session';
-import { PerpOrderForm } from '@/components/perp-order-form';
+import { PerpTerminal } from '@/components/terminal/perp-terminal';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,12 +22,13 @@ export async function generateMetadata({
 }
 
 /**
- * One perpetual market.
+ * One perpetual market, as a trading terminal.
  *
- * The order form is the point of the page, but it is framed the same way the
- * spot review screen is: the numbers that decide whether this is a good idea —
- * margin, liquidation price, funding cost — sit next to the control that places
- * the order, not behind it.
+ * The server renders only the instrument's static facts and the market list for
+ * the switcher. Everything that moves — book, tape, candles, position — is
+ * fetched by the panels themselves, because they decay at different rates and a
+ * single server render would be stale in the two seconds it takes the book to
+ * turn over.
  */
 export default async function PerpMarketPage({
   params,
@@ -39,84 +40,53 @@ export default async function PerpMarketPage({
 
   const { symbol } = await params;
   const venue = perpVenue();
-  const offered = await getOfferedMarket(venue, symbol);
+
+  const [offered, all] = await Promise.all([
+    getOfferedMarket(venue, symbol),
+    listOfferedMarkets(venue),
+  ]);
 
   if (!offered) notFound();
   const { market, maxLeverage } = offered;
 
-  const annual = market.fundingRate
-    ? annualisedFundingRate(market.fundingRate, market.fundingIntervalHours)
-    : null;
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Button asChild variant="ghost" size="sm" className="-ml-2">
         <Link href="/perps">
           <ArrowLeft className="size-3.5" />
-          Back to perpetuals
+          All markets
         </Link>
       </Button>
 
-      <SectionHeader
-        title={`${market.symbol} perpetual`}
-        description={`${market.name} · settled on ${venue.meta.name} · up to ${maxLeverage}x`}
+      <PerpTerminal
+        market={{
+          symbol: market.symbol,
+          name: market.name,
+          markPrice: market.markPrice,
+          indexPrice: market.indexPrice,
+          fundingRate: market.fundingRate,
+          fundingRateAnnualised: market.fundingRate
+            ? annualisedFundingRate(market.fundingRate, market.fundingIntervalHours)
+            : null,
+          fundingIntervalHours: market.fundingIntervalHours,
+          openInterest: market.openInterest,
+          maxLeverage,
+          venueMaxLeverage: market.maxLeverage,
+          minSize: market.minSize,
+        }}
+        markets={all.map((entry) => ({ symbol: entry.symbol }))}
+        venueName={venue.meta.name}
+        venueIsMock={venue.meta.isMock}
+        requiresBridgedCollateral={venue.requiresBridgedCollateral}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Mark price" value={formatUsd(market.markPrice)} />
-        <Stat label="Index price" value={formatUsd(market.indexPrice)} />
-        <Stat
-          label={`Funding / ${market.fundingIntervalHours}h`}
-          value={
-            market.fundingRate
-              ? `${new Decimal(market.fundingRate).times(100).toFixed(4)}%`
-              : '—'
-          }
-        />
-        <Stat
-          label="Funding / year"
-          value={annual ? `${new Decimal(annual).times(100).toFixed(2)}%` : '—'}
-        />
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <Card>
-          <CardHeader>
-            <CardTitle>How this position ends</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-[13px] leading-relaxed text-[var(--text-muted)]">
-            <p>
-              A perpetual has no expiry. It stays open until you close it or until the market moves
-              far enough against you that {venue.meta.name} closes it for you. There is no margin
-              call: the position is closed at the liquidation price and the margin backing it is
-              gone.
-            </p>
-            <p>
-              Funding is exchanged every {market.fundingIntervalHours} hour
-              {market.fundingIntervalHours === 1 ? '' : 's'} between longs and shorts. At the
-              current rate that is{' '}
-              <span className="num text-[var(--text)]">
-                {annual ? `${new Decimal(annual).times(100).toFixed(2)}%` : 'an unknown amount'}
-              </span>{' '}
-              a year, paid by one side to the other, and it is charged separately from trading fees.
-            </p>
-            <p>
-              Your margin is held by {venue.meta.name}, not by FLT and not in your linked wallet.
-              FLT prepares the order; your own key signs it. Neither FLT nor the venue can reverse a
-              trade once it has settled.
-            </p>
-          </CardContent>
-        </Card>
-
-        <PerpOrderForm
-          symbol={market.symbol}
-          markPrice={market.markPrice}
-          minSize={market.minSize}
-          maxLeverage={maxLeverage}
-          venueMaxLeverage={market.maxLeverage}
-          venueName={venue.meta.name}
-        />
-      </div>
+      <p className="text-[11px] leading-relaxed text-[var(--text-subtle)]">
+        Prices, book depth and trades are reported by {venue.meta.name}, not by FLT, and are not
+        quotes. A perpetual has no expiry: it stays open until you close it or until the market
+        moves far enough against you that the venue closes it and the margin behind it is gone.
+        There is no margin call. FLT caps leverage at {env().PERP_MAX_LEVERAGE}× whatever the venue
+        permits, prepares orders, and never holds your collateral or signs on your behalf.
+      </p>
     </div>
   );
 }

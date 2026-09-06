@@ -6,6 +6,7 @@ import type {
   PerpSide,
 } from '../domain/perps';
 import type { ProviderMeta, UnsignedTransaction } from './dex';
+import type { Candle } from './history';
 
 /**
  * Perpetual futures venues.
@@ -148,6 +149,60 @@ export type PreparedAction =
       requiresAgentKey: boolean;
     };
 
+// ── Market data ─────────────────────────────────────────────────────────────
+
+export interface OrderBookLevel {
+  price: string;
+  size: string;
+  /**
+   * Resting orders at this level, where the venue reports it.
+   *
+   * Worth carrying rather than collapsing into size: one order for forty
+   * contracts and forty orders for one behave completely differently when the
+   * price reaches them, and a ladder that shows only the total hides that.
+   */
+  orderCount: number | null;
+}
+
+export interface OrderBook {
+  symbol: string;
+  /** Descending by price — best bid first. */
+  bids: OrderBookLevel[];
+  /** Ascending by price — best ask first. */
+  asks: OrderBookLevel[];
+  capturedAt: Date;
+}
+
+export interface PerpTrade {
+  price: string;
+  size: string;
+  /**
+   * The side of the aggressor: BUY when the trade lifted an offer.
+   *
+   * Never carries the counterparties. Hyperliquid names both wallets on every
+   * public trade, and passing those through to a browser would turn a price
+   * feed into a surveillance tool for whoever is watching the tape.
+   */
+  side: 'BUY' | 'SELL';
+  at: Date;
+}
+
+/** Intervals a venue can chart. Deliberately a subset of what venues offer. */
+export type PerpCandleInterval = '1m' | '5m' | '15m' | '1h' | '4h' | '1d';
+
+export const PERP_CANDLE_INTERVALS: readonly PerpCandleInterval[] = [
+  '1m',
+  '5m',
+  '15m',
+  '1h',
+  '4h',
+  '1d',
+] as const;
+
+export function isPerpCandleInterval(value: string): value is PerpCandleInterval {
+  return (PERP_CANDLE_INTERVALS as readonly string[]).includes(value);
+}
+
 // ── Requests ────────────────────────────────────────────────────────────────
 
 export interface PerpAccountRef {
@@ -270,6 +325,24 @@ export interface PerpVenue {
 
   listMarkets(): Promise<PerpMarket[]>;
   getMarket(symbol: string): Promise<PerpMarket | null>;
+
+  /**
+   * The resting order book.
+   *
+   * `depth` is a request, not a guarantee — a venue may return fewer levels,
+   * and a thin market legitimately has fewer.
+   */
+  getOrderBook(symbol: string, depth?: number): Promise<OrderBook>;
+
+  /** Candles for the chart. Newest last. */
+  getCandles(
+    symbol: string,
+    interval: PerpCandleInterval,
+    limit?: number,
+  ): Promise<Candle[]>;
+
+  /** The tape. Newest first. */
+  getRecentTrades(symbol: string, limit?: number): Promise<PerpTrade[]>;
 
   getPositions(account: PerpAccountRef): Promise<PerpPosition[]>;
   getAccountSummary(account: PerpAccountRef): Promise<PerpAccountSummary>;

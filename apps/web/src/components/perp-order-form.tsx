@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { TriangleAlert } from 'lucide-react';
 import { Button, Card, CardContent, CardHeader, CardTitle, Field, Input, Notice, cn } from '@flt/ui';
 import { ApiError, post } from '@/lib/api';
@@ -45,6 +45,15 @@ interface Props {
    */
   venueMaxLeverage: number;
   venueName: string;
+  /**
+   * A price the user clicked in the order book.
+   *
+   * Only ever seeds the limit price; it never changes size, side or leverage.
+   * A click in a ladder means "this price", not "this order".
+   */
+  priceFromBook?: string | null;
+  /** Renders without card chrome, for use inside a terminal panel. */
+  embedded?: boolean;
 }
 
 interface PreparedResponse {
@@ -69,9 +78,12 @@ export function PerpOrderForm({
   maxLeverage,
   venueMaxLeverage,
   venueName,
+  priceFromBook = null,
+  embedded = false,
 }: Props) {
   const [side, setSide] = useState<'LONG' | 'SHORT'>('LONG');
   const [size, setSize] = useState('');
+  const [limitPrice, setLimitPrice] = useState('');
   const [leverage, setLeverage] = useState(Math.min(2, maxLeverage));
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,7 +99,10 @@ export function PerpOrderForm({
    * the order is prepared.
    */
   const local = useMemo(() => {
-    const price = Number(markPrice);
+    // A limit order is judged against its own price, not the mark. Previewing a
+    // limit against the mark would show a margin and liquidation price for a
+    // trade the user is not placing.
+    const price = Number(limitPrice || markPrice);
     const quantity = Number(size);
     if (!Number.isFinite(price) || !Number.isFinite(quantity) || quantity <= 0) return null;
 
@@ -105,7 +120,11 @@ export function PerpOrderForm({
       liquidation: liquidation > 0 ? liquidation : null,
       movePercent: (Math.abs(price - liquidation) / price) * 100,
     };
-  }, [markPrice, size, leverage, side, venueMaxLeverage]);
+  }, [markPrice, limitPrice, size, leverage, side, venueMaxLeverage]);
+
+  useEffect(() => {
+    if (priceFromBook) setLimitPrice(priceFromBook);
+  }, [priceFromBook]);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -120,6 +139,7 @@ export function PerpOrderForm({
         size,
         leverage,
         marginMode: 'ISOLATED',
+        limitPrice: limitPrice || null,
         slippageBps: 50,
         reduceOnly: false,
       });
@@ -144,14 +164,8 @@ export function PerpOrderForm({
     );
   }
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Open a position</CardTitle>
-      </CardHeader>
-
-      <CardContent>
-        <form onSubmit={onSubmit} className="space-y-4">
+  const body = (
+    <form onSubmit={onSubmit} className={embedded ? 'space-y-2.5 p-2.5' : 'space-y-4'}>
           {error ? <Notice tone="negative">{error}</Notice> : null}
 
           <div className="grid grid-cols-2 gap-2">
@@ -186,6 +200,22 @@ export function PerpOrderForm({
               />
             )}
           </Field>
+
+      <Field
+        label="Limit price"
+        description={limitPrice ? undefined : 'Leave empty for a market order'}
+      >
+        {(props) => (
+          <Input
+            {...props}
+            value={limitPrice}
+            onChange={(event) => setLimitPrice(event.target.value)}
+            inputMode="decimal"
+            placeholder={markPrice ?? 'Market'}
+            className="num"
+          />
+        )}
+      </Field>
 
           <div className="space-y-2">
             <div className="flex items-baseline justify-between">
@@ -236,12 +266,21 @@ export function PerpOrderForm({
             Review order
           </Button>
 
-          <p className="text-[11px] leading-relaxed text-[var(--text-subtle)]">
-            Estimates only, calculated before fees and funding. {venueName} reports the real
-            liquidation price once the position exists, and it moves as funding accrues.
-          </p>
-        </form>
-      </CardContent>
+      <p className="text-[10.5px] leading-relaxed text-[var(--text-subtle)]">
+        Estimates only, before fees and funding. {venueName} reports the real liquidation price
+        once the position exists, and it moves as funding accrues.
+      </p>
+    </form>
+  );
+
+  if (embedded) return body;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Open a position</CardTitle>
+      </CardHeader>
+      <CardContent>{body}</CardContent>
     </Card>
   );
 }

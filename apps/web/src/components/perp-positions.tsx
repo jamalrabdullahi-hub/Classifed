@@ -66,7 +66,19 @@ interface PositionsResponse {
 const WARNING_PROXIMITY = 0.5;
 const DANGER_PROXIMITY = 0.8;
 
-export function PerpPositionsPanel() {
+/**
+ * `compact` drops the account-summary tiles and the card chrome, for the
+ * terminal's position strip. `symbol` narrows it to one market, because inside
+ * a terminal focused on BTC a row for an unrelated SOL position is a distraction
+ * from the number the user is actually watching.
+ */
+export function PerpPositionsPanel({
+  compact = false,
+  symbol,
+}: {
+  compact?: boolean;
+  symbol?: string;
+} = {}) {
   const [data, setData] = useState<PositionsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [needsWallet, setNeedsWallet] = useState(false);
@@ -110,6 +122,14 @@ export function PerpPositionsPanel() {
     }
   }
 
+  if (needsWallet && compact) {
+    return (
+      <p className="p-3 text-[11px] text-[var(--text-subtle)]">
+        Link a verified wallet to trade perpetuals.
+      </p>
+    );
+  }
+
   if (needsWallet) {
     return (
       <Card>
@@ -130,6 +150,10 @@ export function PerpPositionsPanel() {
     return <Notice tone="negative">{error}</Notice>;
   }
 
+  if (!data && compact) {
+    return <p className="p-3 text-[11px] text-[var(--text-subtle)]">Loading…</p>;
+  }
+
   if (!data) {
     return (
       <Card>
@@ -138,6 +162,14 @@ export function PerpPositionsPanel() {
           <Skeleton className="h-16 w-full" />
         </CardContent>
       </Card>
+    );
+  }
+
+  if (!data.summary.hasCollateral && compact) {
+    return (
+      <p className="p-3 text-[11px] text-[var(--text-subtle)]">
+        No margin posted on the venue yet.
+      </p>
     );
   }
 
@@ -153,6 +185,29 @@ export function PerpPositionsPanel() {
           }
         />
       </Card>
+    );
+  }
+
+  const positions = symbol
+    ? data.positions.filter((position) => position.symbol === symbol)
+    : data.positions;
+
+  if (compact) {
+    return positions.length === 0 ? (
+      <p className="p-3 text-[11px] text-[var(--text-subtle)]">
+        No open position{symbol ? ` on ${symbol}` : ''}.
+      </p>
+    ) : (
+      <ul className="divide-y divide-[var(--border)]">
+        {positions.map((position) => (
+          <PositionRow
+            key={position.symbol}
+            position={position}
+            busy={closing === position.symbol}
+            onClose={() => void close(position.symbol)}
+          />
+        ))}
+      </ul>
     );
   }
 
@@ -173,14 +228,14 @@ export function PerpPositionsPanel() {
           <CardTitle>Open positions</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {data.positions.length === 0 ? (
+          {positions.length === 0 ? (
             <EmptyState
               title="No open positions"
               description="Positions you open will appear here with their liquidation price."
             />
           ) : (
             <ul className="divide-y divide-[var(--border)]">
-              {data.positions.map((position) => (
+              {positions.map((position) => (
                 <PositionRow
                   key={position.symbol}
                   position={position}

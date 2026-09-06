@@ -4,7 +4,11 @@ import { Decimal, initialMargin, notional } from '@flt/core/domain';
 import { z } from 'zod';
 import { boundPrice } from './mock';
 import type {
+  Candle,
+  OrderBook,
   OrderPreview,
+  PerpCandleInterval,
+  PerpTrade,
   PerpAccountRef,
   PerpAccountSummary,
   PerpMarket,
@@ -76,6 +80,16 @@ const HYPERLIQUID_CHAIN_ID = 1337;
  */
 const SIGNATURE_CHAIN_ID = 42_161;
 
+/** How far back to reach for a given interval when requesting candles. */
+const INTERVAL_MINUTES: Record<PerpCandleInterval, number> = {
+  '1m': 1,
+  '5m': 5,
+  '15m': 15,
+  '1h': 60,
+  '4h': 240,
+  '1d': 1440,
+};
+
 const universeSchema = z.object({
   name: z.string(),
   szDecimals: z.coerce.number(),
@@ -123,6 +137,36 @@ const clearinghouseSchema = z.object({
       totalMarginUsed: z.string().nullish(),
     })
     .nullish(),
+});
+
+const bookLevelSchema = z.object({
+  px: z.string(),
+  sz: z.string(),
+  n: z.coerce.number().nullish(),
+});
+
+const bookSchema = z.object({
+  coin: z.string(),
+  levels: z.tuple([z.array(bookLevelSchema), z.array(bookLevelSchema)]),
+  time: z.coerce.number().nullish(),
+});
+
+const candleSchema = z.object({
+  t: z.coerce.number(),
+  o: z.string(),
+  h: z.string(),
+  l: z.string(),
+  c: z.string(),
+  v: z.string(),
+});
+
+const tradeSchema = z.object({
+  px: z.string(),
+  sz: z.string(),
+  // "B" when the aggressor bought. Anything else is treated as a sell rather
+  // than trusted blindly, so an unexpected value cannot paint the tape green.
+  side: z.string(),
+  time: z.coerce.number(),
 });
 
 const agentSchema = z.array(
@@ -182,6 +226,82 @@ export class HyperliquidPerpVenue implements PerpVenue {
   async getMarket(symbol: string): Promise<PerpMarket | null> {
     const markets = await this.listMarkets();
     return markets.find((m) => m.symbol.toUpperCase() === symbol.toUpperCase()) ?? null;
+  }
+
+  async getOrderBook(symbol: string, depth = 12): Promise<OrderBook> {
+    const market = await this.requireMarket(symbol);
+    const raw = bookSchema.parse(await this.info({ type: 'l2Book', coin: market.symbol }));
+
+    const [bids, asks] = raw.levels;
+    const level = (entry: { px: string; sz: string; n?: number | null }) => ({
+      price: entry.px,
+      size: entry.sz,
+      orderCount: entry.n ?? null,
+    });
+
+    return {
+      symbol: market.symbol,
+      // Hyperliquid already returns bids descending and asks ascending. Sorted
+      // again rather than assumed: a ladder rendered from a wrongly ordered
+      // book puts the best price in the middle of the list, which reads as a
+      // spread that does not exist.
+      bids: bids.map(level).sort((a, b) => Number(b.price) - Number(a.price)).slice(0, depth),
+      asks: asks.map(level).sort((a, b) => Number(a.price) - Number(b.price)).slice(0, depth),
+      capturedAt: raw.time ? new Date(raw.time) : new Date(),
+    };
+  }
+
+  async getCandles(
+    symbol: string,
+    interval: PerpCandleInterval,
+    limit = 200,
+  ): Promise<Candle[]> {
+    const market = await this.requireMarket(symbol);
+    const minutes = INTERVAL_MINUTES[interval];
+    const endTime = Date.now();
+    const startTime = endTime - minutes * 60_000 * limit;
+
+    const raw = z
+      .array(candleSchema)
+      .parse(
+        await this.info({
+          type: 'candleSnapshot',
+          req: { coin: market.symbol, interval, startTime, endTime },
+        }),
+      );
+
+    return raw
+      .map((candle) => ({
+        // Lightweight Charts wants seconds; the venue reports milliseconds.
+        time: Math.floor(candle.t / 1000),
+        open: Number(candle.o),
+        high: Number(candle.h),
+        low: Number(candle.l),
+        close: Number(candle.c),
+        volume: Number(candle.v),
+      }))
+      .filter((candle) => Number.isFinite(candle.open) && Number.isFinite(candle.close))
+      .sort((a, b) => a.time - b.time);
+  }
+
+  async getRecentTrades(symbol: string, limit = 40): Promise<PerpTrade[]> {
+    const market = await this.requireMarket(symbol);
+    const raw = z
+      .array(tradeSchema)
+      .parse(await this.info({ type: 'recentTrades', coin: market.symbol }));
+
+    // The venue also returns both counterparties on every trade. They are
+    // dropped here rather than at the route, so no caller can accidentally
+    // forward them.
+    return raw
+      .slice(0, limit)
+      .map((trade) => ({
+        price: trade.px,
+        size: trade.sz,
+        side: trade.side === 'B' ? ('BUY' as const) : ('SELL' as const),
+        at: new Date(trade.time),
+      }))
+      .sort((a, b) => b.at.getTime() - a.at.getTime());
   }
 
   async getPositions(account: PerpAccountRef): Promise<PerpPosition[]> {

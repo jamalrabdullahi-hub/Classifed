@@ -7,7 +7,12 @@
  * Re-exported so adapter code can keep importing from a neighbouring module.
  */
 export type {
+  Candle,
   NormalizedVenueOrder,
+  OrderBook,
+  OrderBookLevel,
+  PerpCandleInterval,
+  PerpTrade,
   OrderPreview,
   PerpAccountRef,
   PerpAccountSummary,

@@ -12,7 +12,7 @@ import {
   type UTCTimestamp,
 } from 'lightweight-charts';
 import { useEffect, useRef, useState } from 'react';
-import type { Candle, CandleInterval } from '@flt/core/ports';
+import type { Candle, CandleInterval, PerpCandleInterval } from '@flt/core/ports';
 
 /**
  * Price chart.
@@ -32,7 +32,12 @@ import type { Candle, CandleInterval } from '@flt/core/ports';
 
 interface PriceChartProps {
   candles: Candle[];
-  interval: CandleInterval;
+  /**
+   * Only used to decide whether the time axis shows a clock, so it accepts the
+   * perpetual intervals too rather than forcing the terminal to keep a second
+   * chart component that differs in nothing else.
+   */
+  interval: CandleInterval | PerpCandleInterval;
   /** Decimal places for the price axis, derived from the price magnitude. */
   precision: number;
   height?: number;
@@ -157,9 +162,18 @@ export function PriceChart({ candles, interval, precision, height = 380 }: Price
 
     // The container is width-driven by its parent; the chart is not, so it has
     // to be told when that width changes.
+    //
+    // Refitting after the resize is not optional. The library keeps its bar
+    // spacing across a width change and anchors the newest bar to the right
+    // edge, so a chart that was fitted while its container was still narrow —
+    // which is the normal case inside a flex or grid panel that settles after
+    // mount — ends up with every candle crushed against the right and dead
+    // space on the left. It looks like missing data and is not.
     const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width;
-      if (width) instance.applyOptions({ width });
+      if (!width) return;
+      instance.applyOptions({ width });
+      instance.timeScale().fitContent();
     });
     observer.observe(container.current);
 
