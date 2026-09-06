@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { TriangleAlert } from 'lucide-react';
 import { Button, Card, CardContent, CardHeader, CardTitle, Field, Input, Notice, cn } from '@flt/ui';
 import { ApiError, post } from '@/lib/api';
+import { PerpSubmit } from '@/components/perp-submit';
+import type { SubmittableOrder } from '@/lib/hyperliquid-agent';
 
 /**
  * The perpetual order ticket.
@@ -45,6 +47,8 @@ interface Props {
    */
   venueMaxLeverage: number;
   venueName: string;
+  /** The maximum fee the user approves, as a percentage string, e.g. "0.1%". */
+  builderMaxFeeRate: string;
   /**
    * A price the user clicked in the order book.
    *
@@ -59,7 +63,14 @@ interface Props {
 interface PreparedResponse {
   orderId: string;
   kind: 'OPEN';
-  action: unknown;
+  action:
+    | {
+        kind: 'venue-order';
+        endpoint: string;
+        requiresAgentKey: boolean;
+        order: SubmittableOrder & { symbol: string };
+      }
+    | { kind: 'evm-transaction' | 'typed-data' };
   preview: {
     notional: string;
     marginRequired: string;
@@ -78,6 +89,7 @@ export function PerpOrderForm({
   maxLeverage,
   venueMaxLeverage,
   venueName,
+  builderMaxFeeRate,
   priceFromBook = null,
   embedded = false,
 }: Props) {
@@ -159,7 +171,9 @@ export function PerpOrderForm({
         side={side}
         leverage={leverage}
         venueName={venueName}
+        builderMaxFeeRate={builderMaxFeeRate}
         onBack={() => setPrepared(null)}
+        onSubmitted={() => setSize('')}
       />
     );
   }
@@ -291,14 +305,18 @@ function ReviewPanel({
   side,
   leverage,
   venueName,
+  builderMaxFeeRate,
   onBack,
+  onSubmitted,
 }: {
   prepared: PreparedResponse;
   symbol: string;
   side: 'LONG' | 'SHORT';
   leverage: number;
   venueName: string;
+  builderMaxFeeRate: string;
   onBack: () => void;
+  onSubmitted: () => void;
 }) {
   return (
     <Card>
@@ -344,13 +362,20 @@ function ReviewPanel({
           </Notice>
         ))}
 
-        {/* The signing step is not built yet. Saying so plainly beats a button
-            that looks live and does nothing. */}
-        <Notice tone="warning" title="Signing is not connected yet">
-          This order has been prepared and recorded, but submitting it needs the {venueName}{' '}
-          signing step, which is not wired up in this build. Nothing has been sent and no margin has
-          moved.
-        </Notice>
+        {prepared.action.kind === 'venue-order' ? (
+          <PerpSubmit
+            orderId={prepared.orderId}
+            order={prepared.action.order}
+            venueName={venueName}
+            builderMaxFeeRate={builderMaxFeeRate}
+            onDone={onSubmitted}
+          />
+        ) : (
+          <Notice tone="warning" title="This venue needs a different signing step">
+            The order was prepared but this build cannot submit it to {venueName}. Nothing has been
+            sent and no margin has moved.
+          </Notice>
+        )}
 
         <Button variant="secondary" block onClick={onBack}>
           Back

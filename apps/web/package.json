@@ -17,6 +17,7 @@
     "@flt/db": "workspace:*",
     "@flt/providers": "workspace:*",
     "@flt/ui": "workspace:*",
+    "@nktkas/hyperliquid": "0.33.3",
     "@tanstack/react-query": "^5.62.11",
     "lightweight-charts": "^5.2.1",
     "lucide-react": "^0.469.0",

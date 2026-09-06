@@ -28,12 +28,15 @@ export function PerpTerminal({
   venueName,
   venueIsMock,
   requiresBridgedCollateral,
+  builderMaxFeeRate,
 }: {
   market: TickerMarket;
   markets: Array<{ symbol: string }>;
   venueName: string;
   venueIsMock: boolean;
   requiresBridgedCollateral: boolean;
+  /** What the user approves as FLT's maximum fee, e.g. "0.1%". */
+  builderMaxFeeRate: string;
 }) {
   // Clicking a book level fills the ticket. Held here because the book and the
   // ticket are siblings and neither should own the other.
@@ -78,6 +81,7 @@ export function PerpTerminal({
             maxLeverage={market.maxLeverage}
             venueMaxLeverage={market.venueMaxLeverage}
             venueName={venueName}
+            builderMaxFeeRate={builderMaxFeeRate}
             priceFromBook={priceFromBook}
             embedded
           />
