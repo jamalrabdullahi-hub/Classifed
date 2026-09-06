@@ -37,6 +37,14 @@ interface SeedToken {
   isNativeWrapper?: boolean;
 }
 
+/**
+ * The platform's headline spot rate, in basis points.
+ *
+ * Applies to any trade no rule matches more specifically. Editable per chain,
+ * token or account tier through `fee_configs` without touching this.
+ */
+const DEFAULT_FEE_BPS = 25;
+
 const BASE_TOKENS: SeedToken[] = [
   {
     address: NATIVE_SENTINEL,
@@ -165,9 +173,15 @@ async function main(): Promise<void> {
   console.info('  providers  zeroex, mock');
 
   // ── Default fee ──────────────────────────────────────────────────────────
-  // Zero basis points. The row exists so the resolver has a default to find and
-  // an operator has something to edit; charging a fee is a deliberate act, not
-  // a default nobody chose.
+  // 25 basis points on every swap, unless a more specific rule outranks it.
+  //
+  // Deliberately seeded at the live rate rather than at zero, so a fresh
+  // environment prices trades the same way production does. A developer
+  // discovering the fee only after deploying is the wrong order to learn it in.
+  //
+  // The resolver still charges nothing until FLT_FEE_RECIPIENT_ADDRESS is set,
+  // because a fee with nowhere to go would mean embedding an empty address in
+  // the swap. That check, not this number, is what keeps a fresh checkout free.
   const existingDefault = await prisma.feeConfig.findFirst({
     where: { name: 'Default', chainId: null, tokenAddress: null, accountType: null },
   });
@@ -177,13 +191,13 @@ async function main(): Promise<void> {
         id: randomUUID(),
         name: 'Default',
         feeType: FeeType.PERCENTAGE,
-        bps: 0,
+        bps: DEFAULT_FEE_BPS,
         priority: 0,
         isEnabled: true,
       },
     });
   }
-  console.info('  fees       Default 0 bps');
+  console.info(`  fees       Default ${DEFAULT_FEE_BPS} bps`);
 
   // ── Perpetual markets ────────────────────────────────────────────────────
   // Deliberately not seeded with hardcoded venue asset ids. A venue's asset id

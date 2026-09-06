@@ -65,8 +65,9 @@ treating the feature as finished.
   data, it just fails to send mail — but it means **no one can complete
   signup or reset a password against this deployment today.** Set
   `MAIL_PROVIDER=resend` and `RESEND_API_KEY` to close this.
-- **`FLT_FEE_RECIPIENT_ADDRESS`** is blank, so the platform currently takes a
-  0 bps fee on every trade.
+- ~~`FLT_FEE_RECIPIENT_ADDRESS` is blank~~ — **resolved.** Fees are live: 25 bps
+  on spot, paid to `0xb3dc877Fb48022D36412314B68139e8939affDBa`, and 10 bps
+  configured for Hyperliquid builder codes. See "Fees" below.
 - **Admin panel network restriction**: the `allow`/`deny` block in
   `ftlexchange.com.nginx.conf` for `admin.ftlexchange.com` is commented out.
   The panel is reachable from the open internet behind only its own
@@ -179,3 +180,41 @@ built; a user has to move funds themselves.
 - **Liquidations are recorded as suspected, not observed.** The venue does not
   report why a position closed, so the worker logs a position that vanished
   while near its liquidation price as suspected and says so in the audit entry.
+
+
+## Fees
+
+Live since 2026-09-06.
+
+| | Rate | Where it is set | Status |
+|---|---|---|---|
+| Spot swap | 25 bps (0.25%) | The `Default` row in `fee_configs` | **Collecting** |
+| Perp builder code | 10 bps | `PERP_BUILDER_FEE_BPS` (env) | Configured, not yet collecting |
+
+Both pay to `0xb3dc877Fb48022D36412314B68139e8939affDBa` on Base.
+
+Verified against a live 0x quote: 100 USDC → WETH returned a fee of 0.00010065
+WETH, an implied 25.00 bps, about $0.25 on a $100 trade.
+
+### Two things to know about how this money arrives
+
+**Spot fees arrive as the token being bought**, not as a stablecoin. `quotes.ts`
+sets `feeTokenAddress` to the buy token, which is how 0x's affiliate mechanism
+works. The wallet will accumulate whatever users buy — cbBTC, WETH, AERO, USDC —
+so expect dust across several ERC-20s and plan a periodic consolidation.
+
+**Perp fees are not collecting yet.** Hyperliquid requires the *user* to approve
+a builder before it will accept orders carrying that builder code, and that
+approval is signed in the browser as part of the order-signing path, which is not
+built. The 10 bps is attached to prepared orders and validated against the
+venue's cap, so it is correct and harmless — it simply cannot be charged until
+signing ships.
+
+### Changing the rate
+
+`fee_configs` resolves most-specific-first: token (+4), chain (+2), account tier
+(+1), with `priority` breaking ties. So a cheaper institutional rate is a new row
+with `accountType = 'INSTITUTION'`, and it outranks the default automatically.
+
+Editing a rule currently requires direct database access — the admin panel's fee
+page is read-only. That is the next piece of work.
