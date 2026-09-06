@@ -75,6 +75,14 @@ export async function syncPerpetuals(): Promise<PerpSyncResult> {
       });
       const marketBySymbol = new Map(markets.map((market) => [market.symbol, market.id]));
 
+      // The venue reports positions without a mark price, so it has to come
+      // from the market list. Without it `markPrice` was never written, and the
+      // near-liquidation check below — which reads it off the last snapshot —
+      // could never fire, making PERP_POSITION_LIQUIDATED unreachable. The
+      // interface hid this by joining the mark price live at read time.
+      const live = positions.length > 0 ? await venue.listMarkets() : [];
+      const markBySymbol = new Map(live.map((market) => [market.symbol, market.markPrice]));
+
       const seen = new Set<string>();
 
       for (const position of positions) {
@@ -100,6 +108,7 @@ export async function syncPerpetuals(): Promise<PerpSyncResult> {
             marginMode: position.marginMode,
             leverage: position.leverage,
             liquidationPrice: position.liquidationPrice,
+            markPrice: markBySymbol.get(position.symbol) ?? null,
             unrealizedPnl: position.unrealizedPnl,
             fundingPaid: position.fundingPaid,
             capturedAt: new Date(),
@@ -112,6 +121,12 @@ export async function syncPerpetuals(): Promise<PerpSyncResult> {
             marginMode: position.marginMode,
             leverage: position.leverage,
             liquidationPrice: position.liquidationPrice,
+            // Kept from the previous snapshot when the venue is momentarily not
+            // quoting: a null here would erase the last known mark and disarm
+            // the liquidation check exactly when it matters most.
+            ...(markBySymbol.get(position.symbol)
+              ? { markPrice: markBySymbol.get(position.symbol) }
+              : {}),
             unrealizedPnl: position.unrealizedPnl,
             fundingPaid: position.fundingPaid,
             capturedAt: new Date(),

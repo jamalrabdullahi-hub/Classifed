@@ -4,6 +4,7 @@ import { runMonitorPass } from './monitor';
 import { runHousekeeping } from './housekeeping';
 import { refreshMarketData } from './market';
 import { syncPerpetuals } from './perps';
+import { sweepProtectionPolicies } from './protection';
 
 /**
  * The FLT worker.
@@ -28,6 +29,12 @@ const MARKET_DATA_INTERVAL_MS = 120_000;
  * FLT never witnessing its own orders being filled.
  */
 const PERP_SYNC_INTERVAL_MS = 20_000;
+/**
+ * Protection policies are recalculated far less often than positions are
+ * synced. Their state follows volatility estimated over days, not the tick,
+ * and each pass costs a candle request per policy.
+ */
+const PROTECTION_SWEEP_INTERVAL_MS = 120_000;
 
 let shuttingDown = false;
 
@@ -78,6 +85,9 @@ async function main(): Promise<void> {
   console.info(
     `  perpetuals    ${config.PERPS_ENABLED ? `${config.PERP_VENUE}, every ${PERP_SYNC_INTERVAL_MS}ms` : 'disabled'}`,
   );
+  console.info(
+    `  protection    ${config.PERPS_ENABLED ? `every ${PROTECTION_SWEEP_INTERVAL_MS}ms` : 'disabled'}`,
+  );
 
   // Fail fast if the database is unreachable, rather than logging a failed pass
   // every few seconds forever.
@@ -90,6 +100,9 @@ async function main(): Promise<void> {
 
   if (config.PERPS_ENABLED) {
     loop('perps', PERP_SYNC_INTERVAL_MS, syncPerpetuals);
+    // Slower than the position sync: a policy's state follows volatility over
+    // hours, not the tick-by-tick mark, and every pass costs candle requests.
+    loop('protection', PROTECTION_SWEEP_INTERVAL_MS, sweepProtectionPolicies);
   }
 }
 

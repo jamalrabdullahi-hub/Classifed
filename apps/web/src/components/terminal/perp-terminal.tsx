@@ -5,6 +5,7 @@ import { PerpChart } from './perp-chart';
 import { OrderBook } from './order-book';
 import { TradeTape } from './trade-tape';
 import { TickerStrip, type TickerMarket } from './ticker-strip';
+import { ProtectionPanel } from './protection-panel';
 import { PerpOrderForm } from '@/components/perp-order-form';
 import { PerpPositionsPanel } from '@/components/perp-positions';
 
@@ -103,6 +104,15 @@ export function PerpTerminal({
           <FundingPanel market={market} requiresBridged={requiresBridgedCollateral} venueName={venueName} />
         </Panel>
       </div>
+
+      {/*
+        Full width rather than a fourth column: the panel's point is the
+        comparison between three policies, and three policies plus their inputs
+        do not read in a 264px rail.
+      */}
+      <Panel label="Position protection — calculation only" className="border-t">
+        <ProtectionPanel symbol={market.symbol} markPrice={market.markPrice} />
+      </Panel>
     </div>
   );
 }

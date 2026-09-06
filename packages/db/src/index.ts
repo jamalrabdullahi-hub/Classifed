@@ -38,6 +38,9 @@ export type {
   PerpMarket,
   PerpOrder,
   PerpPositionSnapshot,
+  ProtectionPolicy,
+  ProtectionEvent,
+  ProtectionLedgerEntry,
 } from '@prisma/client';
 
 export {
@@ -59,4 +62,7 @@ export {
   PerpMarginMode,
   PerpOrderStatus,
   PerpOrderKind,
+  ProtectionPolicyKind,
+  ProtectionState,
+  ProtectionLedgerKind,
 } from '@prisma/client';
