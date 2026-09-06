@@ -38,3 +38,7 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Brand: generated review sheet, and the licensed typeface (never commit the font)
+brand/review.html
+brand/fonts/

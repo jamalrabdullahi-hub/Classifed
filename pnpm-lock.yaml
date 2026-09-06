@@ -112,6 +112,9 @@ importers:
       '@types/node':
         specifier: ^22.10.5
         version: 22.20.1
+      opentype.js:
+        specifier: ^2.0.0
+        version: 2.0.0
       prettier:
         specifier: ^3.4.2
         version: 3.9.6
@@ -3521,6 +3524,10 @@ packages:
 
   openapi-typescript-helpers@0.0.15:
     resolution: {integrity: sha512-opyTPaunsklCBpTK8JGef6mfPhLSnyy5a0IN9vKtx3+4aExf+KxEqYwIy3hqkedXIB97u357uLMJsOnm3GVjsw==}
+
+  opentype.js@2.0.0:
+    resolution: {integrity: sha512-kCyjv6xdDY1W/jLWZ/L3QhhTlKUqDZMQ5+Jdlw12b3dXkKNpYBqqlMMj0YDQPShWFTMwgZI1hG14kN3XUDSg/A==}
+    hasBin: true
 
   otpauth@9.5.2:
     resolution: {integrity: sha512-GQ5emWR/x1tcExT62IBT0UfO95wZzJZyxYOJOGVeQF47SYEN9vmh0vISvDZaNMuFJRG+IaWCKtfm+t9Bfoal6w==}
@@ -8070,6 +8077,8 @@ snapshots:
       openapi-typescript-helpers: 0.0.15
 
   openapi-typescript-helpers@0.0.15: {}
+
+  opentype.js@2.0.0: {}
 
   otpauth@9.5.2:
     dependencies:
