@@ -4,6 +4,7 @@ import { ArrowRight, KeyRound, Route, ShieldCheck, Wallet } from 'lucide-react';
 import { Button } from '@flt/ui';
 import { Wordmark } from '@/components/brand';
 import { ThemeToggle } from '@/components/theme';
+import { env } from '@flt/config';
 import { currentUser } from '@/server/session';
 
 /**
@@ -20,6 +21,8 @@ import { currentUser } from '@/server/session';
 export default async function HomePage() {
   const user = await currentUser();
   if (user) redirect('/dashboard');
+
+  const perpsEnabled = env().PERPS_ENABLED;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -126,9 +129,20 @@ export default async function HomePage() {
               <p className="mt-3 text-[14px] leading-relaxed text-[var(--text-muted)]">
                 Being clear about the limits matters more than a feature list. FLT is deliberately
                 not a centralized exchange, and several things you may expect from one are absent by
-                design. Perpetual futures are available to verified accounts and are leveraged
-                products: they can be closed automatically and you can lose the margin backing
-                them.
+                design.
+                {/* Tied to the flag rather than written as a fixed claim. This
+                    sentence has now been wrong in both directions: it once said
+                    leverage was not offered after perpetuals were built, and
+                    saying they are available while the feature is switched off
+                    would be just as untrue. */}
+                {perpsEnabled ? (
+                  <>
+                    {' '}
+                    Perpetual futures are available to verified accounts and are leveraged
+                    products: they can be closed automatically and you can lose the margin
+                    backing them.
+                  </>
+                ) : null}
               </p>
             </div>
 
