@@ -23,22 +23,33 @@ import { isProduction } from '@flt/config';
  * a customer session are never interchangeable.
  */
 
-const cookieOptions = {
-  httpOnly: true,
-  sameSite: 'lax' as const,
-  secure: isProduction(),
-  path: '/',
-};
+/**
+ * Computed per call rather than once at module scope.
+ *
+ * Module-scope evaluation reads the environment when the module is first
+ * imported — which during `next build` is page-data collection, where NODE_ENV
+ * is already "production" but the real production configuration is not present.
+ * The environment schema then correctly refuses to boot and the build fails on
+ * a developer's machine.
+ */
+function cookieOptions() {
+  return {
+    httpOnly: true,
+    sameSite: 'lax' as const,
+    secure: isProduction(),
+    path: '/',
+  };
+}
 
 export async function setSessionCookie(token: string, expiresAt: Date): Promise<void> {
   const store = await cookies();
-  store.set(SESSION_COOKIE, token, { ...cookieOptions, expires: expiresAt });
+  store.set(SESSION_COOKIE, token, { ...cookieOptions(), expires: expiresAt });
 }
 
 export async function setDeviceCookie(value: string): Promise<void> {
   const store = await cookies();
   store.set(DEVICE_COOKIE, value, {
-    ...cookieOptions,
+    ...cookieOptions(),
     // Long-lived on purpose: it is what distinguishes "the same laptop again"
     // from "a new device signed in".
     maxAge: 60 * 60 * 24 * 400,

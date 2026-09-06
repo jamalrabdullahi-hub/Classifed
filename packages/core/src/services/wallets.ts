@@ -155,15 +155,37 @@ export async function completeLink(
     throw new ValidationError('That verification request is incomplete. Start again.');
   }
 
-  // The signed message must be the one we issued. Verifying a client-supplied
-  // message that merely contains our nonce would let a caller sign something
-  // else entirely.
-  if (!input.message.includes(`Nonce: ${input.nonce}`)) {
-    throw new SignatureVerificationError('The signed message does not match the one issued.');
-  }
-
   const address = checksumAddress(record.address);
   const chainId = record.chainId;
+
+  /*
+   * The signed message must be byte-for-byte the one we issued.
+   *
+   * Checking only that it CONTAINS our nonce is not enough. An attacker can
+   * request a challenge naming a victim's address, then phish the victim into
+   * signing some other message that happens to embed that nonce — and the
+   * signature would verify against the victim's address. They could not spend
+   * anything, since FLT holds no keys, but they would have linked someone
+   * else's address to their own account.
+   *
+   * The message is reconstructed rather than stored: `expiresAt` was computed
+   * from `issuedAt`, so the original is derivable exactly, and there is no
+   * second copy to drift out of step with the builder.
+   */
+  const appUrl = new URL(env().WEB_APP_URL);
+  const expected = buildSiweMessage({
+    domain: appUrl.host,
+    address,
+    uri: appUrl.origin,
+    chainId,
+    nonce: record.nonce,
+    issuedAt: new Date(record.expiresAt.getTime() - NONCE_TTL_MS),
+    expiresAt: record.expiresAt,
+  });
+
+  if (input.message !== expected) {
+    throw new SignatureVerificationError('The signed message does not match the one issued.');
+  }
 
   let valid = false;
   try {
