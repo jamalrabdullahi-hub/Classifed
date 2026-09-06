@@ -11,6 +11,9 @@ import { MockPriceHistoryProvider } from './history/mock';
 import type { PriceHistoryProvider } from './history/types';
 import { ManualReviewKycProvider } from './kyc/manual';
 import type { KycProvider } from './kyc/types';
+import { MockPerpVenue } from './perps/mock';
+import { HyperliquidPerpVenue } from './perps/hyperliquid';
+import type { PerpVenue } from './perps/types';
 import { ConsoleMailProvider } from './mail/console';
 import { ResendMailProvider } from './mail/resend';
 import type { MailProvider } from './mail/types';
@@ -30,6 +33,7 @@ import type { MailProvider } from './mail/types';
 
 interface Registry {
   dex: DEXRouter;
+  perps: PerpVenue;
   market: MarketDataProvider;
   history: PriceHistoryProvider;
   kyc: KycProvider;
@@ -99,11 +103,22 @@ function build(): Registry {
     }
   })();
 
+  const perps: PerpVenue = (() => {
+    switch (config.PERP_VENUE) {
+      case 'mock':
+        return new MockPerpVenue();
+      case 'hyperliquid':
+        return new HyperliquidPerpVenue();
+      default:
+        throw new Error(`Unknown PERP_VENUE: ${config.PERP_VENUE satisfies never}`);
+    }
+  })();
+
   // Phase 2 replaces this one line. Everything on the quote path already calls
   // through the interface, so nothing else has to change. See ADR 0003.
   const risk: RiskEngine = new NoopRiskEngine();
 
-  return { dex, market, history, kyc, mail, risk };
+  return { dex, perps, market, history, kyc, mail, risk };
 }
 
 function registry(): Registry {
@@ -113,6 +128,10 @@ function registry(): Registry {
 
 export function dexRouter(): DEXRouter {
   return registry().dex;
+}
+
+export function perpVenue(): PerpVenue {
+  return registry().perps;
 }
 
 export function marketDataProvider(): MarketDataProvider {

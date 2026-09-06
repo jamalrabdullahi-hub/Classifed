@@ -20,3 +20,18 @@ export type {
   PriceHistoryRequest,
 } from './history';
 export { CANDLE_INTERVALS, isCandleInterval } from './history';
+
+export type {
+  NormalizedVenueOrder,
+  OrderPreview,
+  PerpAccountRef,
+  PerpAccountSummary,
+  PerpIntegratorFee,
+  PerpVenue,
+  PrepareCloseRequest,
+  PrepareLeverageRequest,
+  PrepareOrderRequest,
+  PreparedAction,
+  TypedDataRequest,
+  VenueAuthorization,
+} from './perps';

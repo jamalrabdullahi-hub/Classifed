@@ -1,5 +1,6 @@
 export {
   dexRouter,
+  perpVenue,
   marketDataProvider,
   priceHistoryProvider,
   kycProvider,
@@ -9,6 +10,7 @@ export {
 } from './registry';
 
 export * from './dex/index';
+export * from './perps/index';
 export * from './market/index';
 export * from './history/index';
 export * from './kyc/index';

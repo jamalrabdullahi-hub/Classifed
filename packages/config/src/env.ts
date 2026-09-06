@@ -57,6 +57,36 @@ const schema = z.object({
   ZEROEX_API_KEY: z.string().optional(),
   ZEROEX_API_BASE_URL: z.string().url().default('https://api.0x.org'),
 
+  // ── Perpetual futures ────────────────────────────────────────────────────
+  /**
+   * Perpetuals are off by default.
+   *
+   * They are a leveraged derivative, not spot, and a deployment should have to
+   * say out loud that it is offering them rather than inherit them from a
+   * default. Setting this to anything other than `off` also turns on the
+   * jurisdiction and risk disclosures that go with them.
+   */
+  PERPS_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  PERP_VENUE: z.enum(['mock', 'hyperliquid']).default('mock'),
+  HYPERLIQUID_API_URL: z.string().url().default('https://api.hyperliquid.xyz'),
+  /**
+   * FLT's builder code. Hyperliquid caps perpetual builder fees at 10 bps and
+   * the adapter refuses anything above it.
+   */
+  HYPERLIQUID_BUILDER_ADDRESS: optionalAddress,
+  PERP_BUILDER_FEE_BPS: z.coerce.number().int().min(0).max(10).default(0),
+  /**
+   * A ceiling FLT imposes on top of whatever the venue allows.
+   *
+   * Hyperliquid lists markets at up to 40x and other venues go far higher.
+   * Offering a retail user the venue's maximum because the venue permits it is
+   * a decision, and this is where it gets made rather than being inherited.
+   */
+  PERP_MAX_LEVERAGE: z.coerce.number().int().min(1).max(100).default(10),
+
   // ── Fees ─────────────────────────────────────────────────────────────────
   FLT_FEE_RECIPIENT_ADDRESS: optionalAddress,
 
@@ -126,6 +156,15 @@ function load(): Env {
     // sit next to a real quote.
     if (value.PRICE_HISTORY_PROVIDER === 'mock') {
       problems.push('PRICE_HISTORY_PROVIDER=mock cannot be used in production');
+    }
+    // A simulated venue quotes positions that do not exist and liquidation
+    // prices for collateral nobody posted. Same reasoning as the mock router,
+    // with leverage on top.
+    if (value.PERPS_ENABLED && value.PERP_VENUE === 'mock') {
+      problems.push('PERP_VENUE=mock cannot be used in production');
+    }
+    if (value.PERP_BUILDER_FEE_BPS > 0 && !value.HYPERLIQUID_BUILDER_ADDRESS) {
+      problems.push('PERP_BUILDER_FEE_BPS requires HYPERLIQUID_BUILDER_ADDRESS');
     }
     if (value.MAIL_PROVIDER === 'resend' && !value.RESEND_API_KEY) {
       problems.push('MAIL_PROVIDER=resend requires RESEND_API_KEY');
