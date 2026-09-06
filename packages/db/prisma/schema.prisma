@@ -183,17 +183,18 @@ model User {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
-  sessions      UserSession[]
-  devices       UserDevice[]
-  mfaSecret     MfaSecret?
-  recoveryCodes MfaRecoveryCode[]
-  emailTokens   EmailToken[]
-  kycProfile    KycProfile?
-  wallets       Wallet[]
-  quotes        Quote[]
-  transactions  Transaction[]
-  perpOrders    PerpOrder[]
-  perpPositions PerpPositionSnapshot[]
+  sessions           UserSession[]
+  devices            UserDevice[]
+  mfaSecret          MfaSecret?
+  recoveryCodes      MfaRecoveryCode[]
+  emailTokens        EmailToken[]
+  kycProfile         KycProfile?
+  wallets            Wallet[]
+  quotes             Quote[]
+  transactions       Transaction[]
+  perpOrders         PerpOrder[]
+  perpPositions      PerpPositionSnapshot[]
+  protectionPolicies ProtectionPolicy[]
 
   @@index([accountStatus])
   @@index([createdAt])
@@ -372,6 +373,7 @@ model Wallet {
   snapshots             PortfolioSnapshot[]
   perpOrders            PerpOrder[]
   perpPositionSnapshots PerpPositionSnapshot[]
+  protectionPolicies    ProtectionPolicy[]
 
   @@unique([userId, address, chainId])
   @@index([address])
@@ -888,8 +890,9 @@ model PerpMarket {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  orders    PerpOrder[]
-  positions PerpPositionSnapshot[]
+  orders             PerpOrder[]
+  positions          PerpPositionSnapshot[]
+  protectionPolicies ProtectionPolicy[]
 
   @@unique([venueSlug, symbol])
   @@index([venueSlug, isEnabled])
@@ -1005,4 +1008,202 @@ model PerpPositionSnapshot {
   @@index([userId])
   @@index([capturedAt])
   @@map("perp_position_snapshots")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Position protection
+//
+// A takaful-shaped design: participants contribute to a shared protection
+// mechanism and an operator fee is kept strictly separate from participant
+// funds. The mathematics lives in @flt/core/protection; these tables record
+// what was calculated, when, and from which inputs.
+//
+// **No money moves through these tables.** FLT holds no participant funds and
+// cannot act on a position — the only key that can close one lives in the
+// user's browser. A contribution recorded here is a figure the participant
+// declared, not a balance FLT custodies, and every reduction is advice. The
+// ledger is built now so that when a pool does exist it is not retrofitted
+// onto records that never separated the two kinds of money.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum ProtectionPolicyKind {
+  BASE_DAY
+  BASE_SMOOTH
+  OMNI
+}
+
+/// §13's states. WARNING and POSITION_REDUCTION are reversible: a position that
+/// recovers returns to ACTIVE rather than being stranded in a state it can
+/// never leave. LIQUIDATED is the venue's outcome, not ours.
+enum ProtectionState {
+  CREATED
+  ACTIVE
+  WARNING
+  PROTECTION_ACTIVE
+  REBALANCE_REQUIRED
+  POSITION_REDUCTION
+  LIQUIDATED
+  EXPIRED
+  CANCELLED
+}
+
+/// What the entry recorded is, and whose money it would be.
+///
+/// The §19 requirement this enum exists to enforce: participant contribution
+/// and operator revenue are never summed into one balance. A query that wants
+/// "the pool" filters to the participant kinds; a query that wants revenue
+/// filters to OPERATOR_FEE. Neither can accidentally include the other.
+enum ProtectionLedgerKind {
+  /// Participant capital committed against a policy.
+  CONTRIBUTION
+  /// Participant capital returned when a rebase lowered the requirement.
+  RELEASE
+  /// Contribution consumed by the protection actually being used.
+  UTILIZATION
+  /// The operator's management fee. Never part of the pool.
+  OPERATOR_FEE
+  /// Venue execution cost attributed to a protection-driven reduction.
+  EXECUTION_FEE
+  /// Realised profit or loss on a reduction the policy recommended.
+  REALIZED_PNL
+}
+
+/// One participant's policy over one position.
+///
+/// Base Day and Base Smooth are entry-anchored, so their reference price is
+/// fixed at creation and never written again. Omni rebases, which is the only
+/// reason this table needs a mutable reference price at all.
+model ProtectionPolicy {
+  id        String               @id
+  userId    String
+  walletId  String
+  marketId  String
+  venueSlug String
+  kind      ProtectionPolicyKind
+  state     ProtectionState      @default(CREATED)
+
+  side PerpSide
+
+  /// Entry price, fixed for the life of the policy. Never silently modified —
+  /// §14 lists it first among the values that must not change.
+  entryPrice      String
+  /// What the boundary is currently anchored to. Equal to entryPrice for the
+  /// Base policies, forever; rewritten at each rebase for Omni.
+  referencePrice  String
+  /// Protected notional in USD, at the last calculation.
+  notional        String
+  /// Notional at creation, which is what Base Smooth's N_target scales from.
+  initialNotional String
+
+  /// Terms. §14 forbids changing any of these silently, so they are written
+  /// once at creation and a change is a new policy, not an update.
+  percentile         String
+  horizonDays        String
+  smoothStartAt      String?
+  volatilityModel    String
+  volatilityInterval String
+  volatilityWindow   Int
+
+  /// The last calculation's outputs, for display without recomputation. Never
+  /// authoritative — the calculation endpoint recomputes from live inputs.
+  lastZScore               String?
+  lastVolatility           String?
+  lastStatisticalMove      String?
+  lastBoundary             String?
+  lastRequiredContribution String?
+
+  /// What the participant has declared they hold against this policy. Not a
+  /// balance FLT custodies. See the section comment above.
+  declaredContribution String @default("0")
+
+  calculatedAt DateTime?
+  /// Omni only: when the next rebase is due.
+  nextRebaseAt DateTime?
+  closedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet Wallet     @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  market PerpMarket @relation(fields: [marketId], references: [id], onDelete: Cascade)
+
+  events ProtectionEvent[]
+  ledger ProtectionLedgerEntry[]
+
+  @@index([userId, state])
+  @@index([walletId, marketId])
+  @@index([state, nextRebaseAt])
+  @@map("protection_policies")
+}
+
+/// The immutable record §13 requires, one row per transition.
+///
+/// Append-only and written inside the same transaction as the state change, so
+/// a policy can never move without the reason being recorded. Deliberately not
+/// routed through audit(), which runs outside any transaction, swallows its own
+/// write errors, and would silently redact fields it recognises by name.
+///
+/// Every quantity is a decimal string. A float here would make the row
+/// irreproducible, which defeats the only purpose it has.
+model ProtectionEvent {
+  id       String @id
+  policyId String
+
+  fromState ProtectionState
+  toState   ProtectionState
+
+  /// The fourteen fields §13 names, plus the z convention — without which the
+  /// z-score cannot be checked against the percentile.
+  underlyingPrice            String
+  markPrice                  String?
+  volatility                 String
+  volatilityModel            String
+  percentile                 String
+  zScore                     String
+  zConvention                String
+  horizonDays                String
+  boundary                   String
+  requiredContribution       String
+  currentContribution        String
+  positionSize               String
+  notional                   String
+  /// What the engine advised. Never what it did — it cannot do anything.
+  action                     String
+  executionPrice             String?
+  fee                        String?
+  remainingProtectionBalance String?
+
+  occurredAt DateTime @default(now())
+
+  policy ProtectionPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@index([policyId, occurredAt])
+  @@map("protection_events")
+}
+
+/// §19's ledger. Participant funds and operator revenue are separate rows with
+/// separate kinds and are never netted against each other.
+model ProtectionLedgerEntry {
+  id       String               @id
+  policyId String
+  kind     ProtectionLedgerKind
+
+  /// Signed. Positive adds to the balance of that kind, negative removes.
+  amount       String
+  /// The running balance of this kind after the entry, so a statement can be
+  /// read without replaying every prior row.
+  balanceAfter String
+
+  /// Why the entry exists, in the participant's terms.
+  reason  String
+  /// The event that caused it, when a state change did.
+  eventId String?
+
+  occurredAt DateTime @default(now())
+
+  policy ProtectionPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@index([policyId, kind, occurredAt])
+  @@map("protection_ledger_entries")
 }

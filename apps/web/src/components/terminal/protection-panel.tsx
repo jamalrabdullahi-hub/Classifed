@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { ApiError, get } from '@/lib/api';
+import { PolicyManager } from './policy-manager';
 
 /**
  * The protection readout (§16).
@@ -322,6 +323,15 @@ export function ProtectionPanel({
           or drop the percentile.
         </p>
       ) : null}
+
+      {/*
+        The manager sits under the readout rather than beside it: a participant
+        should see what the numbers are before being offered a control that
+        records a commitment against them.
+      */}
+      <div className="border-t border-[var(--border)] pt-2.5">
+        <PolicyManager symbol={symbol} />
+      </div>
 
       <p className="border-t border-[var(--border)] pt-2 text-[10.5px] text-[var(--text-subtle)]">
         This is a calculation, not cover. Nothing is collected and no claim can be paid. FLT cannot

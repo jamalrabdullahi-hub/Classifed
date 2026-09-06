@@ -165,6 +165,13 @@ export const AuditAction = {
   PERP_POSITION_LIQUIDATED: 'perp.position.liquidated',
   PERP_VENUE_AUTHORIZED: 'perp.venue.authorized',
 
+  // Position protection. The authoritative record of a policy's life is
+  // ProtectionEvent, written transactionally; these are the human-facing trail.
+  PROTECTION_POLICY_CREATED: 'protection.policy.created',
+  PROTECTION_POLICY_CANCELLED: 'protection.policy.cancelled',
+  PROTECTION_FUNDING_DECLARED: 'protection.funding.declared',
+  PROTECTION_REDUCTION_ADVISED: 'protection.reduction.advised',
+
   // Security
   RATE_LIMITED: 'security.rate_limited',
   QUOTE_TAMPERED: 'security.quote_tampered',
