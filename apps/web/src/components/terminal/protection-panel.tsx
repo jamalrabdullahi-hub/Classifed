@@ -149,10 +149,14 @@ export function ProtectionPanel({
       params.set('entryPrice', position.entryPrice);
       if (position.notionalValue) params.set('notional', position.notionalValue);
       if (position.liquidationPrice) params.set('liquidationPrice', position.liquidationPrice);
-    } else if (markPrice) {
-      // A hypothetical $1,000 long at the current price, labelled as such below.
+    } else {
+      // A hypothetical $1,000 long, labelled as such below. Entry is left out
+      // deliberately: the endpoint then anchors it to the same live mark Omni
+      // uses, so all three policies quote one reference price. Passing the
+      // mark the ticker last rendered made the Base rows disagree with Omni by
+      // a few dollars, which reads as an arithmetic fault rather than as two
+      // prices read seconds apart.
       params.set('side', 'LONG');
-      params.set('entryPrice', markPrice);
       params.set('notional', '1000');
     }
 
@@ -330,7 +334,7 @@ export function ProtectionPanel({
         records a commitment against them.
       */}
       <div className="border-t border-[var(--border)] pt-2.5">
-        <PolicyManager symbol={symbol} />
+        <PolicyManager symbol={symbol} hasPosition={position !== null} />
       </div>
 
       <p className="border-t border-[var(--border)] pt-2 text-[10.5px] text-[var(--text-subtle)]">
@@ -369,11 +373,18 @@ function Line({ label, value, hint }: { label: string; value: string; hint?: str
   );
 }
 
-/** Significant figures rather than two decimals: BTC and a $0.02 token both appear here. */
+/**
+ * Two decimals for anything a dollar or more, more only below that.
+ *
+ * The earlier rule gave four decimals under $100, which put "$53.8862" beside
+ * "$180.54" in the same column — the reader has to re-parse each row to compare
+ * them. Sub-dollar prices still need the extra digits, because a token quoted
+ * at $0.000023 renders as $0.00 otherwise.
+ */
 function fmtUsd(value: string): string {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return '—';
-  const decimals = Math.abs(amount) >= 100 ? 2 : Math.abs(amount) >= 1 ? 4 : 6;
+  const decimals = Math.abs(amount) >= 1 ? 2 : 6;
   return `$${amount.toLocaleString('en-US', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,

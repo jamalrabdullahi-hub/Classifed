@@ -71,7 +71,14 @@ const KIND_BLURBS: Record<string, string> = {
 /** States where the participant needs to do something. */
 const NEEDS_ATTENTION = ['WARNING', 'REBALANCE_REQUIRED', 'POSITION_REDUCTION'];
 
-export function PolicyManager({ symbol }: { symbol: string }) {
+export function PolicyManager({
+  symbol,
+  hasPosition,
+}: {
+  symbol: string;
+  /** Without one there is nothing to anchor a policy to, and the API refuses. */
+  hasPosition: boolean;
+}) {
   const [policy, setPolicy] = useState<Policy | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -123,15 +130,26 @@ export function PolicyManager({ symbol }: { symbol: string }) {
       <div className="space-y-2">
         {error ? <Notice tone="negative">{error}</Notice> : null}
         <p className="text-[10.5px] leading-relaxed text-[var(--text-subtle)]">
-          Write a policy to record a protection calculation against your open {symbol} position.
-          It commits nothing, moves no money, and does not let FLT act on your position — it
-          records what protection would require, and tracks it as prices move.
+          {hasPosition ? (
+            <>
+              Write a policy to record this calculation against your open {symbol} position. It
+              commits nothing, moves no money, and does not let FLT act on your position — it
+              records what protection would require, and tracks it as prices move.
+            </>
+          ) : (
+            <>
+              A policy anchors to a real entry price and is measured against the venue&apos;s
+              liquidation price, so one can only be written once you hold a {symbol} position.
+              The figures above are a hypothetical.
+            </>
+          )}
         </p>
         <div className="flex flex-wrap gap-1.5">
           {(['BASE_DAY', 'BASE_SMOOTH', 'OMNI'] as const).map((kind) => (
             <Button
               key={kind}
               variant="secondary"
+              disabled={!hasPosition}
               loading={busy === kind}
               onClick={() =>
                 void run(kind, () =>
