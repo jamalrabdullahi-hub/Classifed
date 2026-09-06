@@ -124,6 +124,7 @@ export const AuditAction = {
   USER_LOGIN_FAILED: 'user.login.failed',
   USER_LOGGED_OUT: 'user.logged_out',
   USER_EMAIL_VERIFIED: 'user.email.verified',
+  EMAIL_VERIFICATION_SENT: 'user.email.verification_sent',
   USER_PASSWORD_RESET_REQUESTED: 'user.password.reset_requested',
   USER_PASSWORD_CHANGED: 'user.password.changed',
   USER_SESSION_REVOKED: 'user.session.revoked',

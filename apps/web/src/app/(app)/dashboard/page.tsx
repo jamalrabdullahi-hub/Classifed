@@ -16,6 +16,7 @@ import {
 } from '@flt/ui';
 import { explorerAddressUrl } from '@flt/core/chains';
 import { AddressChip } from '@flt/ui';
+import { ResendVerification } from '@/components/resend-verification';
 import { requireUserPage } from '@/server/session';
 
 export const metadata: Metadata = { title: 'Home' };
@@ -61,8 +62,9 @@ export default async function DashboardPage() {
           the user. Only one of these renders at a time. */}
       {!user.emailVerifiedAt ? (
         <Notice tone="warning" title="Confirm your email address">
-          We sent a confirmation link when you registered. Your account is limited until it is
-          confirmed.
+          A confirmation link was sent when you registered. Your account is limited until it is
+          confirmed — if the link never arrived or no longer works, send a new one.
+          <ResendVerification email={user.email} />
         </Notice>
       ) : !verified ? (
         <VerificationPrompt status={kyc?.status ?? null} reason={kyc?.rejectionReason ?? null} />

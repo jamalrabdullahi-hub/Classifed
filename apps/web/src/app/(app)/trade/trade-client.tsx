@@ -22,6 +22,7 @@ import {
   Tooltip,
   cn,
 } from '@flt/ui';
+import { MarketChart } from '@/components/market-chart';
 import { ApiError, idempotencyKey, post } from '@/lib/api';
 import { SUPPORTED_CHAIN } from '@/lib/wagmi';
 
@@ -35,6 +36,15 @@ import { SUPPORTED_CHAIN } from '@/lib/wagmi';
  * which wallet signs it, and what happens on-chain, and a collapsed panel means
  * the answer is available rather than present.
  */
+
+/**
+ * Symbols treated as dollar proxies for charting purposes only.
+ *
+ * Deliberately not a token-registry flag: this decides which line to draw, not
+ * anything about how a trade is priced or routed, and adding a column to the
+ * registry for a presentation choice would invite it to be trusted for more.
+ */
+const STABLE_SYMBOLS = new Set(['USDC', 'USDT', 'DAI', 'USDBC', 'PYUSD', 'FRAX', 'LUSD']);
 
 interface TokenView {
   address: string;
@@ -467,8 +477,35 @@ function ExecutionPanel({
   wallet: WalletView;
   secondsLeft: number;
 }) {
+  /**
+   * Which side of the pair to chart.
+   *
+   * The volatile one, which is what the user is actually forming a view about.
+   * Charting a dollar stablecoin against the dollar draws a flat line and
+   * teaches nobody anything, so when the buy side is a stablecoin the chart
+   * follows what is being sold instead.
+   */
+  const chartToken = STABLE_SYMBOLS.has(buyToken.symbol.toUpperCase())
+    ? sellToken
+    : buyToken;
+
   return (
     <div className="space-y-4">
+      {/* The chart is unconditional. A price screen that appears only once a
+          quote exists is absent exactly when it is most useful: while the user
+          is still deciding what to trade. */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{chartToken.symbol} price</CardTitle>
+          <Badge tone="neutral">
+            {sellToken.symbol} → {buyToken.symbol}
+          </Badge>
+        </CardHeader>
+        <CardContent>
+          <MarketChart address={chartToken.address} symbol={chartToken.symbol} />
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Execution details</CardTitle>

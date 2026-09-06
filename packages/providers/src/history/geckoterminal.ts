@@ -46,6 +46,11 @@ const poolSchema = z.object({
   relationships: z
     .object({
       dex: z.object({ data: z.object({ id: z.string() }).nullish() }).nullish(),
+      // Carries the base token's address, which is the only reliable way to
+      // tell whether a pool prices the token we asked about or prices
+      // something else *in* it. The pool name cannot be trusted for this.
+      base_token: z.object({ data: z.object({ id: z.string() }).nullish() }).nullish(),
+      quote_token: z.object({ data: z.object({ id: z.string() }).nullish() }).nullish(),
     })
     .nullish(),
 });
@@ -88,15 +93,47 @@ export class GeckoTerminalPriceHistoryProvider implements PriceHistoryProvider {
     );
 
     /*
-     * Deepest pool wins. Liquidity depth is the right tiebreak rather than
-     * volume: a thin pool can post high volume during a single incident and
-     * would then supply a chart of its own volatility rather than of the
-     * token's price.
+     * What the token is priced *against* is ranked before how deep the pool is.
+     *
+     * Depth alone picks the wrong pool surprisingly often, because a candle
+     * from a pool is a ratio, not a price: charting a token against an exotic
+     * counter-asset plots that asset's volatility rather than the token's
+     * value. DAI on Base is the case that exposed it — its deepest pool is
+     * DAI/VCNT at roughly $54k, ahead of DAI/USDC at $23k, and the resulting
+     * "DAI price" swung between 1.00 and 0.35. For a token whose entire purpose
+     * is to sit at a dollar, that chart is not merely noisy, it is wrong.
+     *
+     * So pools quoted in a dollar stablecoin come first, then the majors, then
+     * anything else — and depth only breaks ties within a tier. A shallower
+     * pool against USDC tells the truth about a token; a deep one against
+     * something nobody prices in does not.
      */
-    const deepest = payload.data
-      .map((pool) => ({ pool, reserve: Number(pool.attributes.reserve_in_usd ?? '0') }))
+    const ranked = payload.data
+      .map((pool) => {
+        const [, quoteSymbol] = splitPairName(pool.attributes.name);
+        return {
+          pool,
+          reserve: Number(pool.attributes.reserve_in_usd ?? '0'),
+          tier: quoteTier(quoteSymbol),
+          isBase: isBaseToken(pool, tokenAddress),
+        };
+      })
+      /*
+       * The token must be the pool's base, or the candles are about a
+       * different asset entirely.
+       *
+       * GeckoTerminal returns every pool a token appears in, including ones
+       * where it is the quote. DAI on Base is the case that caught this: its
+       * deepest listed pool is USDXSMART/DAI at roughly $106k, and charting it
+       * plotted USDXSMART's price in DAI — a "DAI price" wandering between 0.36
+       * and 0.75. Ranking by quote asset made it worse rather than better,
+       * because a DAI quote scores as an ideal stable pairing.
+       */
+      .filter((entry) => entry.isBase)
       .filter((entry) => Number.isFinite(entry.reserve) && entry.reserve > 0)
-      .sort((a, b) => b.reserve - a.reserve)[0];
+      .sort((a, b) => (a.tier === b.tier ? b.reserve - a.reserve : a.tier - b.tier));
+
+    const deepest = ranked[0];
 
     if (!deepest) return null;
 
@@ -194,6 +231,41 @@ export class GeckoTerminalPriceHistoryProvider implements PriceHistoryProvider {
     }
     return parsed.data;
   }
+}
+
+/**
+ * Whether the pool prices this token, rather than pricing something else in it.
+ *
+ * Compared by address rather than by symbol: symbols are not unique on-chain,
+ * and the pool name is a display string that has already proved unreliable.
+ */
+function isBaseToken(
+  pool: { relationships?: { base_token?: { data?: { id: string } | null } | null } | null },
+  tokenAddress: string,
+): boolean {
+  const baseId = pool.relationships?.base_token?.data?.id;
+  // No relationship data means we cannot prove it either way. Treated as usable
+  // so a response shape change degrades to the old behaviour rather than
+  // emptying every chart on the site.
+  if (!baseId) return true;
+  return baseId.toLowerCase().endsWith(tokenAddress.toLowerCase());
+}
+
+/** Dollar stablecoins, which make a pool's ratio read directly as a USD price. */
+const STABLE_QUOTES = new Set(['USDC', 'USDT', 'DAI', 'USDBC', 'USDC.E', 'PYUSD', 'FRAX', 'LUSD']);
+
+/** Assets liquid enough that a ratio against them still tracks value usefully. */
+const MAJOR_QUOTES = new Set(['WETH', 'ETH', 'CBBTC', 'WBTC', 'CBETH', 'WSTETH']);
+
+/**
+ * Lower is better. Used to rank pools before depth, so the chart is drawn
+ * against something the price actually means anything in.
+ */
+function quoteTier(quoteSymbol: string): number {
+  const symbol = quoteSymbol.trim().toUpperCase();
+  if (STABLE_QUOTES.has(symbol)) return 0;
+  if (MAJOR_QUOTES.has(symbol)) return 1;
+  return 2;
 }
 
 /** GeckoTerminal names pools "AERO / USDC" or "AERO / USDC 1%". */

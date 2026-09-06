@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { AccountStatus, prisma } from '@flt/db';
 import { BASE_CHAIN_ID } from '@flt/core/chains';
 import { Button, Notice } from '@flt/ui';
+import { MarketPreview } from '@/components/market-preview';
 import { TradeClient } from './trade-client';
 import { requireUserPage } from '@/server/session';
 
@@ -30,29 +31,37 @@ export default async function TradePage() {
     }),
   ]);
 
-  if (user.accountStatus !== AccountStatus.KYC_APPROVED) {
-    return (
+  /**
+   * A gate blocks trading, not looking.
+   *
+   * Each of these previously replaced the whole screen with a notice, so a user
+   * still being onboarded saw no prices at all on the one page whose job is to
+   * show a market. The notice still comes first — it is the thing standing
+   * between them and a trade — but the market stays on screen underneath it.
+   */
+  const previewTokens = tokens.map((token) => ({
+    address: token.address,
+    symbol: token.symbol,
+    name: token.name,
+    verificationTier: token.verificationTier,
+  }));
+
+  const gate =
+    user.accountStatus !== AccountStatus.KYC_APPROVED ? (
       <Notice tone="warning" title="Verification required">
-        Your identity must be verified before you can trade.
+        Your identity must be verified before you can trade. You can still follow prices here in
+        the meantime.
         <div className="mt-3">
           <Button asChild variant="primary" size="sm">
             <Link href="/verify">Start verification</Link>
           </Button>
         </div>
       </Notice>
-    );
-  }
-
-  if (user.tradingDisabled) {
-    return (
+    ) : user.tradingDisabled ? (
       <Notice tone="negative" title="Trading is disabled on this account">
         An administrator has disabled trading. Contact support if you believe this is a mistake.
       </Notice>
-    );
-  }
-
-  if (wallets.length === 0) {
-    return (
+    ) : wallets.length === 0 ? (
       <Notice tone="info" title="Connect a wallet to trade">
         FLT does not hold assets. Link a self-custody wallet and it stays under your control.
         <div className="mt-3">
@@ -61,6 +70,14 @@ export default async function TradePage() {
           </Button>
         </div>
       </Notice>
+    ) : null;
+
+  if (gate) {
+    return (
+      <div className="space-y-5">
+        {gate}
+        <MarketPreview tokens={previewTokens} />
+      </div>
     );
   }
 
