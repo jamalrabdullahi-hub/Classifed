@@ -49,6 +49,7 @@ const SECTIONS: { label: string; items: { href: string; label: string; icon: typ
     label: 'Configuration',
     items: [
       { href: '/tokens', label: 'Tokens', icon: Coins },
+      { href: '/perp-markets', label: 'Perpetual markets', icon: Gauge },
       { href: '/providers', label: 'DEX providers', icon: Route },
       { href: '/fees', label: 'Fees', icon: Percent },
     ],

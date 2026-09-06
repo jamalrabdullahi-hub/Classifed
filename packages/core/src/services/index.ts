@@ -123,3 +123,17 @@ export {
   type ResolvedAdmin,
 } from './admin';
 export { getCandles, type CandleSeries } from './candles';
+export {
+  assertPerpsEnabled,
+  effectiveMaxLeverage,
+  listOfferedMarkets,
+  getOfferedMarket,
+  prepareOpen,
+  prepareClose as preparePerpClose,
+  recordSubmission as recordPerpSubmission,
+  resolveLiquidation,
+  orderEconomics,
+  type PerpOrderContext,
+  type PreparedOrderResult,
+  type PerpWarning,
+} from './perps';

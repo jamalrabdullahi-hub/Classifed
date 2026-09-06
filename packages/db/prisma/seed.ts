@@ -185,6 +185,31 @@ async function main(): Promise<void> {
   }
   console.info('  fees       Default 0 bps');
 
+  // ── Perpetual markets ────────────────────────────────────────────────────
+  // A deliberately short list. The venue lists hundreds; offering a market is a
+  // decision, and the seed should not imply otherwise. Leverage caps here are
+  // FLT's own and sit below what the venue permits.
+  const perpVenueSlug = process.env.PERP_VENUE ?? 'mock';
+  const perpMarkets = [
+    { symbol: 'BTC', name: 'Bitcoin', venueAssetId: 0, venueMaxLeverage: 40, maxLeverage: 10, sizeDecimals: 5, minSize: '0.00001' },
+    { symbol: 'ETH', name: 'Ethereum', venueAssetId: 1, venueMaxLeverage: 25, maxLeverage: 10, sizeDecimals: 4, minSize: '0.0001' },
+    { symbol: 'SOL', name: 'Solana', venueAssetId: 5, venueMaxLeverage: 20, maxLeverage: 10, sizeDecimals: 2, minSize: '0.01' },
+  ];
+
+  for (const market of perpMarkets) {
+    await prisma.perpMarket.upsert({
+      where: { venueSlug_symbol: { venueSlug: perpVenueSlug, symbol: market.symbol } },
+      create: {
+        id: randomUUID(),
+        venueSlug: perpVenueSlug,
+        ...market,
+        isEnabled: true,
+      },
+      update: {},
+    });
+  }
+  console.info(`  perps      ${perpMarkets.length} markets on ${perpVenueSlug}`);
+
   // ── Administrator ────────────────────────────────────────────────────────
   const adminEmail = process.env.SEED_ADMIN_EMAIL ?? 'admin@fltexchange.local';
   const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? randomBytes(12).toString('base64url');

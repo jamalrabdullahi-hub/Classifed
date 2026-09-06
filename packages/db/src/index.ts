@@ -35,6 +35,9 @@ export type {
   AuditLog,
   IdempotencyRecord,
   RateLimitBucket,
+  PerpMarket,
+  PerpOrder,
+  PerpPositionSnapshot,
 } from '@prisma/client';
 
 export {
@@ -52,4 +55,8 @@ export {
   ActorType,
   AdminRole,
   IdempotencyStatus,
+  PerpSide,
+  PerpMarginMode,
+  PerpOrderStatus,
+  PerpOrderKind,
 } from '@prisma/client';

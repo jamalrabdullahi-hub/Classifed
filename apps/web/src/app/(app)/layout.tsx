@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { AccountStatus } from '@flt/db';
+import { env } from '@flt/config';
 import { CustodyNote } from '@/components/brand';
 import { TopNav } from '@/components/nav';
 import { Providers } from '@/components/providers';
@@ -25,7 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <Providers>
       <div className="flex min-h-screen flex-col">
-      <TopNav email={user.email} />
+      <TopNav email={user.email} perpsEnabled={env().PERPS_ENABLED} />
 
       <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-8 sm:px-6">{children}</main>
 

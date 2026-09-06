@@ -361,6 +361,65 @@ export async function setTokenEnabled(
   });
 }
 
+/**
+ * Enables or disables a perpetual market, and sets FLT's own leverage cap on it.
+ *
+ * The cap is part of the same action rather than a separate control because
+ * they are one decision: offering a market at all, and on what terms. An
+ * operator who can list a 40x market but not choose what leverage it is offered
+ * at has only made half a decision.
+ *
+ * The cap is clamped to the venue's own maximum, since a number above it would
+ * simply be refused at order time and would misrepresent what is on offer.
+ */
+export async function setPerpMarketEnabled(
+  context: AdminActionContext,
+  input: { marketId: string; enabled: boolean; maxLeverage?: number; reason: string },
+): Promise<void> {
+  assertCan(context.admin, PERMISSIONS.MANAGE_TOKENS);
+  if (!input.enabled && !input.reason.trim()) {
+    throw new ValidationError('A reason is required to disable a perpetual market');
+  }
+
+  const market = await prisma.perpMarket.findUnique({ where: { id: input.marketId } });
+  if (!market) throw new NotFoundError('Perpetual market');
+
+  const maxLeverage = input.maxLeverage ?? market.maxLeverage;
+  if (!Number.isInteger(maxLeverage) || maxLeverage < 1) {
+    throw new ValidationError('Leverage cap must be a whole number of at least 1');
+  }
+  if (maxLeverage > market.venueMaxLeverage) {
+    throw new ValidationError(
+      `The venue allows at most ${market.venueMaxLeverage}x on this market`,
+      { requested: maxLeverage, venueMaxLeverage: market.venueMaxLeverage },
+    );
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.perpMarket.update({
+      where: { id: market.id },
+      data: {
+        isEnabled: input.enabled,
+        maxLeverage,
+        disabledReason: input.enabled ? null : input.reason,
+      },
+    });
+
+    await recordAdminAction(tx, context, {
+      action: input.enabled ? AuditAction.ADMIN_TOKEN_ENABLED : AuditAction.ADMIN_TOKEN_DISABLED,
+      entityType: 'PerpMarket',
+      entityId: market.id,
+      before: {
+        isEnabled: market.isEnabled,
+        symbol: market.symbol,
+        maxLeverage: market.maxLeverage,
+      },
+      after: { isEnabled: input.enabled, maxLeverage },
+      reason: input.reason,
+    });
+  });
+}
+
 export async function setProviderEnabled(
   context: AdminActionContext,
   input: { providerId: string; enabled: boolean; reason: string },

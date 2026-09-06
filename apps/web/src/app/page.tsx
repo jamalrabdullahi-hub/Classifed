@@ -126,7 +126,9 @@ export default async function HomePage() {
               <p className="mt-3 text-[14px] leading-relaxed text-[var(--text-muted)]">
                 Being clear about the limits matters more than a feature list. FLT is deliberately
                 not a centralized exchange, and several things you may expect from one are absent by
-                design.
+                design. Perpetual futures are available to verified accounts and are leveraged
+                products: they can be closed automatically and you can lose the margin backing
+                them.
               </p>
             </div>
 
@@ -135,7 +137,7 @@ export default async function HomePage() {
                 'We do not hold your assets, so there is no FLT balance to withdraw.',
                 'We do not operate an order book and cannot match your trade internally.',
                 'We cannot reverse a transaction. Once your wallet signs, it is on-chain.',
-                'We do not offer leverage, margin or derivatives.',
+                'We do not custody your assets, so there is nothing here for us to lend against or lose.',
                 'We never request a seed phrase, private key or wallet password — nobody legitimate ever will.',
               ].map((item) => (
                 <li key={item} className="flex gap-3">

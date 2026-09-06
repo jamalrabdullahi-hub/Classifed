@@ -101,6 +101,39 @@ enum TransactionStatus {
   FAILED
 }
 
+enum PerpSide {
+  LONG
+  SHORT
+}
+
+enum PerpMarginMode {
+  ISOLATED
+  CROSS
+}
+
+/// Lifecycle of an order FLT prepared.
+///
+/// FLT does not submit orders, so it cannot observe a fill directly. PREPARED
+/// means the order was specified and handed to the client; SUBMITTED means the
+/// client reported sending it; FILLED and REJECTED are written by the worker
+/// once the venue's own record is reconciled against it. ABANDONED is the
+/// honest state for an order that was prepared and never reported back — the
+/// user closed the tab, or declined the signature.
+enum PerpOrderStatus {
+  PREPARED
+  SUBMITTED
+  FILLED
+  PARTIALLY_FILLED
+  REJECTED
+  ABANDONED
+}
+
+enum PerpOrderKind {
+  OPEN
+  CLOSE
+  LEVERAGE_CHANGE
+}
+
 enum FeeType {
   PERCENTAGE
   FIXED
@@ -159,6 +192,8 @@ model User {
   wallets       Wallet[]
   quotes        Quote[]
   transactions  Transaction[]
+  perpOrders    PerpOrder[]
+  perpPositions PerpPositionSnapshot[]
 
   @@index([accountStatus])
   @@index([createdAt])
@@ -329,12 +364,14 @@ model Wallet {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  chain        Chain               @relation(fields: [chainId], references: [chainId])
-  connections  WalletConnection[]
-  quotes       Quote[]
-  transactions Transaction[]
-  snapshots    PortfolioSnapshot[]
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chain                 Chain                  @relation(fields: [chainId], references: [chainId])
+  connections           WalletConnection[]
+  quotes                Quote[]
+  transactions          Transaction[]
+  snapshots             PortfolioSnapshot[]
+  perpOrders            PerpOrder[]
+  perpPositionSnapshots PerpPositionSnapshot[]
 
   @@unique([userId, address, chainId])
   @@index([address])
@@ -418,7 +455,7 @@ model Token {
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
 
-  chain      Chain            @relation(fields: [chainId], references: [chainId], onDelete: Cascade)
+  chain      Chain              @relation(fields: [chainId], references: [chainId], onDelete: Cascade)
   marketData MarketDataCache?
   candles    PriceCandleCache[]
 
@@ -475,17 +512,17 @@ model MarketDataCache {
 /// what a viewer asks for, and the pool they came from is recorded alongside so
 /// the interface can attribute the price to a venue.
 model PriceCandleCache {
-  id       String @id
-  tokenId  String
-  interval String
+  id              String   @id
+  tokenId         String
+  interval        String
   /// The pool these candles were read from, and the venue that runs it.
-  poolAddress String
-  poolDex     String
+  poolAddress     String
+  poolDex         String
   poolQuoteSymbol String?
   /// Ascending by time, oldest first: [time, open, high, low, close, volume].
-  candles  Json
-  source    String
-  fetchedAt DateTime @default(now())
+  candles         Json
+  source          String
+  fetchedAt       DateTime @default(now())
 
   token Token @relation(fields: [tokenId], references: [id], onDelete: Cascade)
 
@@ -818,4 +855,154 @@ model RateLimitBucket {
   updatedAt DateTime @default(now())
 
   @@map("rate_limit_buckets")
+}
+
+/// The perpetual markets FLT offers, which is a subset of what a venue lists.
+///
+/// A venue listing a market is not a decision to offer it, exactly as a token
+/// existing on-chain is not a decision to list it. Hyperliquid carries over two
+/// hundred markets including delisted ones; rows here are the ones an operator
+/// has deliberately enabled, with an FLT leverage cap that can sit below the
+/// venue's own.
+model PerpMarket {
+  id           String @id
+  /// Adapter that owns this market, e.g. "hyperliquid".
+  venueSlug    String
+  symbol       String
+  name         String
+  /// The venue's own identifier. Never derived from list position — see the
+  /// note on PerpMarket.venueAssetId in core.
+  venueAssetId Int
+
+  /// The venue's ceiling.
+  venueMaxLeverage Int
+  /// FLT's ceiling, which must be at or below the venue's. This is the number
+  /// the interface enforces.
+  maxLeverage      Int
+  sizeDecimals     Int
+  minSize          String
+
+  isEnabled      Boolean @default(false)
+  disabledReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders    PerpOrder[]
+  positions PerpPositionSnapshot[]
+
+  @@unique([venueSlug, symbol])
+  @@index([venueSlug, isEnabled])
+  @@map("perp_markets")
+}
+
+/// What FLT specified, before the venue was ever contacted.
+///
+/// The spot path proves a swap was not tampered with by hashing the calldata
+/// and comparing it against the transaction that landed on-chain. There is no
+/// calldata here — an order is a signed message posted to a venue this system
+/// does not index — so the equivalent guarantee is reconstructed after the
+/// fact: every economically meaningful field is persisted before the client is
+/// handed anything, and the worker reconciles it against the fill the venue
+/// reports. Divergence is an audit event, not a silent correction.
+model PerpOrder {
+  id        String          @id
+  userId    String
+  walletId  String
+  marketId  String
+  venueSlug String
+  kind      PerpOrderKind   @default(OPEN)
+  status    PerpOrderStatus @default(PREPARED)
+
+  side          PerpSide
+  /// Contracts, as a decimal string. Perp venues quote sizes and prices at a
+  /// human scale rather than in token base units.
+  size          String
+  leverage      Int
+  marginMode    PerpMarginMode @default(ISOLATED)
+  /// The bound actually sent to the venue. A market order goes out as an
+  /// immediate-or-cancel limit, never unbounded.
+  limitPrice    String
+  isMarketOrder Boolean        @default(true)
+  slippageBps   Int
+  reduceOnly    Boolean        @default(false)
+
+  /// Reference price at preparation, for reconciling the fill against what the
+  /// user was shown.
+  referencePrice            String?
+  /// What the interface displayed as the estimated liquidation price. Recorded
+  /// because it is the number the user decided on.
+  estimatedLiquidationPrice String?
+  marginRequired            String?
+
+  /// Builder code applied, in basis points, and where it was sent.
+  feeBps       Int     @default(0)
+  feeRecipient String?
+  feeConfigId  String?
+
+  /// The venue's identifier for the order, once the client reports it.
+  venueOrderId     String?
+  /// What actually filled, written by the worker from the venue's own record.
+  filledSize       String?
+  averageFillPrice String?
+  /// Set when reconciliation found the fill inconsistent with what was
+  /// prepared. Never overwritten silently.
+  discrepancy      String?
+
+  rejectionReason String?
+
+  preparedAt  DateTime  @default(now())
+  submittedAt DateTime?
+  settledAt   DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet Wallet     @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  market PerpMarket @relation(fields: [marketId], references: [id], onDelete: Restrict)
+
+  @@index([userId, preparedAt])
+  @@index([status, preparedAt])
+  @@index([venueSlug, venueOrderId])
+  @@map("perp_orders")
+}
+
+/// A cached copy of a position the venue holds, refreshed by the worker.
+///
+/// The venue is the source of truth and this is explicitly a snapshot, not a
+/// ledger. It exists so a position list renders without blocking on the venue,
+/// and so liquidation proximity can be monitored between page loads. Anything
+/// shown from here carries the time it was captured, because a stale
+/// liquidation price is worse than no liquidation price.
+model PerpPositionSnapshot {
+  id        String @id
+  userId    String
+  walletId  String
+  marketId  String
+  venueSlug String
+
+  side       PerpSide
+  size       String
+  entryPrice String
+  margin     String
+  marginMode PerpMarginMode @default(ISOLATED)
+  leverage   Int
+
+  /// The venue's own liquidation price. Authoritative; never replaced with a
+  /// local estimate.
+  liquidationPrice String?
+  markPrice        String?
+  unrealizedPnl    String?
+  fundingPaid      String?
+
+  capturedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet Wallet     @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  market PerpMarket @relation(fields: [marketId], references: [id], onDelete: Cascade)
+
+  @@unique([walletId, marketId])
+  @@index([userId])
+  @@index([capturedAt])
+  @@map("perp_position_snapshots")
 }

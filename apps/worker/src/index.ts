@@ -3,6 +3,7 @@ import { prisma } from '@flt/db';
 import { runMonitorPass } from './monitor';
 import { runHousekeeping } from './housekeeping';
 import { refreshMarketData } from './market';
+import { syncPerpetuals } from './perps';
 
 /**
  * The FLT worker.
@@ -19,6 +20,14 @@ import { refreshMarketData } from './market';
 
 const HOUSEKEEPING_INTERVAL_MS = 60_000;
 const MARKET_DATA_INTERVAL_MS = 120_000;
+/**
+ * Positions are polled far more often than market data.
+ *
+ * A leveraged position can be liquidated in the time a price cache would
+ * happily stay warm, and the reconciliation pass is what closes the gap left by
+ * FLT never witnessing its own orders being filled.
+ */
+const PERP_SYNC_INTERVAL_MS = 20_000;
 
 let shuttingDown = false;
 
@@ -66,6 +75,9 @@ async function main(): Promise<void> {
   console.info(`  monitor       every ${config.WORKER_POLL_INTERVAL_MS}ms`);
   console.info(`  confirmations ${config.WORKER_CONFIRMATIONS}`);
   console.info(`  market data   ${config.MARKET_DATA_PROVIDER}`);
+  console.info(
+    `  perpetuals    ${config.PERPS_ENABLED ? `${config.PERP_VENUE}, every ${PERP_SYNC_INTERVAL_MS}ms` : 'disabled'}`,
+  );
 
   // Fail fast if the database is unreachable, rather than logging a failed pass
   // every few seconds forever.
@@ -75,6 +87,10 @@ async function main(): Promise<void> {
   loop('monitor', config.WORKER_POLL_INTERVAL_MS, runMonitorPass);
   loop('housekeeping', HOUSEKEEPING_INTERVAL_MS, runHousekeeping);
   loop('market', MARKET_DATA_INTERVAL_MS, refreshMarketData);
+
+  if (config.PERPS_ENABLED) {
+    loop('perps', PERP_SYNC_INTERVAL_MS, syncPerpetuals);
+  }
 }
 
 /**

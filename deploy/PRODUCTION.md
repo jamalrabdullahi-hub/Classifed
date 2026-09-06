@@ -51,6 +51,10 @@ Configured with live production credentials, provided directly by you:
 - `MARKET_DATA_PROVIDER=coingecko`, `PRICE_HISTORY_PROVIDER=geckoterminal` —
   both on the free keyless tier, so subject to that tier's rate limits
 
+**Perpetual futures** are built but switched off (`PERPS_ENABLED=false`). Before
+turning them on, read the section below — several of the items there are
+prerequisites rather than nice-to-haves.
+
 **Not yet configured — a real gap, not a cosmetic one:**
 
 - **Email**: `MAIL_PROVIDER=console`. Verification and password-reset emails
@@ -84,3 +88,73 @@ systemctl restart flt-web flt-admin flt-worker
 
 No CI/CD is wired up yet — this is a manual pull-and-rebuild, which is fine at
 this stage but is the next real gap once deploys become routine.
+
+
+## Perpetual futures
+
+Leveraged perpetuals are routed to an external venue (Hyperliquid) rather than
+operated by FLT. Margin is posted by the user's own wallet to the venue; FLT
+prepares orders, applies its own limits, and records what it prepared. It never
+holds collateral, never signs, and never submits.
+
+### Switched off by default
+
+`PERPS_ENABLED=false`. The feature is inert until set to `true`, and
+`PERP_VENUE=mock` is refused in production for the same reason `DEX_ROUTER=mock`
+is: a simulated venue quotes positions that do not exist and liquidation prices
+for collateral nobody posted.
+
+### Limits FLT sets independently of the venue
+
+- `PERP_MAX_LEVERAGE` (default 10) is a global ceiling. No order is accepted
+  above it whatever an individual market is configured for. Hyperliquid lists
+  markets up to 40x; offering that because the venue permits it is a decision,
+  and this is where it gets made.
+- Each market carries its own cap in the registry, editable in the admin panel
+  and clamped to the venue's maximum.
+- `PERP_BUILDER_FEE_BPS` is FLT's builder code, capped at 10 bps by the venue.
+  It requires `HYPERLIQUID_BUILDER_ADDRESS`, and the adapter refuses a fee above
+  the venue's cap rather than being refused by the venue.
+
+### What is verified and what is not
+
+**Verified against live mainnet:** the read path. Markets, prices, funding,
+open interest, account state and agent-authorisation status all parse from the
+live `/info` API — 233 markets, 177 of them tradeable at time of writing — and
+the adapter's refusal guards (fee above cap, size below minimum, unknown or
+delisted market) all fire.
+
+**Not verified:** the write path. No order has been signed or submitted against
+the real venue, because doing so needs USDC bridged to Hyperliquid and a real
+position opened. **The signing step is not wired up in the interface at all** —
+the review screen prepares and records an order and then says plainly that it
+cannot submit it. Nothing can currently reach the venue.
+
+Completing it needs the venue's own client library in the browser: the agent key
+is generated there, never transmitted, and signs orders locally. See the note at
+the top of `packages/providers/src/perps/hyperliquid.ts` for why the encoding is
+deliberately not reimplemented on the server.
+
+### Collateral leaves Base
+
+Hyperliquid settles on its own L1. This is the one place the product's core
+promise — that assets stay in the user's wallet — does not hold, and the
+interface says so on both the market list and the order screen. Bridging is not
+built; a user has to move funds themselves.
+
+### Outstanding before real users
+
+- **No jurisdiction restriction.** Perpetuals are derivatives, and offering
+  leveraged derivatives to retail is a licensed activity in most jurisdictions
+  that matter — the FCA banned it for UK retail consumers outright, the EU
+  treats it under MiFID II, and in the US it is CFTC territory. There is
+  currently no geo-blocking and no derivatives-eligibility gate on the KYC
+  profile. This was a deliberate deferral, not an oversight, and it is the
+  single largest outstanding item on this feature.
+- **The signing path is unbuilt**, as above.
+- **No funding-cost accounting.** Funding is displayed per interval and
+  annualised, but accrued funding is read from the venue rather than
+  independently tracked.
+- **Liquidations are recorded as suspected, not observed.** The venue does not
+  report why a position closed, so the worker logs a position that vanished
+  while near its liquidation price as suspected and says so in the audit entry.

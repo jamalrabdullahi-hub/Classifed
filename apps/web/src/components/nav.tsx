@@ -6,6 +6,7 @@ import { useState } from 'react';
 import {
   ArrowLeftRight,
   ChevronDown,
+  Gauge,
   LayoutGrid,
   LineChart,
   LogOut,
@@ -35,6 +36,15 @@ const PRIMARY = [
   { href: '/activity', label: 'Activity', icon: Receipt },
 ] as const;
 
+/**
+ * Perpetuals sit apart from the spot destinations rather than beside them.
+ *
+ * Spot and leveraged trading are different products with different ways of
+ * losing money, and a user should have to move deliberately between them
+ * rather than find a 10x position one tab over from a swap.
+ */
+const PERPS = { href: '/perps', label: 'Perpetuals', icon: Gauge } as const;
+
 const ACCOUNT = [
   { href: '/wallets', label: 'Wallets', icon: Wallet },
   { href: '/account', label: 'Account', icon: Settings },
@@ -44,9 +54,10 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function TopNav({ email }: { email: string }) {
+export function TopNav({ email, perpsEnabled = false }: { email: string; perpsEnabled?: boolean }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const primary = perpsEnabled ? [...PRIMARY, PERPS] : PRIMARY;
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--canvas)]/85 backdrop-blur-md">
@@ -56,7 +67,7 @@ export function TopNav({ email }: { email: string }) {
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
-          {PRIMARY.map(({ href, label }) => (
+          {primary.map(({ href, label }) => (
             <Link
               key={href}
               href={href}
@@ -94,7 +105,7 @@ export function TopNav({ email }: { email: string }) {
           className="border-t border-[var(--border)] bg-[var(--surface)] px-4 py-2 md:hidden"
           aria-label="Primary"
         >
-          {[...PRIMARY, ...ACCOUNT].map(({ href, label, icon: Icon }) => (
+          {[...primary, ...ACCOUNT].map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}

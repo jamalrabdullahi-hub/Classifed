@@ -156,9 +156,19 @@ export const AuditAction = {
   TRADE_DROPPED: 'trade.dropped',
   APPROVAL_SUBMITTED: 'approval.submitted',
 
+  // Perpetuals
+  PERP_ORDER_PREPARED: 'perp.order.prepared',
+  PERP_ORDER_REJECTED: 'perp.order.rejected',
+  PERP_ORDER_SUBMITTED: 'perp.order.submitted',
+  PERP_ORDER_FILLED: 'perp.order.filled',
+  PERP_POSITION_LIQUIDATED: 'perp.position.liquidated',
+  PERP_VENUE_AUTHORIZED: 'perp.venue.authorized',
+
   // Security
   RATE_LIMITED: 'security.rate_limited',
   QUOTE_TAMPERED: 'security.quote_tampered',
+  /// A fill that does not match the order FLT prepared and the user approved.
+  PERP_ORDER_DIVERGED: 'security.perp_order_diverged',
   PROVIDER_DEGRADED: 'security.provider_degraded',
 
   // Operator actions
