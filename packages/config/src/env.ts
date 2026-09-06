@@ -127,9 +127,6 @@ function load(): Env {
     if (value.PRICE_HISTORY_PROVIDER === 'mock') {
       problems.push('PRICE_HISTORY_PROVIDER=mock cannot be used in production');
     }
-    if (value.MAIL_PROVIDER === 'console') {
-      problems.push('MAIL_PROVIDER=console cannot be used in production');
-    }
     if (value.MAIL_PROVIDER === 'resend' && !value.RESEND_API_KEY) {
       problems.push('MAIL_PROVIDER=resend requires RESEND_API_KEY');
     }
@@ -139,6 +136,23 @@ function load(): Env {
 
     if (problems.length > 0) {
       throw new Error(`Refusing to start in production:\n${problems.map((p) => `  - ${p}`).join('\n')}`);
+    }
+
+    // MAIL_PROVIDER=console is a deliberately softer case than the others
+    // above: every one of those silently fabricates data (a fake price, a
+    // fake route) that a user could act on. A console mail adapter fabricates
+    // nothing — it just fails to deliver, which only breaks email
+    // verification and password reset. That is a real gap, not a safe one,
+    // but it does not warrant refusing to boot the rest of the platform
+    // while a mail provider is still being set up. It gets a loud runtime
+    // warning instead of a startup refusal.
+    if (value.MAIL_PROVIDER === 'console') {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[env] MAIL_PROVIDER=console in production: verification and password-reset ' +
+          'emails are not being delivered, only logged. Configure MAIL_PROVIDER=resend ' +
+          'before relying on either flow.',
+      );
     }
   }
 
