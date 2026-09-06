@@ -11,3 +11,12 @@ export type {
   TokenTax,
   UnsignedTransaction,
 } from './dex';
+
+export type {
+  Candle,
+  CandleInterval,
+  PoolReference,
+  PriceHistoryProvider,
+  PriceHistoryRequest,
+} from './history';
+export { CANDLE_INTERVALS, isCandleInterval } from './history';

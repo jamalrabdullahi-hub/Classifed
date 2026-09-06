@@ -420,6 +420,7 @@ model Token {
 
   chain      Chain            @relation(fields: [chainId], references: [chainId], onDelete: Cascade)
   marketData MarketDataCache?
+  candles    PriceCandleCache[]
 
   @@unique([chainId, address])
   @@index([chainId, isEnabled])
@@ -463,6 +464,34 @@ model MarketDataCache {
 
   @@index([fetchedAt])
   @@map("market_data_cache")
+}
+
+/// Cached OHLCV candles for one token at one interval.
+///
+/// The chart provider's free tier is rate limited for the whole deployment
+/// rather than per user, so a page render must never reach it directly: two
+/// people opening the same chart would otherwise spend two of a shared budget
+/// on identical data. Candles are keyed by token and interval because that is
+/// what a viewer asks for, and the pool they came from is recorded alongside so
+/// the interface can attribute the price to a venue.
+model PriceCandleCache {
+  id       String @id
+  tokenId  String
+  interval String
+  /// The pool these candles were read from, and the venue that runs it.
+  poolAddress String
+  poolDex     String
+  poolQuoteSymbol String?
+  /// Ascending by time, oldest first: [time, open, high, low, close, volume].
+  candles  Json
+  source    String
+  fetchedAt DateTime @default(now())
+
+  token Token @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+
+  @@unique([tokenId, interval])
+  @@index([fetchedAt])
+  @@map("price_candle_cache")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

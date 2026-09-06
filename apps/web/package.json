@@ -18,6 +18,7 @@
     "@flt/providers": "workspace:*",
     "@flt/ui": "workspace:*",
     "@tanstack/react-query": "^5.62.11",
+    "lightweight-charts": "^5.2.1",
     "lucide-react": "^0.469.0",
     "next": "^15.1.4",
     "react": "^19.0.0",

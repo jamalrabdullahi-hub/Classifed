@@ -6,6 +6,9 @@ import type { DEXRouter } from './dex/types';
 import { CoinGeckoMarketDataProvider } from './market/coingecko';
 import { MockMarketDataProvider } from './market/mock';
 import type { MarketDataProvider } from './market/types';
+import { GeckoTerminalPriceHistoryProvider } from './history/geckoterminal';
+import { MockPriceHistoryProvider } from './history/mock';
+import type { PriceHistoryProvider } from './history/types';
 import { ManualReviewKycProvider } from './kyc/manual';
 import type { KycProvider } from './kyc/types';
 import { ConsoleMailProvider } from './mail/console';
@@ -28,6 +31,7 @@ import type { MailProvider } from './mail/types';
 interface Registry {
   dex: DEXRouter;
   market: MarketDataProvider;
+  history: PriceHistoryProvider;
   kyc: KycProvider;
   mail: MailProvider;
   risk: RiskEngine;
@@ -62,6 +66,19 @@ function build(): Registry {
     }
   })();
 
+  const history: PriceHistoryProvider = (() => {
+    switch (config.PRICE_HISTORY_PROVIDER) {
+      case 'mock':
+        return new MockPriceHistoryProvider();
+      case 'geckoterminal':
+        return new GeckoTerminalPriceHistoryProvider();
+      default:
+        throw new Error(
+          `Unknown PRICE_HISTORY_PROVIDER: ${config.PRICE_HISTORY_PROVIDER satisfies never}`,
+        );
+    }
+  })();
+
   const kyc: KycProvider = (() => {
     switch (config.KYC_PROVIDER) {
       case 'manual':
@@ -86,7 +103,7 @@ function build(): Registry {
   // through the interface, so nothing else has to change. See ADR 0003.
   const risk: RiskEngine = new NoopRiskEngine();
 
-  return { dex, market, kyc, mail, risk };
+  return { dex, market, history, kyc, mail, risk };
 }
 
 function registry(): Registry {
@@ -100,6 +117,10 @@ export function dexRouter(): DEXRouter {
 
 export function marketDataProvider(): MarketDataProvider {
   return registry().market;
+}
+
+export function priceHistoryProvider(): PriceHistoryProvider {
+  return registry().history;
 }
 
 export function kycProvider(): KycProvider {

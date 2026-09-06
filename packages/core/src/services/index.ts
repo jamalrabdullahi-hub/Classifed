@@ -122,3 +122,4 @@ export {
   type Permission,
   type ResolvedAdmin,
 } from './admin';
+export { getCandles, type CandleSeries } from './candles';

@@ -89,7 +89,12 @@ export default async function MarketsPage() {
                 <TR key={token.id}>
                   <TD>
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-[var(--text)]">{token.symbol}</span>
+                      <Link
+                        href={`/markets/${token.address}`}
+                        className="font-medium text-[var(--text)] hover:text-[var(--accent)] hover:underline"
+                      >
+                        {token.symbol}
+                      </Link>
                       <TierBadge tier={token.verificationTier} />
                     </div>
                     <span className="text-[11px] text-[var(--text-subtle)]">{token.name}</span>

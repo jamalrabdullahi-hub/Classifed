@@ -64,6 +64,12 @@ const schema = z.object({
   MARKET_DATA_PROVIDER: z.enum(['mock', 'coingecko']).default('mock'),
   COINGECKO_API_KEY: z.string().optional(),
 
+  // ── Price history (charts) ───────────────────────────────────────────────
+  /** GeckoTerminal's public tier needs no key, so charts work in a fresh checkout. */
+  PRICE_HISTORY_PROVIDER: z.enum(['mock', 'geckoterminal']).default('mock'),
+  /** How long cached candles stay fresh, as a multiple of the interval length. */
+  CANDLE_CACHE_RATIO: z.coerce.number().min(0.05).max(1).default(0.25),
+
   // ── KYC ──────────────────────────────────────────────────────────────────
   KYC_PROVIDER: z.enum(['manual']).default('manual'),
   KYC_API_BASE_URL: z.string().optional(),
@@ -115,6 +121,11 @@ function load(): Env {
     }
     if (value.MARKET_DATA_PROVIDER === 'mock') {
       problems.push('MARKET_DATA_PROVIDER=mock cannot be used in production');
+    }
+    // A mock chart is a drawing of a market that does not exist. It must never
+    // sit next to a real quote.
+    if (value.PRICE_HISTORY_PROVIDER === 'mock') {
+      problems.push('PRICE_HISTORY_PROVIDER=mock cannot be used in production');
     }
     if (value.MAIL_PROVIDER === 'console') {
       problems.push('MAIL_PROVIDER=console cannot be used in production');

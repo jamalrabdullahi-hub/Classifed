@@ -1,6 +1,7 @@
 export {
   dexRouter,
   marketDataProvider,
+  priceHistoryProvider,
   kycProvider,
   mailProvider,
   riskEngine,
@@ -9,5 +10,6 @@ export {
 
 export * from './dex/index';
 export * from './market/index';
+export * from './history/index';
 export * from './kyc/index';
 export * from './mail/index';

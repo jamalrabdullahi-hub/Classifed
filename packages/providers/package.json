@@ -9,6 +9,7 @@
     ".": "./src/index.ts",
     "./dex": "./src/dex/index.ts",
     "./market": "./src/market/index.ts",
+    "./history": "./src/history/index.ts",
     "./kyc": "./src/kyc/index.ts",
     "./mail": "./src/mail/index.ts"
   },
