@@ -27,7 +27,7 @@ vi.mock('@flt/db', async () => {
     prisma: {
       feeConfig: { findUnique: vi.fn(async () => null) },
       user: { findUnique: vi.fn(async () => null) },
-      $transaction: vi.fn(async (fn: unknown) => {
+      $transaction: vi.fn(async () => {
         throw new Error('the transaction should not be reached');
       }),
     },

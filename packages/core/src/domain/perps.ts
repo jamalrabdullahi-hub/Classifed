@@ -283,6 +283,11 @@ export function estimateLiquidationPrice(params: {
   const liquidation = entry.minus(marginPerContract.times(sign)).dividedBy(denominator);
 
   if (liquidation.lessThanOrEqualTo(0)) return null;
+
+  // Deliberately unrounded. This is the arithmetic, and the test that guards it
+  // asserts equity falls exactly to the maintenance requirement — a tolerance
+  // that rounding here would force us to loosen. Rounding is a reporting
+  // concern and happens at the boundary; see `resolveLiquidation`.
   return liquidation.toFixed();
 }
 

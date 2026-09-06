@@ -433,13 +433,23 @@ export function resolveLiquidation(params: {
     return { price: null, source: 'estimated' };
   }
 
+  const estimate = estimateLiquidationPrice({
+    side: params.side,
+    entryPrice: params.entryPrice,
+    leverage: params.leverage,
+    maxLeverage: params.maxLeverage,
+  });
+
   return {
-    price: estimateLiquidationPrice({
-      side: params.side,
-      entryPrice: params.entryPrice,
-      leverage: params.leverage,
-      maxLeverage: params.maxLeverage,
-    }),
+    // Rounded here rather than in the arithmetic. The domain function stays
+    // exact so its invariant test can assert equality outright, but the value
+    // that gets persisted and read back by a person should not carry forty
+    // digits of working precision — significant digits rather than decimal
+    // places, because this has to hold both a $79,000 contract and a sub-cent
+    // one.
+    price: estimate
+      ? new Decimal(estimate).toSignificantDigits(12, Decimal.ROUND_HALF_UP).toFixed()
+      : null,
     source: 'estimated',
   };
 }
