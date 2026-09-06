@@ -120,7 +120,7 @@ export default async function AuditPage({
                   </TD>
                   <TD>
                     <details className="max-w-md">
-                      <summary className="cursor-pointer text-[12px] text-[var(--accent)]">
+                      <summary className="cursor-pointer text-[12px] text-[var(--text)]">
                         View
                       </summary>
                       <pre className="scroll-x mt-2 rounded-[var(--radius-sm)] bg-[var(--surface-sunken)] p-2 text-[11px] leading-relaxed text-[var(--text-muted)]">

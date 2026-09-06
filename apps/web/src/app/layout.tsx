@@ -1,17 +1,38 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { Chakra_Petch, IBM_Plex_Mono, Inter } from 'next/font/google';
 import './globals.css';
 import { TooltipProvider } from '@flt/ui';
 import { ThemeScript } from '@/components/theme';
 
 /**
- * Inter with tabular figures. `display: swap` so a slow font load shows text
- * rather than nothing — a blank balance is worse than an unstyled one.
+ * Three faces, each with a job.
+ *
+ * Inter runs the interface. Chakra Petch is squared and slightly technical, and
+ * carries the logo's character into headings — Arkitech itself cannot: it is a
+ * display face with no tabular figures, and a desktop licence does not cover
+ * webfont embedding. IBM Plex Mono sets every figure, address and hash.
+ *
+ * `display: swap` throughout, so a slow font load shows text rather than
+ * nothing — a blank balance is worse than an unstyled one.
  */
 const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-inter',
+});
+
+const display = Chakra_Petch({
+  subsets: ['latin'],
+  weight: ['500', '600', '700'],
+  display: 'swap',
+  variable: '--font-display-face',
+});
+
+const mono = IBM_Plex_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  display: 'swap',
+  variable: '--font-mono-face',
 });
 
 const DESCRIPTION =
@@ -62,7 +83,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <ThemeScript />
       </head>
-      <body className={`${inter.variable} min-h-screen antialiased`}>
+      <body
+        className={`${inter.variable} ${display.variable} ${mono.variable} min-h-screen antialiased`}
+      >
         <TooltipProvider>{children}</TooltipProvider>
       </body>
     </html>

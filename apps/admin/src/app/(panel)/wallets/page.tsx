@@ -93,7 +93,7 @@ export default async function AdminWalletsPage({
                   <TD>
                     <Link
                       href={`/users/${wallet.user.id}`}
-                      className="text-[13px] text-[var(--accent)] hover:underline"
+                      className="text-[13px] link"
                     >
                       {wallet.user.email}
                     </Link>

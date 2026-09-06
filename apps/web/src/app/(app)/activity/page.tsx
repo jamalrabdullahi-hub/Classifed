@@ -91,7 +91,7 @@ export default async function ActivityPage() {
                   <TD>
                     <Link
                       href={`/activity/${transaction.id}`}
-                      className="num font-mono text-[12px] text-[var(--accent)] hover:underline"
+                      className="num font-mono text-[12px] link"
                     >
                       {truncateMiddle(transaction.txHash, 10, 8)}
                     </Link>
@@ -116,7 +116,7 @@ export default async function ActivityPage() {
                       href={explorerTxUrl(transaction.chainId, transaction.txHash)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[var(--text-subtle)] hover:text-[var(--accent)]"
+                      className="text-[var(--text-subtle)] hover:text-[var(--text)]"
                       aria-label="View on block explorer"
                     >
                       <ExternalLink className="size-3.5" />

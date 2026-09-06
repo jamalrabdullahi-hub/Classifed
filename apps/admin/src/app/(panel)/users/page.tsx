@@ -122,7 +122,7 @@ export default async function UsersPage({
                   <TD>
                     <Link
                       href={`/users/${user.id}`}
-                      className="text-[13px] text-[var(--accent)] hover:underline"
+                      className="text-[13px] link"
                     >
                       {user.email}
                     </Link>

@@ -156,7 +156,7 @@ export default async function HomePage() {
           <Wordmark />
           <p className="max-w-2xl text-[12px] leading-relaxed text-[var(--text-subtle)]">
             Digital assets are volatile and you can lose money. Trades settle on public blockchains
-            and cannot be reversed once signed. FLT Exchange provides an interface to decentralized
+            and cannot be reversed once signed. FLT-Exchange provides an interface to decentralized
             liquidity; it does not provide investment advice and does not take custody of client
             assets.
           </p>

@@ -142,7 +142,7 @@ export default async function DashboardPage() {
               label="Verification"
               value={
                 verified ? (
-                  <StatusPill tone="positive">Approved</StatusPill>
+                  <StatusPill tone="neutral">Approved</StatusPill>
                 ) : kyc?.status === KycStatus.IN_REVIEW ? (
                   <StatusPill tone="warning" pulse>
                     In review
@@ -158,7 +158,7 @@ export default async function DashboardPage() {
               label="Email"
               value={
                 user.emailVerifiedAt ? (
-                  <StatusPill tone="positive">Confirmed</StatusPill>
+                  <StatusPill tone="neutral">Confirmed</StatusPill>
                 ) : (
                   <StatusPill tone="warning">Unconfirmed</StatusPill>
                 )
@@ -168,7 +168,7 @@ export default async function DashboardPage() {
               label="Trading"
               value={
                 canTrade ? (
-                  <StatusPill tone="positive">Enabled</StatusPill>
+                  <StatusPill tone="neutral">Enabled</StatusPill>
                 ) : (
                   <StatusPill tone="neutral">Unavailable</StatusPill>
                 )
@@ -242,7 +242,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 function TransactionStatusPill({ status }: { status: string }) {
-  if (status === 'CONFIRMED') return <StatusPill tone="positive">Confirmed</StatusPill>;
+  if (status === 'CONFIRMED') return <StatusPill tone="neutral">Confirmed</StatusPill>;
   if (status === 'REVERTED' || status === 'FAILED')
     return <StatusPill tone="negative">{status === 'REVERTED' ? 'Reverted' : 'Failed'}</StatusPill>;
   if (status === 'DROPPED') return <StatusPill tone="warning">Dropped</StatusPill>;

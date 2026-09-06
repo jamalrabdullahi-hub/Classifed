@@ -112,8 +112,10 @@ export function DetailRow({
       </div>
       <span
         className={cn(
-          'num shrink-0 text-right text-[13px]',
-          emphasis ? 'font-semibold text-[var(--text)]' : 'text-[var(--text)]',
+          // Mono so a column of values aligns down the panel regardless of what
+          // sits in the label beside it.
+          'num shrink-0 font-[family-name:var(--font-mono)] text-right text-[12.5px]',
+          emphasis ? 'text-[14px] font-medium text-[var(--text)]' : 'text-[var(--text)]',
         )}
       >
         {value}
@@ -197,7 +199,9 @@ export function SectionHeader({
   return (
     <div className={cn('flex items-end justify-between gap-4', className)}>
       <div>
-        <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[var(--text)]">{title}</h2>
+        <h2 className="font-[family-name:var(--font-display)] text-[17px] font-semibold tracking-[0.005em] text-[var(--text)]">
+          {title}
+        </h2>
         {description ? (
           <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-muted)]">{description}</p>
         ) : null}

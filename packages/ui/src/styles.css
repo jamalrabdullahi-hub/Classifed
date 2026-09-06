@@ -1,121 +1,132 @@
 @import 'tailwindcss';
 
 /*
- * FLT Exchange design foundation.
+ * FLT-Exchange design foundation.
  *
- * The brief is explicit that this must read as financial infrastructure rather
- * than a crypto casino, so the system is built around a few rules that are
- * enforced by what the palette makes available:
+ * Monochrome. The interface is built from black, white and the greys between
+ * them; the only hues in the entire system are the three that carry meaning:
  *
- *   1. **Green and red are data, not decoration.** They appear only on real
- *      profit/loss and real status. Nothing celebratory is coloured. There is
- *      deliberately no "success gradient" or accent-on-accent treatment to
- *      reach for.
- *   2. **Numbers align.** Every figure uses tabular numerals, so a column of
- *      balances reads as a column rather than as ragged text.
- *   3. **One accent.** A single restrained blue carries interaction. Emphasis
- *      comes from weight, spacing and hierarchy instead of from more colour.
- *   4. **Calm surfaces.** Three elevation steps, low-contrast borders, and no
- *      shadow heavier than a hairline. Density without noise.
+ *   1. **Colour is information, never decoration.** Green, red and amber appear
+ *      on real profit/loss, real risk and real status, and nowhere else. There
+ *      is deliberately no accent hue to reach for, so a coloured element in
+ *      this interface always means something.
+ *   2. **Interaction is white, not blue.** `--accent` resolves to the highest-
+ *      contrast neutral — white on dark, near-black on light. Emphasis comes
+ *      from contrast, weight and spacing.
+ *   3. **Links are underlined, not coloured.** In a monochrome system a link
+ *      tinted like body text has no affordance left, so the underline carries
+ *      it. Use the `.link` utility rather than colouring an anchor.
+ *   4. **Numbers align.** Every figure is tabular, so a column of balances
+ *      reads as a column rather than as ragged text.
+ *   5. **Calm surfaces.** Four elevation steps, hairline borders, and no shadow
+ *      heavier than it needs to be. Density without noise.
  *
- * Light and dark are both first-class. The dark theme is the primary design
- * target — this is a tool people look at for long stretches.
+ * Both themes are first-class, but dark is the design target: it is the ground
+ * the identity is drawn for, and this is a tool people look at for long
+ * stretches.
  */
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
 /* ── Light ─────────────────────────────────────────────────────────────────
- * Warm-neutral paper rather than pure white, which is harsh over long sessions
- * and makes borders look heavier than they are.
+ * A true neutral ramp. Not pure white for the canvas — an unbroken #fff makes
+ * hairline borders look heavier than they are — but no hue anywhere.
  */
 :root {
-  --canvas: #fbfbfd;
+  --canvas: #fafafa;
   --surface: #ffffff;
   --surface-raised: #ffffff;
-  --surface-sunken: #f4f5f8;
-  --surface-hover: #f0f2f6;
+  --surface-sunken: #f4f4f5;
+  --surface-hover: #efeff0;
 
-  --border: #e3e6ec;
-  --border-strong: #cdd2dc;
-  --border-focus: #3d6ae0;
+  --border: #e4e4e7;
+  --border-strong: #c8c8cd;
+  --border-focus: #0a0a0b;
 
-  --text: #0e1116;
-  --text-muted: #5a6474;
-  --text-subtle: #8a93a3;
+  --text: #0a0a0b;
+  --text-muted: #52525b;
+  --text-subtle: #86868b;
   --text-inverse: #ffffff;
 
-  --accent: #3d6ae0;
-  --accent-hover: #3159cc;
-  --accent-subtle: #eef2fd;
-  --accent-border: #c3d0f7;
-  --accent-text: #2c4fb5;
+  /* Interaction, not a hue. Resolves to the highest-contrast neutral. */
+  --accent: #0a0a0b;
+  --accent-hover: #27272a;
+  --accent-subtle: #f4f4f5;
+  --accent-border: #c8c8cd;
+  --accent-text: #0a0a0b;
 
-  --positive: #12783f;
-  --positive-subtle: #eaf6ee;
-  --positive-border: #bfe3cc;
+  /*
+   * The only hues in the system. Muted rather than saturated: against an
+   * otherwise colourless interface, a pure green reads as an alarm.
+   */
+  --positive: #15803d;
+  --positive-subtle: #f0f7f2;
+  --positive-border: #c4e0ce;
 
-  --negative: #c02a37;
-  --negative-subtle: #fdeef0;
-  --negative-border: #f4c7cd;
+  --negative: #b91c1c;
+  --negative-subtle: #fdf1f1;
+  --negative-border: #f0c9c9;
 
-  --warning: #96650b;
-  --warning-subtle: #fdf5e6;
-  --warning-border: #efd9a8;
+  --warning: #92610a;
+  --warning-subtle: #fbf6ea;
+  --warning-border: #e6d6ad;
 
-  --info: #24608f;
-  --info-subtle: #eaf3fa;
-  --info-border: #bcd8ec;
+  /* Informational, deliberately colourless — a fourth hue would dilute the
+   * three that mean something. */
+  --info: #52525b;
+  --info-subtle: #f4f4f5;
+  --info-border: #d8d8dc;
 
-  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.05);
-  --shadow-md: 0 4px 12px -2px rgb(15 23 42 / 0.08), 0 2px 4px -2px rgb(15 23 42 / 0.04);
-  --shadow-lg: 0 16px 40px -8px rgb(15 23 42 / 0.14), 0 4px 12px -4px rgb(15 23 42 / 0.06);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.04);
+  --shadow-lg: 0 16px 40px -8px rgb(0 0 0 / 0.14), 0 4px 12px -4px rgb(0 0 0 / 0.06);
 }
 
 /* ── Dark ──────────────────────────────────────────────────────────────────
- * Near-black with a blue cast rather than neutral grey. Reads as a screen made
- * for looking at data, not as an inverted document.
+ * The ground the identity is drawn for. Near-black rather than pure #000 for
+ * the canvas, so raised surfaces have somewhere to go, with no hue at any step.
  */
 [data-theme='dark'] {
-  --canvas: #0a0c11;
-  --surface: #111419;
-  --surface-raised: #171b22;
-  --surface-sunken: #0d1015;
-  --surface-hover: #1c212a;
+  --canvas: #0a0a0b;
+  --surface: #121214;
+  --surface-raised: #1a1a1d;
+  --surface-sunken: #060607;
+  --surface-hover: #202024;
 
-  --border: #232833;
-  --border-strong: #333a48;
-  --border-focus: #6e8bff;
+  --border: #26262a;
+  --border-strong: #3a3a40;
+  --border-focus: #ffffff;
 
-  --text: #e9ecf2;
-  --text-muted: #99a2b2;
-  --text-subtle: #6b7484;
-  --text-inverse: #0a0c11;
+  --text: #f2f2f3;
+  --text-muted: #a1a1a6;
+  --text-subtle: #6e6e73;
+  --text-inverse: #0a0a0b;
 
-  --accent: #6e8bff;
-  --accent-hover: #8aa1ff;
-  --accent-subtle: #161b2e;
-  --accent-border: #2c3660;
-  --accent-text: #a3b6ff;
+  --accent: #ffffff;
+  --accent-hover: #e4e4e7;
+  --accent-subtle: #1a1a1d;
+  --accent-border: #3a3a40;
+  --accent-text: #ffffff;
 
-  --positive: #3fb950;
-  --positive-subtle: #0e1f14;
-  --positive-border: #1d3f26;
+  --positive: #40c463;
+  --positive-subtle: #0d1a11;
+  --positive-border: #1c3a24;
 
-  --negative: #f85149;
-  --negative-subtle: #24120f;
-  --negative-border: #4a1f1c;
+  --negative: #f0666a;
+  --negative-subtle: #1c0f10;
+  --negative-border: #452023;
 
-  --warning: #d29922;
-  --warning-subtle: #211a0c;
-  --warning-border: #443519;
+  --warning: #d9a441;
+  --warning-subtle: #1b160b;
+  --warning-border: #423418;
 
-  --info: #58a6ff;
-  --info-subtle: #0d1b2a;
-  --info-border: #1d3350;
+  --info: #a1a1a6;
+  --info-subtle: #1a1a1d;
+  --info-border: #3a3a40;
 
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
-  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.3);
-  --shadow-lg: 0 16px 40px -8px rgb(0 0 0 / 0.6), 0 4px 12px -4px rgb(0 0 0 / 0.4);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5);
+  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.6), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 16px 40px -8px rgb(0 0 0 / 0.7), 0 4px 12px -4px rgb(0 0 0 / 0.5);
 }
 
 @theme inline {
@@ -160,10 +171,25 @@
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
 
+  /*
+   * The faces are loaded by each application through next/font, which exposes
+   * them only as CSS variables under generated family names — a literal
+   * 'Inter' in this stack would silently fall back to the system sans. Each
+   * still names a real fallback, so a package rendered outside an app degrades
+   * rather than breaks.
+   */
   --font-sans:
-    'InterVariable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /*
+   * Headings. Chakra Petch is squared and slightly technical, and carries the
+   * logo's character into the interface — Arkitech itself cannot do this work:
+   * it is a display face with no tabular figures, and a desktop licence does
+   * not cover webfont embedding.
+   */
+  --font-display:
+    var(--font-display-face), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono:
-    'JetBrains Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', monospace;
+    var(--font-mono-face), ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', monospace;
 
   /* Slightly tighter than Tailwind's defaults. Financial interfaces are dense,
    * and the default scale leaves too much air between related figures. */
@@ -216,8 +242,8 @@
   }
 
   ::selection {
-    background-color: var(--accent-subtle);
-    color: var(--accent-text);
+    background-color: var(--text);
+    color: var(--canvas);
   }
 
   :focus-visible {
@@ -239,6 +265,45 @@
 }
 
 @layer utilities {
+  /*
+   * Links.
+   *
+   * The monochrome palette leaves nothing to tint an anchor with, so the
+   * underline does the work. It is always present — a link that only reveals
+   * itself on hover is invisible to anyone who is not already pointing at it —
+   * but drawn in a border grey so a page of links does not read as a page of
+   * rules, and it firms up to full contrast on hover and focus.
+   */
+  .link {
+    color: var(--text);
+    text-decoration: underline;
+    text-decoration-color: var(--border-strong);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    transition: text-decoration-color 0.12s ease, color 0.12s ease;
+  }
+
+  .link:hover,
+  .link:focus-visible {
+    text-decoration-color: var(--text);
+  }
+
+  /* For links sitting in muted or subtle text, so they do not outshine it. */
+  .link-muted {
+    color: var(--text-muted);
+    text-decoration: underline;
+    text-decoration-color: var(--border);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    transition: text-decoration-color 0.12s ease, color 0.12s ease;
+  }
+
+  .link-muted:hover,
+  .link-muted:focus-visible {
+    color: var(--text);
+    text-decoration-color: var(--text-muted);
+  }
+
   /* Wide content — routes, tables, calldata — scrolls inside its own container
    * so the page body never scrolls sideways. */
   .scroll-x {

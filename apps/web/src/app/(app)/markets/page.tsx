@@ -91,7 +91,7 @@ export default async function MarketsPage() {
                     <div className="flex items-center gap-2">
                       <Link
                         href={`/markets/${token.address}`}
-                        className="font-medium text-[var(--text)] hover:text-[var(--accent)] hover:underline"
+                        className="link font-medium"
                       >
                         {token.symbol}
                       </Link>
@@ -115,7 +115,7 @@ export default async function MarketsPage() {
                     {token.isEnabled ? (
                       <Link
                         href={`/trade?sell=${token.address}`}
-                        className="text-[13px] text-[var(--accent)] hover:underline"
+                        className="text-[13px] link"
                       >
                         Trade
                       </Link>
@@ -140,8 +140,16 @@ export default async function MarketsPage() {
   );
 }
 
+/**
+ * Verification tier.
+ *
+ * Only the unreviewed case carries colour. Verified is the expected state, and
+ * tinting the normal case spends the signal that should be reserved for the one
+ * row a user needs to look at twice — in a column of seven tokens, six green
+ * badges say nothing and the amber one stops being visible.
+ */
 function TierBadge({ tier }: { tier: string }) {
-  if (tier === 'VERIFIED') return <Badge tone="positive">Verified</Badge>;
+  if (tier === 'VERIFIED') return <Badge tone="neutral">Verified</Badge>;
   if (tier === 'RECOGNIZED') return <Badge tone="neutral">Recognized</Badge>;
   return <Badge tone="warning">Unverified</Badge>;
 }

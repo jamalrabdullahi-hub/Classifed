@@ -159,7 +159,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                           href={explorerTxUrl(transaction.chainId, transaction.txHash)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="num font-mono text-[12px] text-[var(--accent)] hover:underline"
+                          className="num font-mono text-[12px] link"
                         >
                           {truncateMiddle(transaction.txHash, 10, 8)}
                         </a>

@@ -163,8 +163,9 @@ export default async function MarketDetailPage({
   );
 }
 
+/** Only the unreviewed case carries colour. See the note in the markets list. */
 function TierBadge({ tier }: { tier: string }) {
-  if (tier === 'VERIFIED') return <Badge tone="positive">Verified</Badge>;
+  if (tier === 'VERIFIED') return <Badge tone="neutral">Verified</Badge>;
   if (tier === 'RECOGNIZED') return <Badge tone="neutral">Recognized</Badge>;
   return <Badge tone="warning">Unverified</Badge>;
 }

@@ -107,7 +107,7 @@ export default async function TransactionDetailPage({
             href={explorerTxUrl(transaction.chainId, transaction.txHash)}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 text-[13px] text-[var(--accent)] hover:underline"
+            className="flex items-center gap-1 text-[13px] link"
           >
             View on Basescan
             <ExternalLink className="size-3.5" />

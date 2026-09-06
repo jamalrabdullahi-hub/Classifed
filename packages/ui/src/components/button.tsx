@@ -27,14 +27,27 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: 'bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] shadow-[var(--shadow-sm)]',
+        /*
+         * The label takes the inverse token rather than a literal white: the
+         * accent is now the highest-contrast neutral, so it is near-black on
+         * light and white on dark, and a hard-coded white label disappears on
+         * one of them.
+         */
+        primary: cn(
+          'bg-[var(--accent)] text-[var(--text-inverse)]',
+          'hover:bg-[var(--accent-hover)] shadow-[var(--shadow-sm)]',
+        ),
         secondary: cn(
           'bg-[var(--surface-raised)] text-[var(--text)]',
           'border border-[var(--border-strong)] hover:bg-[var(--surface-hover)]',
         ),
         ghost: 'text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text)]',
-        danger: 'bg-[var(--negative)] text-white hover:opacity-90 shadow-[var(--shadow-sm)]',
-        link: 'text-[var(--accent)] underline-offset-4 hover:underline p-0 h-auto',
+        // Same reasoning: the negative token is a deep red on light and a light
+        // red on dark, so the label tracks the canvas to stay legible on both.
+        danger: 'bg-[var(--negative)] text-[var(--canvas)] hover:opacity-90 shadow-[var(--shadow-sm)]',
+        // Underlined by default — see the `.link` utility. With no accent hue
+        // left, a link that is only underlined on hover has no affordance.
+        link: 'link p-0 h-auto font-normal',
       },
       size: {
         sm: 'h-8 rounded-[var(--radius-sm)] px-3 text-[13px] [&_svg]:size-3.5',

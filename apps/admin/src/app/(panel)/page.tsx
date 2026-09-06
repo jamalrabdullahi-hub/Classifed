@@ -119,7 +119,7 @@ export default async function AdminDashboard() {
           <CardTitle>Recent operator actions</CardTitle>
           <Link
             href="/audit"
-            className="flex items-center gap-1 text-[13px] text-[var(--accent)] hover:underline"
+            className="flex items-center gap-1 text-[13px] link"
           >
             Audit log
             <ArrowUpRight className="size-3.5" />

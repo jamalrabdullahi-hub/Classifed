@@ -63,13 +63,13 @@ export default async function TransactionsPage({
         }
         action={
           flaggedOnly ? (
-            <Link href="/transactions" className="text-[13px] text-[var(--accent)] hover:underline">
+            <Link href="/transactions" className="text-[13px] link">
               Show all
             </Link>
           ) : (
             <Link
               href="/transactions?flagged=1"
-              className="text-[13px] text-[var(--accent)] hover:underline"
+              className="text-[13px] link"
             >
               Show flagged only
             </Link>
@@ -112,7 +112,7 @@ export default async function TransactionsPage({
                   <TD>
                     <Link
                       href={`/users/${transaction.user.id}`}
-                      className="text-[13px] text-[var(--accent)] hover:underline"
+                      className="text-[13px] link"
                     >
                       {transaction.user.email}
                     </Link>
@@ -127,7 +127,7 @@ export default async function TransactionsPage({
                       href={explorerTxUrl(transaction.chainId, transaction.txHash)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="num font-mono text-[12px] text-[var(--accent)] hover:underline"
+                      className="num font-mono text-[12px] link"
                     >
                       {truncateMiddle(transaction.txHash, 10, 8)}
                     </a>

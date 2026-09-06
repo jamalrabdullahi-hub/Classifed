@@ -130,11 +130,11 @@ export function LoginForm() {
     <div className="animate-fade-up">
       <header className="mb-6">
         <h1 className="text-xl font-semibold tracking-[-0.02em] text-[var(--text)]">
-          Sign in to FLT Exchange
+          Sign in to FLT-Exchange
         </h1>
         <p className="mt-1.5 text-[13px] text-[var(--text-muted)]">
           Don&apos;t have an account?{' '}
-          <Link href="/register" className="text-[var(--accent)] hover:underline">
+          <Link href="/register" className="link">
             Open one
           </Link>
         </p>
@@ -163,7 +163,7 @@ export function LoginForm() {
           action={
             <Link
               href="/forgot-password"
-              className="text-[12px] text-[var(--text-muted)] hover:text-[var(--accent)]"
+              className="text-[12px] text-[var(--text-muted)] hover:text-[var(--text)]"
             >
               Forgot?
             </Link>

@@ -72,7 +72,7 @@ export function RegisterForm() {
         </h1>
         <p className="mt-1.5 text-[13px] text-[var(--text-muted)]">
           Already have one?{' '}
-          <Link href="/login" className="text-[var(--accent)] hover:underline">
+          <Link href="/login" className="link">
             Sign in
           </Link>
         </p>

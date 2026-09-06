@@ -44,7 +44,11 @@ export const CardTitle = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadi
     return (
       <h3
         ref={ref}
-        className={cn('text-sm font-semibold tracking-[-0.005em] text-[var(--text)]', className)}
+        className={cn(
+          'font-[family-name:var(--font-display)] text-[15px] font-semibold',
+          'tracking-[0.005em] text-[var(--text)]',
+          className,
+        )}
         {...props}
       />
     );
@@ -110,7 +114,7 @@ export function Stat({
         {label}
       </span>
       <div className="flex items-baseline gap-2">
-        <span className="num text-[22px] font-semibold leading-none tracking-[-0.02em] text-[var(--text)]">
+        <span className="num font-[family-name:var(--font-mono)] text-[22px] font-medium leading-none tracking-[-0.02em] text-[var(--text)]">
           {value}
         </span>
         {trend}
