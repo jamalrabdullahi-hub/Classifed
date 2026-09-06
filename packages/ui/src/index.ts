@@ -43,3 +43,4 @@ export {
   Tooltip,
   TooltipProvider,
 } from './components/overlay';
+export { BrandMark, BrandWordmark, BrandLockup } from './components/brand';

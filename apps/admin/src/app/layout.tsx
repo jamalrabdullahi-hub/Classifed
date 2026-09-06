@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-int
 
 export const metadata: Metadata = {
   title: { default: 'FLT Admin', template: '%s · FLT Admin' },
-  description: 'FLT Exchange administration',
+  description: 'FLT-Exchange administration',
   // An admin panel has no business in a search index.
   robots: { index: false, follow: false, nocache: true },
 };

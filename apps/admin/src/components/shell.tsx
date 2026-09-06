@@ -15,7 +15,7 @@ import {
   Users,
   Wallet,
 } from 'lucide-react';
-import { Badge, cn } from '@flt/ui';
+import { Badge, BrandLockup, cn } from '@flt/ui';
 import { ThemeToggle } from './theme';
 
 /**
@@ -77,9 +77,7 @@ export function AdminShell({
     <div className="flex min-h-screen">
       <aside className="hidden w-56 shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)] lg:flex">
         <div className="flex h-14 items-center gap-2 border-b border-[var(--border)] px-4">
-          <span className="text-[14px] font-semibold tracking-[-0.01em] text-[var(--text)]">
-            FLT<span className="text-[var(--text-subtle)]"> Admin</span>
-          </span>
+          <BrandLockup suffix="Admin" short className="text-[var(--text)]" />
         </div>
 
         <nav className="flex-1 space-y-5 overflow-y-auto p-3" aria-label="Admin">

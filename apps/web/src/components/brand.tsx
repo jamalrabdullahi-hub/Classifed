@@ -1,55 +1,18 @@
-import { cn } from '@flt/ui';
+import { BrandLockup, BrandMark, cn } from '@flt/ui';
 
 /**
- * Brand mark.
+ * Brand surfaces for the consumer app.
  *
- * An abstract routing glyph — three inputs converging on one output — which is
- * literally what the product does: aggregate liquidity into a single execution.
- * Drawn in `currentColor` so it inherits from context rather than carrying its
- * own palette.
+ * The artwork itself lives in `@flt/ui` so the admin panel renders the same
+ * identity from the same outlines — a logo that drifts between two applications
+ * of one company reads as two companies.
  */
-export function Logo({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className={cn('size-6', className)}
-      aria-hidden="true"
-    >
-      <path
-        d="M3 5.5h5.5a4 4 0 0 1 4 4v5a4 4 0 0 0 4 4H21"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-      />
-      <path
-        d="M3 12h3.5a4 4 0 0 0 4-4V6"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        opacity="0.55"
-      />
-      <path
-        d="M3 18.5h2a4 4 0 0 0 4-4v-1"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        opacity="0.3"
-      />
-      <circle cx="20.5" cy="18.5" r="1.9" fill="currentColor" />
-    </svg>
-  );
-}
 
+export { BrandMark as Logo };
+
+/** The primary lockup: speed mark plus the FLT-EXCHANGE wordmark. */
 export function Wordmark({ className }: { className?: string }) {
-  return (
-    <span className={cn('flex items-center gap-2', className)}>
-      <Logo className="size-[22px] text-[var(--accent)]" />
-      <span className="text-[15px] font-semibold tracking-[-0.02em] text-[var(--text)]">
-        FLT<span className="text-[var(--text-subtle)]"> Exchange</span>
-      </span>
-    </span>
-  );
+  return <BrandLockup className={cn('text-[var(--text)]', className)} />;
 }
 
 /**

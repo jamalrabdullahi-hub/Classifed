@@ -1,107 +1,41 @@
-﻿import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import opentype from 'opentype.js';
+import sharp from 'sharp';
+import pngToIco from 'png-to-ico';
 
 /**
  * Brand asset generator for FLT-Exchange.
  *
- * Renders the wordmark from the Arkitech typeface into outlined SVG paths.
+ * Renders the wordmark from Arkitech into outlined SVG paths, pairs it with the
+ * three-bar speed mark, and rasterises the icons browsers still want as PNG.
  * Outlines rather than live text deliberately: a logo has to render identically
- * everywhere without shipping the font file, and Arkitech is licensed to FLT
- * rather than to whoever loads the page.
+ * everywhere without shipping the font, and Arkitech is licensed to FLT rather
+ * than to whoever loads the page.
  *
- * The font is NOT committed to this repository. Point FONT_DIR at the licensed
- * copy:
+ * The font is NOT committed. Point FONT_DIR at the licensed copy:
  *   node brand/generate.mjs
- *   FONT_DIR="/path/to/arkitech-2-font" node brand/generate.mjs
  *
- * Two implementation notes worth keeping:
- *
- * opentype.js 2.0's Path.extend() corrupts coordinates when merging glyph paths
- * â€” the combined path comes back containing NaN even though every glyph is
- * clean on its own. Glyph path data is concatenated as strings instead.
- *
- * The oblique is an SVG transform rather than baked-into coordinates. Arkitech
- * ships no italic, so the slant on the existing FTL-Pay wordmark is a shear;
- * doing it as a transform keeps the mark and the letters leaning by exactly the
- * same angle and leaves the outlines untouched.
+ * Two opentype.js 2.0 defects shape the code below, both of which fail by
+ * silently emitting NaN coordinates so letters vanish rather than erroring:
+ * Path.extend() and the font-level getPath/getPaths helpers corrupt merged
+ * glyphs, and glyph.getPath() corrupts glyphs given a non-zero x or when the
+ * commands it returns are mutated. Rendering each glyph at the origin and
+ * positioning it with a transform is the only reliable arrangement.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = join(HERE, 'assets');
-
 const FONT_DIR = process.env.FONT_DIR ?? 'C:/FLT-Pay/media & logos/arktech-2/arkitech-2-font';
 
 const loadFont = (file) => opentype.parse(readFileSync(join(FONT_DIR, file)).buffer);
-const FONTS = {
-  light: loadFont('ArkitechLight-ovWKz.otf'),
-  medium: loadFont('ArkitechMedium-R9EYv.otf'),
-};
+const FONTS = { light: loadFont('ArkitechLight-ovWKz.otf'), medium: loadFont('ArkitechMedium-R9EYv.otf') };
 
-/** Degrees of lean, matching the FTL-Pay wordmark. */
-const SLANT = 12;
-const TAN = Math.tan((SLANT * Math.PI) / 180);
+/** The chosen mark. Every other reading is one line away if it is revisited. */
+const CANONICAL = 'stagger';
 
-const round = (n) => Number(n.toFixed(2));
-/** Leans the top of a shape to the right; y grows downward in SVG. */
-const skew = `skewX(${-SLANT})`;
-
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Wordmark
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-/**
- * Outlines for a string, laid out on a baseline at y = 0.
- *
- * Returns SVG markup rather than a single path string, and un-slanted geometry;
- * callers apply the shear via transform.
- *
- * Every glyph is rendered at the origin and positioned with a transform, which
- * is the only arrangement opentype.js 2.0 gets right. Passing a non-zero x to
- * getPath, using the font-level getPath/getPaths helpers, or mutating the
- * returned command coordinates all yield NaN for a subset of glyphs â€” silently,
- * so letters simply vanish from the wordmark.
- */
-function wordmark(font, text, size, { letterSpacing = 0 } = {}) {
-  const scale = size / font.unitsPerEm;
-  const parts = [];
-
-  let x = 0;
-  let capHeight = 0;
-  let width = 0;
-
-  for (const glyph of font.stringToGlyphs(text)) {
-    const path = glyph.getPath(0, 0, size);
-    const d = path.toPathData(3);
-
-    // Guard rather than trust: a malformed glyph must not drop a letter out of
-    // the wordmark without saying so.
-    if (d && !d.includes('NaN')) {
-      parts.push(`<path transform="translate(${round(x)} 0)" d="${d}"/>`);
-      const box = path.getBoundingBox();
-      if (Number.isFinite(box.y1)) capHeight = Math.max(capHeight, Math.abs(box.y1));
-      if (Number.isFinite(box.x2)) width = Math.max(width, x + box.x2);
-    } else {
-      console.warn(`   ! skipped malformed glyph "${glyph.name}"`);
-    }
-
-    x += glyph.advanceWidth * scale + letterSpacing;
-  }
-
-  return { body: parts.join(''), width, capHeight };
-}
-
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// The speed mark
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-/**
- * Three horizontal bars â€” the mark that carries the brand on its own.
- *
- * Each variant reads the same idea differently, which is why several ship: in a
- * favicon the wordmark is illegible and this is all that is left.
- */
+/** Bar lengths top to bottom, as a fraction of the mark's width. */
 const MARKS = {
   equal: [1, 1, 1],
   'short-middle': [1, 0.6, 1],
@@ -110,28 +44,61 @@ const MARKS = {
   stagger: [1, 0.45, 0.8],
 };
 
-const MARK_NAMES = Object.keys(MARKS);
+/** Degrees of lean, matching the FTL-Pay wordmark. */
+const SLANT = 12;
+const TAN = Math.tan((SLANT * Math.PI) / 180);
 
-/** Bars as axis-aligned rects; the caller skews them to match the letters. */
+const round = (n) => Number(n.toFixed(2));
+/** Leans the top of a shape right; y grows downward in SVG. */
+const skew = `skewX(${-SLANT})`;
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Outlines for a string on a baseline at y = 0, as positioned <path> elements.
+ * Geometry is upright; callers apply the shear via transform.
+ */
+function wordmark(font, text, size, { letterSpacing = 0, precision = 2 } = {}) {
+  const scale = size / font.unitsPerEm;
+  const glyphs = [];
+  let x = 0;
+  let capHeight = 0;
+  let width = 0;
+
+  for (const glyph of font.stringToGlyphs(text)) {
+    const path = glyph.getPath(0, 0, size);
+    const d = path.toPathData(precision);
+
+    // Guard rather than trust: a malformed glyph must not drop a letter out of
+    // the wordmark without saying so.
+    if (d && !d.includes('NaN')) {
+      glyphs.push({ x: round(x), d });
+      const box = path.getBoundingBox();
+      if (Number.isFinite(box.y1)) capHeight = Math.max(capHeight, Math.abs(box.y1));
+      if (Number.isFinite(box.x2)) width = Math.max(width, x + box.x2);
+    } else {
+      throw new Error(`Malformed glyph "${glyph.name}" in "${text}"`);
+    }
+
+    x += glyph.advanceWidth * scale + letterSpacing;
+  }
+
+  const body = glyphs.map((g) => `<path transform="translate(${g.x} 0)" d="${g.d}"/>`).join('');
+  return { body, glyphs, width, capHeight };
+}
+
+/** Bars as axis-aligned rects; callers skew them to match the letters. */
 function speedMark(variant, unit, { weight = 0.17, gap = 0.145 } = {}) {
-  const lengths = MARKS[variant] ?? MARKS.equal;
   const bar = unit * weight;
   const gapH = unit * gap;
-  const height = bar * 3 + gapH * 2;
-
-  const d = lengths
+  const d = (MARKS[variant] ?? MARKS.equal)
     .map((length, index) => {
       const y = index * (bar + gapH);
       return `M0 ${round(y)}h${round(unit * length)}v${round(bar)}h${round(-unit * length)}z`;
     })
     .join('');
-
-  return { d, width: unit, height };
+  return { d, width: unit, height: bar * 3 + gapH * 2 };
 }
-
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// SVG helpers
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function svg({ width, height, body, background }) {
   const bg = background ? `<rect width="${round(width)}" height="${round(height)}" fill="${background}"/>` : '';
@@ -141,32 +108,43 @@ function svg({ width, height, body, background }) {
   );
 }
 
+const written = [];
 function write(name, contents) {
   const target = join(OUT, name);
   mkdirSync(dirname(target), { recursive: true });
-  writeFileSync(target, contents, 'utf8');
-  console.log('  ', name);
+  writeFileSync(target, contents, typeof contents === 'string' ? 'utf8' : undefined);
+  written.push(name);
 }
 
-/**
- * A horizontal lockup: mark, gap, wordmark.
- *
- * Skewing shifts a shape left as y grows, so each group is nudged right by
- * height * tan to keep the artwork inside the viewBox.
- */
-function lockup({ font, text, variant, size = 100, fill = 'currentColor', background }) {
-  const word = wordmark(font, text, size, { letterSpacing: size * 0.02 });
-  const markUnit = word.capHeight * 1.45;
-  const mark = speedMark(variant, markUnit);
+/** A square containing the mark alone, padded and centred. */
+function markSquare({ fill = 'currentColor', background, unit = 100, pad = 0.2, radius = 0, options = {} } = {}) {
+  const mark = speedMark(CANONICAL, unit, options);
+  const lean = mark.height * TAN;
+  const padPx = unit * pad;
+  const box = Math.max(unit + lean, mark.height) + padPx * 2;
 
-  // Scale the mark so its overall height matches the cap height of the letters.
+  const bg = background
+    ? `<rect width="${round(box)}" height="${round(box)}" rx="${round(box * radius)}" fill="${background}"/>`
+    : '';
+
+  const body =
+    bg +
+    `<g transform="translate(${round((box - unit - lean) / 2 + lean)} ${round((box - mark.height) / 2)}) ${skew}">` +
+    `<path d="${mark.d}" fill="${fill}"/></g>`;
+
+  return { markup: svg({ width: box, height: box, body }), box };
+}
+
+/** Horizontal lockup: mark, gap, wordmark. */
+function lockup({ font, text, size = 100, fill = 'currentColor', background }) {
+  const word = wordmark(font, text, size, { letterSpacing: size * 0.02 });
+  const mark = speedMark(CANONICAL, word.capHeight * 1.45);
   const scale = word.capHeight / mark.height;
   const markW = mark.width * scale;
-  const markH = word.capHeight;
 
   const gap = size * 0.3;
   const pad = size * 0.18;
-  const lean = markH * TAN;
+  const lean = word.capHeight * TAN;
 
   const width = pad * 2 + markW + gap + word.width + lean;
   const height = pad * 2 + word.capHeight;
@@ -177,96 +155,61 @@ function lockup({ font, text, variant, size = 100, fill = 'currentColor', backgr
     `<g transform="translate(${round(pad + lean + markW + gap)} ${round(pad + word.capHeight)}) ${skew}" ` +
     `fill="${fill}">${word.body}</g>`;
 
-  return { svg: svg({ width, height, body, background }), width, height, word, markW, mark, scale };
+  return { markup: svg({ width, height, body, background }), width, height, body, word, markW, mark, scale };
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 
+rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
-console.log('Generating FLT-Exchange brand assets...\n');
+console.log(`Generating FLT-Exchange assets — mark: ${CANONICAL}\n`);
 
-/* â”€â”€ Favicons and app icons: the mark alone â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Favicon ──────────────────────────────────────────────────────────────── */
 
-for (const variant of MARK_NAMES) {
-  const unit = 100;
-  const mark = speedMark(variant, unit);
-  const lean = mark.height * TAN;
-  const pad = unit * 0.2;
-  const box = Math.max(unit + lean, mark.height) + pad * 2;
+// For embedding in a document, where it inherits colour from its context.
+write('favicon/favicon.svg', markSquare().markup);
 
-  const place =
-    `<g transform="translate(${round((box - unit - lean) / 2 + lean)} ${round((box - mark.height) / 2)}) ${skew}">`;
-
-  write(
-    `favicon/mark-${variant}.svg`,
-    svg({ width: box, height: box, body: `${place}<path d="${mark.d}" fill="currentColor"/></g>` }),
-  );
-
-  write(
-    `icon/app-${variant}.svg`,
-    svg({
-      width: box,
-      height: box,
-      body:
-        `<rect width="${round(box)}" height="${round(box)}" rx="${round(box * 0.22)}" fill="#000"/>` +
-        `${place}<path d="${mark.d}" fill="#fff"/></g>`,
-    }),
-  );
-
-  // Maskable icon: Android crops to a circle, so the mark is inset further.
-  write(
-    `icon/maskable-${variant}.svg`,
-    svg({
-      width: box,
-      height: box,
-      body:
-        `<rect width="${round(box)}" height="${round(box)}" fill="#000"/>` +
-        `<g transform="translate(${round(box / 2)} ${round(box / 2)}) scale(0.66) translate(${round(-box / 2)} ${round(-box / 2)})">` +
-        `${place}<path d="${mark.d}" fill="#fff"/></g></g>`,
-    }),
-  );
+/*
+ * The browser-tab favicon.
+ *
+ * Drawn separately rather than scaled down from the file above: at 16px the
+ * standard bar weight lands under three pixels and greys out, so the bars are
+ * thickened and the gaps opened. Since browsers prefer an SVG icon at every
+ * size, this tuned drawing is the one the application ships.
+ *
+ * The fill is explicit and theme-aware. A favicon has no inherited colour, so
+ * currentColor resolves to black and the mark disappears against a dark tab
+ * strip.
+ */
+{
+  const tuned = markSquare({ fill: 'var(--fg)', pad: 0.12, options: { weight: 0.235, gap: 0.16 } });
+  const style =
+    `<style>:root{--fg:#0a0b0d}` +
+    `@media (prefers-color-scheme:dark){:root{--fg:#ffffff}}</style>`;
+  write('favicon/favicon-16.svg', tuned.markup.replace('role="img">', `role="img">${style}`));
 }
 
-/* â”€â”€ Lockups â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── App icons ────────────────────────────────────────────────────────────── */
 
-const WORDS = [
-  { name: 'flt-exchange', text: 'FLT-EXCHANGE', font: FONTS.light },
-  { name: 'flt-exchange-medium', text: 'FLT-EXCHANGE', font: FONTS.medium },
-  { name: 'flt', text: 'FLT', font: FONTS.light },
-];
+const appIcon = markSquare({ fill: '#fff', background: '#000', radius: 0.22 });
+write('icon/app.svg', appIcon.markup);
 
-for (const entry of WORDS) {
-  for (const variant of MARK_NAMES) {
-    write(
-      `lockup/${entry.name}-${variant}.svg`,
-      lockup({ font: entry.font, text: entry.text, variant }).svg,
-    );
-  }
+// Android crops maskable icons to a circle, so the mark is inset further.
+const maskable = markSquare({ fill: '#fff', background: '#000', pad: 0.42 });
+write('icon/maskable.svg', maskable.markup);
 
-  const word = wordmark(entry.font, entry.text, 100, { letterSpacing: 2 });
-  const pad = 18;
-  const lean = word.capHeight * TAN;
-  write(
-    `wordmark/${entry.name}.svg`,
-    svg({
-      width: pad * 2 + word.width + lean,
-      height: pad * 2 + word.capHeight,
-      body:
-        `<g transform="translate(${round(pad + lean)} ${round(pad + word.capHeight)}) ${skew}" ` +
-        `fill="currentColor">${word.body}</g>`,
-    }),
-  );
-}
+/* ── Lockups ──────────────────────────────────────────────────────────────── */
 
-/* â”€â”€ Stacked lockup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+write('lockup/primary.svg', lockup({ font: FONTS.light, text: 'FLT-EXCHANGE' }).markup);
+write('lockup/primary-medium.svg', lockup({ font: FONTS.medium, text: 'FLT-EXCHANGE' }).markup);
+write('lockup/short.svg', lockup({ font: FONTS.light, text: 'FLT' }).markup);
 
 {
   const word = wordmark(FONTS.light, 'FLT-EXCHANGE', 100, { letterSpacing: 2 });
-  const mark = speedMark('short-middle', word.width * 0.34);
+  const mark = speedMark(CANONICAL, word.width * 0.34);
   const pad = 22;
   const gap = 30;
   const lean = word.capHeight * TAN;
-
   const width = pad * 2 + word.width + lean;
   const height = pad * 2 + mark.height + gap + word.capHeight;
 
@@ -284,16 +227,35 @@ for (const entry of WORDS) {
   );
 }
 
-/* â”€â”€ Social card, with the star field the brand already uses â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Wordmarks alone ──────────────────────────────────────────────────────── */
 
-for (const variant of ['short-middle', 'accelerate']) {
-  const W = 1200;
-  const H = 630;
-  const inner = lockup({ font: FONTS.light, text: 'FLT-EXCHANGE', variant, fill: '#fff' });
+for (const [name, font, text] of [
+  ['flt-exchange', FONTS.light, 'FLT-EXCHANGE'],
+  ['flt-exchange-medium', FONTS.medium, 'FLT-EXCHANGE'],
+  ['flt', FONTS.light, 'FLT'],
+]) {
+  const word = wordmark(font, text, 100, { letterSpacing: 2 });
+  const pad = 18;
+  const lean = word.capHeight * TAN;
+  write(
+    `wordmark/${name}.svg`,
+    svg({
+      width: pad * 2 + word.width + lean,
+      height: pad * 2 + word.capHeight,
+      body:
+        `<g transform="translate(${round(pad + lean)} ${round(pad + word.capHeight)}) ${skew}" ` +
+        `fill="currentColor">${word.body}</g>`,
+    }),
+  );
+}
 
-  const scale = (W * 0.66) / inner.width;
-  const x = (W - inner.width * scale) / 2;
-  const y = (H - inner.height * scale) / 2;
+/* ── Social card ──────────────────────────────────────────────────────────── */
+
+const OG_W = 1200;
+const OG_H = 630;
+{
+  const inner = lockup({ font: FONTS.light, text: 'FLT-EXCHANGE', fill: '#fff' });
+  const scale = (OG_W * 0.66) / inner.width;
 
   // Deterministic, so regenerating does not reshuffle the sky.
   let seed = 20260906;
@@ -302,22 +264,112 @@ for (const variant of ['short-middle', 'accelerate']) {
   let stars = '';
   for (let i = 0; i < 110; i += 1) {
     stars +=
-      `<circle cx="${round(random() * W)}" cy="${round(random() * H)}" ` +
+      `<circle cx="${round(random() * OG_W)}" cy="${round(random() * OG_H)}" ` +
       `r="${round(0.6 + random() * 1.7)}" fill="#fff" opacity="${round(0.2 + random() * 0.6)}"/>`;
   }
 
-  const bodyOnly = inner.svg.replace(/^.*?role="img">/s, '').replace(/<\/svg>\s*$/, '');
-
   write(
-    `social/og-${variant}.svg`,
+    'social/og.svg',
     svg({
-      width: W,
-      height: H,
+      width: OG_W,
+      height: OG_H,
       background: '#000',
-      body: `${stars}<g transform="translate(${round(x)} ${round(y)}) scale(${round(scale)})">${bodyOnly}</g>`,
+      body:
+        stars +
+        `<g transform="translate(${round((OG_W - inner.width * scale) / 2)} ` +
+        `${round((OG_H - inner.height * scale) / 2)}) scale(${round(scale)})">${inner.body}</g>`,
     }),
   );
 }
 
-console.log('\nDone.');
+/* ── Rasters ──────────────────────────────────────────────────────────────── */
 
+/*
+ * Browsers that will not take an SVG icon: Safari wants apple-touch-icon.png,
+ * Android wants the manifest PNGs, and older Windows still asks for favicon.ico.
+ * Rendered from the explicit-colour SVGs, since currentColor has nothing to
+ * resolve against outside a document.
+ */
+console.log('\nRasterising...');
+
+const render = (markup, size) =>
+  sharp(Buffer.from(markup)).resize(size, size, { fit: 'contain' }).png({ compressionLevel: 9 }).toBuffer();
+
+// Tab icons: white bars on black, so they read on either browser chrome.
+const tabIcon = (opts) => markSquare({ fill: '#fff', background: '#000', ...opts }).markup;
+
+const png16 = await render(tabIcon({ pad: 0.12, options: { weight: 0.235, gap: 0.16 } }), 16);
+const png32 = await render(tabIcon({ pad: 0.16, options: { weight: 0.2, gap: 0.15 } }), 32);
+const png48 = await render(tabIcon(), 48);
+
+write('favicon/favicon-16.png', png16);
+write('favicon/favicon-32.png', png32);
+write('favicon/favicon-48.png', png48);
+write('favicon/favicon.ico', await pngToIco([png16, png32, png48]));
+
+write('icon/apple-touch-icon.png', await render(appIcon.markup, 180));
+write('icon/icon-192.png', await render(appIcon.markup, 192));
+write('icon/icon-512.png', await render(appIcon.markup, 512));
+write('icon/maskable-512.png', await render(maskable.markup, 512));
+
+write(
+  'social/og.png',
+  await sharp(Buffer.from(readFileSync(join(OUT, 'social/og.svg'), 'utf8')))
+    .resize(OG_W, OG_H)
+    .png({ compressionLevel: 9 })
+    .toBuffer(),
+);
+
+/* ── Generated React art ──────────────────────────────────────────────────── */
+
+/*
+ * The mark and wordmark are emitted as a component so the application cannot
+ * drift from the asset files. Regenerating updates both.
+ */
+{
+  const mark = speedMark(CANONICAL, 100);
+  const markLean = mark.height * TAN;
+  const markBox = Math.max(100 + markLean, mark.height);
+
+  const word = wordmark(FONTS.light, 'FLT-EXCHANGE', 100, { letterSpacing: 2, precision: 1 });
+  const wordLean = word.capHeight * TAN;
+
+  const short = wordmark(FONTS.light, 'FLT', 100, { letterSpacing: 2, precision: 1 });
+  const shortLean = short.capHeight * TAN;
+
+  const tsx = `/*
+ * GENERATED FILE — do not edit by hand.
+ *
+ * Produced by brand/generate.mjs from the licensed Arkitech typeface. The
+ * outlines live here rather than in a font file so the interface renders the
+ * real wordmark without shipping a licensed font to every visitor.
+ *
+ * Regenerate with: node brand/generate.mjs
+ */
+
+export const BRAND_MARK = {
+  viewBox: '0 0 ${round(markBox)} ${round(mark.height)}',
+  transform: 'translate(${round(markLean)} 0) ${skew}',
+  d: '${mark.d}',
+} as const;
+
+export const BRAND_WORDMARK = {
+  viewBox: '0 0 ${round(word.width + wordLean)} ${round(word.capHeight)}',
+  transform: 'translate(${round(wordLean)} ${round(word.capHeight)}) ${skew}',
+  glyphs: ${JSON.stringify(word.glyphs)},
+} as const;
+
+export const BRAND_WORDMARK_SHORT = {
+  viewBox: '0 0 ${round(short.width + shortLean)} ${round(short.capHeight)}',
+  transform: 'translate(${round(shortLean)} ${round(short.capHeight)}) ${skew}',
+  glyphs: ${JSON.stringify(short.glyphs)},
+} as const;
+`;
+
+  const target = join(HERE, '..', 'packages', 'ui', 'src', 'brand-art.ts');
+  writeFileSync(target, tsx, 'utf8');
+  console.log('   packages/ui/src/brand-art.ts');
+}
+
+console.log(`\n${written.length} asset files written to brand/assets.`);
+for (const name of written) console.log('  ', name);
