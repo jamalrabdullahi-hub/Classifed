@@ -25,7 +25,8 @@
     "db:studio": "pnpm --filter @flt/db studio",
     "worker": "pnpm --filter @flt/worker start",
     "verify:tokens": "pnpm --filter @flt/db exec tsx ../../scripts/verify-tokens.ts",
-    "sync:perp-markets": "pnpm --filter @flt/db exec tsx --env-file-if-exists=../../.env ../../scripts/sync-perp-markets.ts"
+    "sync:perp-markets": "pnpm --filter @flt/db exec tsx --env-file-if-exists=../../.env ../../scripts/sync-perp-markets.ts",
+    "add:token": "pnpm --filter @flt/db exec tsx --env-file-if-exists=../../.env ../../scripts/add-token.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",

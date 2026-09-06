@@ -216,5 +216,25 @@ signing ships.
 (+1), with `priority` breaking ties. So a cheaper institutional rate is a new row
 with `accountType = 'INSTITUTION'`, and it outranks the default automatically.
 
-Editing a rule currently requires direct database access — the admin panel's fee
-page is read-only. That is the next piece of work.
+Rules are created, edited and disabled from the admin panel's fee page. Every
+change writes an `admin_actions` row with before/after and a required reason.
+Rules are never deleted, only disabled, so a historical quote can always name
+the rule that priced it.
+
+A customer's pricing tier is changed from their user page. A tier only changes
+what they pay where a fee rule names that tier; without such a rule the account
+keeps paying the default.
+
+### Listing a token
+
+    pnpm add:token 0xContractAddress "Display name"
+
+Reads `symbol()` and `decimals()` from the chain rather than taking them as
+arguments, and writes the row **disabled** and `UNVERIFIED`. A disabled token
+appears in the Markets table marked as such but is not tradeable and is excluded
+from quoting and from the trade selector.
+
+Enabling it, and raising its verification tier, are separate deliberate acts.
+Keep them separate: the tier communicates that FLT reviewed the contract, so if
+listing is ever sold, a paid listing must never raise a tier or the warning on
+unreviewed tokens stops meaning anything.
