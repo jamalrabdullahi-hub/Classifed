@@ -44,6 +44,9 @@ export type {
   ProtectionSetting,
   Subscription,
   SubscriptionPlan,
+  ReferralCode,
+  Referral,
+  ReferralEarning,
 } from '@prisma/client';
 
 export {
@@ -71,5 +74,7 @@ export {
   ProtectionLedgerKind,
   CreditDestination,
   SubscriptionTier,
+  ReferralEarningKind,
+  ReferralEarningStatus,
   SubscriptionStatus,
 } from '@prisma/client';

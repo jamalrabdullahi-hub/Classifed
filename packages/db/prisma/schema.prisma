@@ -232,6 +232,10 @@ model User {
   perpPositions      PerpPositionSnapshot[]
   protectionPolicies ProtectionPolicy[]
   subscriptions      Subscription[]
+  referralCode       ReferralCode?          @relation("ReferralCodeOwner")
+  referralsMade      Referral[]             @relation("ReferralsMade")
+  referredBy         Referral?              @relation("ReferredBy")
+  referralEarnings   ReferralEarning[]      @relation("ReferralEarnings")
 
   @@index([accountStatus])
   @@index([createdAt])
@@ -1458,4 +1462,116 @@ model Subscription {
   @@index([userId, status])
   @@index([status, endsAt])
   @@map("subscriptions")
+}
+
+/// A referral code somebody can post publicly.
+///
+/// One per account. A second code would let one person run several campaigns
+/// and make attribution a question rather than a fact, and the program is
+/// deliberately simple: one code, one level, no downstream.
+model ReferralCode {
+  id     String @id
+  userId String @unique
+
+  /// Short, unambiguous, and safe to say out loud. Stored uppercase; lookups
+  /// normalise, so a code posted in lowercase still works.
+  code String @unique
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User       @relation("ReferralCodeOwner", fields: [userId], references: [id], onDelete: Cascade)
+  referrals Referral[]
+
+  @@map("referral_codes")
+}
+
+/// One person redeeming one code, once, ever.
+///
+/// `referredUserId` is unique across the whole table rather than per code: an
+/// account can be referred once in its life. Without that, somebody could
+/// redeem a second code after the first month expired and take the free tier
+/// again indefinitely.
+model Referral {
+  id     String @id
+  codeId String
+
+  referrerUserId String
+  referredUserId String @unique
+
+  /// The free period granted to the person who redeemed. Null if the grant
+  /// failed, which is recoverable — the referral still stands.
+  grantedSubscriptionId String?
+
+  redeemedAt DateTime @default(now())
+
+  code     ReferralCode @relation(fields: [codeId], references: [id], onDelete: Cascade)
+  referrer User         @relation("ReferralsMade", fields: [referrerUserId], references: [id], onDelete: Cascade)
+  referred User         @relation("ReferredBy", fields: [referredUserId], references: [id], onDelete: Cascade)
+
+  earnings ReferralEarning[]
+
+  @@index([referrerUserId])
+  @@map("referrals")
+}
+
+enum ReferralEarningKind {
+  /// A share of a subscription payment.
+  SUBSCRIPTION
+  /// A share of a trading fee.
+  TRADING_FEE
+}
+
+enum ReferralEarningStatus {
+  /// Recorded and owed. FLT holds no balance, so nothing is "available" until
+  /// somebody pays it out.
+  ACCRUED
+  PAID
+  /// Reversed — a refund, a chargeback, a fee that never landed.
+  VOIDED
+}
+
+/// One share of one piece of revenue.
+///
+/// Recorded per event rather than as a running total, so every cent owed can be
+/// traced to the trade or payment that produced it. A balance that cannot be
+/// itemised is not a balance, it is an assertion.
+model ReferralEarning {
+  id         String @id
+  referralId String
+
+  referrerUserId String
+  kind           ReferralEarningKind
+  status         ReferralEarningStatus @default(ACCRUED)
+
+  /// The revenue this is a share of, and the share taken, so the arithmetic is
+  /// reproducible from the row alone.
+  grossAmount  String
+  shareBps     Int
+  amount       String
+  /// What the amounts are denominated in. A trading fee is taken in whatever
+  /// token was traded, so this is not always the same currency.
+  tokenAddress String?
+  chainId      Int?
+  /// Set for a subscription share, which is always in the payment token.
+  currency     String?
+
+  /// What produced it. Exactly one is set.
+  subscriptionId String?
+  quoteId        String?
+
+  paidAt     DateTime?
+  paidTxHash String?
+  voidReason String?
+
+  createdAt DateTime @default(now())
+
+  referral Referral @relation(fields: [referralId], references: [id], onDelete: Cascade)
+  referrer User     @relation("ReferralEarnings", fields: [referrerUserId], references: [id], onDelete: Cascade)
+
+  @@index([referrerUserId, status])
+  @@index([status])
+  @@map("referral_earnings")
 }

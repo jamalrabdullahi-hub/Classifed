@@ -1,0 +1,50 @@
+import type { Metadata } from 'next';
+import { env } from '@flt/config';
+import { SectionHeader } from '@flt/ui';
+import { referralSummary } from '@flt/core/services/referrals';
+import { requireUserPage } from '@/server/session';
+import { ReferralPanel } from '@/components/referral-panel';
+
+export const metadata: Metadata = { title: 'Referrals' };
+export const dynamic = 'force-dynamic';
+
+/**
+ * Referrals.
+ *
+ * One level: you earn from the people you bring and from nobody they bring.
+ * That is stated on the page rather than left to be inferred, because the
+ * shape somebody assumes when they hear "referral programme" is usually the
+ * other one, and being clear costs nothing.
+ */
+export default async function ReferralsPage() {
+  const user = await requireUserPage();
+  const summary = await referralSummary(user.id);
+
+  return (
+    <div className="space-y-6">
+      <SectionHeader
+        title="Referrals"
+        description={`Share a code. They get a free month, you get ${summary.shareBps / 100}% of what FLT earns from them.`}
+      />
+
+      <ReferralPanel
+        initialCode={summary.code?.code ?? null}
+        referredCount={summary.referredCount}
+        accrued={summary.accrued}
+        paid={summary.paid}
+        referredBy={
+          summary.referredBy
+            ? {
+                code: summary.referredBy.code,
+                redeemedAt: summary.referredBy.redeemedAt.toISOString(),
+              }
+            : null
+        }
+        shareBps={summary.shareBps}
+        grantDays={summary.grantDays}
+        grantTier={summary.grantTier}
+        appUrl={env().WEB_APP_URL}
+      />
+    </div>
+  );
+}

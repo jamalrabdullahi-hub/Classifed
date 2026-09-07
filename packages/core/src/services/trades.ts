@@ -1,4 +1,5 @@
 import {
+  ReferralEarningKind,
   ActorType,
   QuoteStatus,
   TransactionKind,
@@ -16,6 +17,7 @@ import {
   ValidationError,
 } from '../domain/errors';
 import { newId } from '../domain/id';
+import { recordReferralEarning } from './referrals';
 import { assertTxHash, checksumAddress } from '../domain/address';
 import { transactionStateMachine } from '../domain/state';
 import { AuditAction, audit } from './audit';
@@ -255,6 +257,36 @@ export async function transitionTransaction(
       metadata: (extra.metadata ?? undefined) as never,
     },
   });
+
+  /**
+   * The referrer's share of the trading fee, once the trade has actually landed.
+   *
+   * On confirmation and nowhere earlier: a submitted trade can revert, and a
+   * share of a fee that was never collected is a liability against revenue that
+   * does not exist.
+   *
+   * Denominated in the fee's own token rather than converted to dollars. The
+   * fee was taken in that token, the price at the moment of the fill is not
+   * stored, and a converted figure would be an estimate presented as an amount
+   * owed.
+   */
+  if (next === TransactionStatus.CONFIRMED && current.quoteId) {
+    const quote = await db.quote.findUnique({
+      where: { id: current.quoteId },
+      select: { id: true, feeAmount: true, feeTokenAddress: true, chainId: true },
+    });
+
+    if (quote?.feeAmount && quote.feeTokenAddress) {
+      await recordReferralEarning(db, {
+        userId: current.userId,
+        kind: ReferralEarningKind.TRADING_FEE,
+        grossAmount: quote.feeAmount,
+        tokenAddress: quote.feeTokenAddress,
+        chainId: quote.chainId,
+        quoteId: quote.id,
+      });
+    }
+  }
 }
 
 export async function listTransactions(

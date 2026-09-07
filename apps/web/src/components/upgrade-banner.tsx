@@ -8,17 +8,22 @@ import { cn } from '@flt/ui';
 /**
  * The upgrade prompt for free accounts.
  *
- * ## Occasional, and it means it
+ * ## Once per browser session, and an hour after a dismissal
  *
- * Dismissing it hides it for a fortnight, not for the session. A banner that
- * reappears on the next page load is not a prompt, it is a nag, and the
- * fastest way to teach somebody to ignore everything the interface tells them
- * — including the warnings that matter, on a leveraged trading platform where
- * some of those warnings are about liquidation.
+ * Two rules, and they compose:
  *
- * It also never shows on the first visit. Somebody who has not traded yet has
- * no idea whether a fee discount is worth anything to them, and asking is both
- * annoying and unpersuasive.
+ *   - **A fresh browser session always shows it.** `sessionStorage` is cleared
+ *     when the browser closes, so its absence is the signal that somebody has
+ *     come back rather than merely navigated. Switching between open tabs does
+ *     not remount anything and therefore cannot retrigger it.
+ *   - **Dismissing quiets it for an hour.** Long enough that somebody working
+ *     through a few pages is not pestered, short enough that it is a pause
+ *     rather than a fortnight of silence.
+ *
+ * The hour is deliberately kept short *because* the session rule exists: an
+ * aggressive banner would be a nag, and a nag is the fastest way to teach
+ * somebody to ignore everything the interface says — including the liquidation
+ * warnings, which is not a trade this platform can afford.
  *
  * ## It says a number
  *
@@ -27,8 +32,11 @@ import { cn } from '@flt/ui';
  * the fee it is paying — because that is the only version a trader can evaluate.
  */
 
-const DISMISS_KEY = 'flt.upgrade.dismissed';
-const DISMISS_DAYS = 14;
+/** Suppression within a session. Cleared when the browser session ends. */
+const DISMISS_KEY = 'flt.upgrade.dismissedUntil';
+const DISMISS_MINUTES = 60;
+/** Presence means this browser session has already been counted. */
+const SESSION_KEY = 'flt.upgrade.session';
 
 export type UpgradeReason = 'leverage' | 'fees' | 'general';
 
@@ -67,10 +75,19 @@ export function UpgradeBanner({
     if (tier !== 'FREE') return;
 
     try {
-      const raw = window.localStorage.getItem(DISMISS_KEY);
-      if (raw) {
-        const until = Number(raw);
-        if (Number.isFinite(until) && Date.now() < until) return;
+      // A browser session with no marker is one somebody has just started, so
+      // any suppression from last time is spent. Set the marker and show.
+      const seenThisSession = window.sessionStorage.getItem(SESSION_KEY);
+
+      if (!seenThisSession) {
+        window.sessionStorage.setItem(SESSION_KEY, '1');
+        window.localStorage.removeItem(DISMISS_KEY);
+      } else {
+        const raw = window.localStorage.getItem(DISMISS_KEY);
+        if (raw) {
+          const until = Number(raw);
+          if (Number.isFinite(until) && Date.now() < until) return;
+        }
       }
     } catch {
       // Private browsing, or storage disabled. Showing the banner is the safe
@@ -96,7 +113,7 @@ export function UpgradeBanner({
     try {
       window.localStorage.setItem(
         DISMISS_KEY,
-        String(Date.now() + DISMISS_DAYS * 86_400_000),
+        String(Date.now() + DISMISS_MINUTES * 60_000),
       );
     } catch {
       // Nothing to do — it will reappear next time, which is the tolerable
@@ -130,8 +147,8 @@ export function UpgradeBanner({
       <button
         type="button"
         onClick={dismiss}
-        aria-label="Dismiss for two weeks"
-        title="Dismiss for two weeks"
+        aria-label="Dismiss for an hour"
+        title="Dismiss for an hour"
         className="shrink-0 text-[var(--text-subtle)] transition-colors hover:text-[var(--text)]"
       >
         <X className="size-3.5" />

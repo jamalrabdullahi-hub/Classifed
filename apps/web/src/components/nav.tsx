@@ -16,6 +16,7 @@ import {
   Settings,
   Wallet,
   Sparkles,
+  Gift,
   X,
 } from 'lucide-react';
 import { cn } from '@flt/ui';
@@ -48,6 +49,7 @@ const TRADE = { href: '/perps', label: 'Trade', icon: Gauge } as const;
 
 const ACCOUNT = [
   { href: '/plans', label: 'Plans', icon: Sparkles },
+  { href: '/referrals', label: 'Referrals', icon: Gift },
   { href: '/wallets', label: 'Wallets', icon: Wallet },
   { href: '/account', label: 'Account', icon: Settings },
 ] as const;

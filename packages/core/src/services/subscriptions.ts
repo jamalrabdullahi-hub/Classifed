@@ -1,5 +1,6 @@
 import { encodeFunctionData, erc20Abi, getAddress, parseEventLogs } from 'viem';
 import {
+  ReferralEarningKind,
   SubscriptionStatus,
   SubscriptionTier,
   prisma,
@@ -14,6 +15,7 @@ import { Decimal } from '../domain/money';
 import { publicClient } from '../chains/client';
 import { AuditAction, audit } from './audit';
 import { activeTier } from './entitlements';
+import { recordReferralEarning } from './referrals';
 
 /**
  * Buying a subscription.
@@ -281,6 +283,18 @@ export async function confirmSubscription(
         paidAt: now,
       },
     });
+  });
+
+  // The referrer's share of this payment. Recorded after activation so a
+  // failure here can never cost somebody the plan they just paid for.
+  await recordReferralEarning(prisma, {
+    userId: actor.id,
+    kind: ReferralEarningKind.SUBSCRIPTION,
+    grossAmount: subscription.pricePaidUsd,
+    subscriptionId: subscription.id,
+    tokenAddress: subscription.tokenAddress,
+    chainId: subscription.chainId,
+    currency: 'USD',
   });
 
   await audit(prisma, {

@@ -179,6 +179,11 @@ export const AuditAction = {
   SUBSCRIPTION_CANCELLED: 'subscription.cancelled',
   ADMIN_PLAN_CHANGED: 'admin.plan.changed',
 
+  // Referrals
+  REFERRAL_CODE_ISSUED: 'referral.code.issued',
+  REFERRAL_REDEEMED: 'referral.redeemed',
+  REFERRAL_EARNING_PAID: 'referral.earning.paid',
+
   // Security
   RATE_LIMITED: 'security.rate_limited',
   QUOTE_TAMPERED: 'security.quote_tampered',
