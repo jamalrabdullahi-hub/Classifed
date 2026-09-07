@@ -1,36 +1,46 @@
 import type { Metadata, Viewport } from 'next';
-import { Chakra_Petch, IBM_Plex_Mono, Inter } from 'next/font/google';
+import { IBM_Plex_Mono, IBM_Plex_Sans } from 'next/font/google';
 import './globals.css';
 import { TooltipProvider } from '@flt/ui';
 import { ThemeScript } from '@/components/theme';
 
 /**
- * Three faces, each with a job.
+ * One type system, two cuts.
  *
- * Inter runs the interface. Chakra Petch is squared and slightly technical, and
- * carries the logo's character into headings — Arkitech itself cannot: it is a
- * display face with no tabular figures, and a desktop licence does not cover
- * webfont embedding. IBM Plex Mono sets every figure, address and hash.
+ * IBM Plex Sans sets the interface and the headings; IBM Plex Mono sets every
+ * figure, address and hash. They are the same design at different widths, which
+ * is what a screen full of numbers next to prose actually wants — a price and
+ * the sentence explaining it should look related, because they are.
+ *
+ * ## What this replaced, and why
+ *
+ * Inter ran the interface before. It is a fine face and it is also the default
+ * everything reaches for, which makes an interface look assembled rather than
+ * designed. Plex was drawn for technical and data contexts and has real
+ * character in the a, the g and the squared terminals without being decorative.
+ *
+ * Chakra Petch set the headings and is gone. It is a squared techno face that
+ * reads as gaming, which fights a product whose whole voice is stating the
+ * honest number. It was there to carry the wordmark's character inland — but
+ * the wordmark is Arkitech drawn as outlines in `Brand`, so it keeps its own
+ * character regardless and nothing is lost.
+ *
+ * Headings are now the same face at a heavier weight. Weight and size carry the
+ * hierarchy; a second family is not needed to say "this is a heading".
  *
  * `display: swap` throughout, so a slow font load shows text rather than
  * nothing — a blank balance is worse than an unstyled one.
  */
-const inter = Inter({
+const sans = IBM_Plex_Sans({
   subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
   display: 'swap',
-  variable: '--font-inter',
-});
-
-const display = Chakra_Petch({
-  subsets: ['latin'],
-  weight: ['500', '600', '700'],
-  display: 'swap',
-  variable: '--font-display-face',
+  variable: '--font-sans-face',
 });
 
 const mono = IBM_Plex_Mono({
   subsets: ['latin'],
-  weight: ['400', '500'],
+  weight: ['400', '500', '600'],
   display: 'swap',
   variable: '--font-mono-face',
 });
@@ -79,13 +89,19 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    /*
+     * The font variables go on <html>, not <body>.
+     *
+     * The design tokens that reference them are declared at :root, and a
+     * custom property is resolved where it is declared — so a face defined one
+     * level down on <body> is invisible to them and every token silently falls
+     * back to the system stack.
+     */
+    <html lang="en" suppressHydrationWarning className={`${sans.variable} ${mono.variable}`}>
       <head>
         <ThemeScript />
       </head>
-      <body
-        className={`${inter.variable} ${display.variable} ${mono.variable} min-h-screen antialiased`}
-      >
+      <body className="min-h-screen antialiased">
         <TooltipProvider>{children}</TooltipProvider>
       </body>
     </html>

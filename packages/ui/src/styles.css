@@ -174,20 +174,22 @@
   /*
    * The faces are loaded by each application through next/font, which exposes
    * them only as CSS variables under generated family names — a literal
-   * 'Inter' in this stack would silently fall back to the system sans. Each
+   * 'IBM Plex Sans' in this stack would silently fall back to the system sans.
+   * Each
    * still names a real fallback, so a package rendered outside an app degrades
    * rather than breaks.
    */
   --font-sans:
-    var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    var(--font-sans-face), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   /*
-   * Headings. Chakra Petch is squared and slightly technical, and carries the
-   * logo's character into the interface — Arkitech itself cannot do this work:
-   * it is a display face with no tabular figures, and a desktop licence does
-   * not cover webfont embedding.
+   * The same face as the body, not a second family.
+   *
+   * Hierarchy comes from weight and size. A separate display face was doing no
+   * work that 600 weight does not do, and it made every heading argue with the
+   * text under it.
    */
   --font-display:
-    var(--font-display-face), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+    var(--font-sans-face), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono:
     var(--font-mono-face), ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', monospace;
 
@@ -215,6 +217,30 @@
   [data-theme='dark'] html,
   html:has([data-theme='dark']) {
     color-scheme: dark;
+  }
+
+  /*
+   * The font families, emitted as real custom properties.
+   *
+   * They are also declared in the `@theme inline` block above so Tailwind's
+   * `font-sans` and `font-mono` utilities resolve — but `inline` means exactly
+   * what it says: those values are baked into the utilities at build time and
+   * never reach the document as variables. Anything reading `var(--font-sans)`
+   * at runtime — this rule, and every
+   * `font-[family-name:var(--font-mono)]` in the codebase — got an empty value
+   * and silently fell through to the system stack.
+   *
+   * Which is what had been happening: no webfont was ever applied anywhere,
+   * including to the figures that are supposed to be monospaced. Declaring them
+   * here as well costs three lines and makes the tokens true.
+   */
+  :root {
+    --font-sans:
+      var(--font-sans-face), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-display:
+      var(--font-sans-face), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono:
+      var(--font-mono-face), ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', monospace;
   }
 
   body {
