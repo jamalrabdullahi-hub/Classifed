@@ -36,11 +36,22 @@ export function PerpChart({
   symbol,
   height = 360,
   priceLines = [],
+  historyNote,
 }: {
   symbol: string;
   height?: number;
   /** Protection boundary and liquidation price, drawn across the price axis. */
   priceLines?: PriceLineSpec[];
+  /**
+   * Attribution, when the candles did not come from the trading venue.
+   *
+   * Ostium fills against an oracle and publishes no history, so its charts are
+   * drawn from the underlying's own market. The two track each other closely —
+   * every mapping was checked — but the reader is entitled to know which is
+   * which, especially where a metal is charted from the front-month future and
+   * carries a basis over the spot the contract marks against.
+   */
+  historyNote?: string | null;
 }) {
   const [interval, setInterval_] = useState<PerpCandleInterval>('15m');
   const [candles, setCandles] = useState<Candle[]>([]);
@@ -103,7 +114,11 @@ export function PerpChart({
       </div>
 
       <div className="flex-1">
-        {error && candles.length === 0 ? (
+        {!loading && !error && candles.length === 0 ? (
+          <p className="p-6 text-center text-[12px] text-[var(--text-subtle)]">
+            No price history is available for this market.
+          </p>
+        ) : error && candles.length === 0 ? (
           <p className="p-6 text-center text-[12px] text-[var(--text-subtle)]">{error}</p>
         ) : loading && candles.length === 0 ? (
           <p className="p-6 text-center text-[12px] text-[var(--text-subtle)]">Loading chart…</p>
@@ -117,6 +132,12 @@ export function PerpChart({
           />
         )}
       </div>
+
+      {historyNote && candles.length > 0 ? (
+        <p className="border-t border-[var(--border)] px-2.5 py-1 text-[9.5px] text-[var(--text-subtle)]">
+          {historyNote}
+        </p>
+      ) : null}
     </div>
   );
 }

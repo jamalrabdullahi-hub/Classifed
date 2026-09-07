@@ -48,6 +48,23 @@ export function PerpTerminal({
   // own the other, exactly as with the book's click-to-price.
   const [protectionLines, setProtectionLines] = useState<PriceLineSpec[]>([]);
 
+  /**
+   * Where the chart's data came from, when it is not the trading venue.
+   *
+   * Ostium publishes no history, so its charts are drawn from the underlying's
+   * own market. Attribution is not a formality here: metals are charted from
+   * the front-month future, which carries a basis over the spot the contract
+   * marks against, and the reader should be able to see why the line sits
+   * slightly above the mark.
+   */
+  const historyNote =
+    market.assetClass === 'CRYPTO'
+      ? null
+      : `Chart from the underlying market, not from ${venueName}. ` +
+        (market.assetClass === 'COMMODITY'
+          ? 'Metals and energy are charted from the front-month future, which trades at a small premium to the spot price this contract settles against.'
+          : `${venueName} prices this contract from its own oracle.`);
+
   return (
     <div className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--canvas)]">
       <TickerStrip market={market} markets={markets} venueName={venueName} />
@@ -60,7 +77,12 @@ export function PerpTerminal({
 
       <div className="grid lg:grid-cols-[minmax(0,1fr)_200px_264px]">
         <Panel label={`${market.symbol} chart`} className="order-2 lg:order-1 min-h-[380px]">
-          <PerpChart symbol={market.symbol} height={360} priceLines={protectionLines} />
+          <PerpChart
+            symbol={market.symbol}
+            height={360}
+            priceLines={protectionLines}
+            historyNote={historyNote}
+          />
         </Panel>
 
         <Panel
@@ -68,6 +90,11 @@ export function PerpTerminal({
           className="order-3 border-t lg:order-2 lg:border-l lg:border-t-0"
         >
           <OrderBook
+            emptyNote={
+              market.assetClass === 'CRYPTO'
+                ? null
+                : `${venueName} has no resting order book — it fills against an oracle price with a spread, so there are no levels to show.`
+            }
             symbol={market.symbol}
             depth={11}
             markPrice={market.markPrice}

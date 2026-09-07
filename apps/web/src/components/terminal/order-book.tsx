@@ -52,12 +52,21 @@ export function OrderBook({
   depth = 11,
   markPrice = null,
   onPriceClick,
+  emptyNote = null,
 }: {
   symbol: string;
   depth?: number;
   /** What positions are marked against. Shown in the band between the sides. */
   markPrice?: string | null;
   onPriceClick?: (price: string) => void;
+  /**
+   * Shown instead of an empty ladder when the venue has no book at all.
+   *
+   * Ostium fills against an oracle with a spread rather than resting orders, so
+   * there are genuinely no levels. An empty grid with no explanation reads as a
+   * broken panel, and the fix is to say which it is.
+   */
+  emptyNote?: string | null;
 }) {
   const [book, setBook] = useState<Book | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +101,24 @@ export function OrderBook({
   }
   if (!book) {
     return <PanelMessage>Loading book…</PanelMessage>;
+  }
+
+  const hasLevels = (book?.bids.length ?? 0) > 0 || (book?.asks.length ?? 0) > 0;
+
+  if (emptyNote && book && !hasLevels) {
+    return (
+      <div className="flex h-full flex-col">
+        <p className="p-4 text-center text-[11px] leading-relaxed text-[var(--text-subtle)]">
+          {emptyNote}
+        </p>
+        {markPrice ? (
+          <p className="border-t border-[var(--border)] px-2.5 py-1.5 text-center font-[family-name:var(--font-mono)] text-[12px] text-[var(--text)]">
+            {markPrice}
+            <span className="ml-1.5 text-[10px] text-[var(--text-subtle)]">mark</span>
+          </p>
+        ) : null}
+      </div>
+    );
   }
 
   return (

@@ -28,6 +28,10 @@ export interface TickerMarket {
   maxLeverage: number;
   venueMaxLeverage: number;
   minSize: string;
+  assetClass: string;
+  /** Null when the venue does not report a session. */
+  isMarketOpen: boolean | null;
+  secondsToSessionChange: number | null;
 }
 
 export function TickerStrip({
@@ -49,8 +53,23 @@ export function TickerStrip({
           {market.symbol}
         </span>
         <span className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.09em] text-[var(--text-subtle)]">
-          perp
+          {market.assetClass === 'CRYPTO' ? 'perp' : `${market.assetClass.toLowerCase()} perp`}
         </span>
+
+        {/*
+          A closed session is the most important thing on the strip for an
+          equity or FX contract. The price stops moving either way, and without
+          this a shut market reads as a quiet one — while the position stays
+          open across the gap.
+        */}
+        {market.isMarketOpen === false ? (
+          <span className="rounded-[3px] border border-[var(--warning)] px-1.5 py-0.5 text-[9.5px] uppercase tracking-[0.07em] text-[var(--warning)]">
+            Market closed
+            {market.secondsToSessionChange
+              ? ` · reopens in ${formatWait(market.secondsToSessionChange)}`
+              : ''}
+          </span>
+        ) : null}
       </div>
 
       <Stat label="Mark" value={price(market.markPrice)} emphasis />
@@ -141,4 +160,12 @@ function compact(value: string | null): string {
   if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(2)}M`;
   if (amount >= 1_000) return `${(amount / 1_000).toFixed(1)}K`;
   return amount.toFixed(2);
+}
+
+
+/** Coarse by design: "in about 14 hours" is what a trader needs, not a countdown. */
+function formatWait(seconds: number): string {
+  if (seconds < 5_400) return `${Math.round(seconds / 60)}m`;
+  if (seconds < 172_800) return `${Math.round(seconds / 3_600)}h`;
+  return `${Math.round(seconds / 86_400)}d`;
 }

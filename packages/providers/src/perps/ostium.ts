@@ -4,9 +4,12 @@ import { ProviderError, ValidationError } from '@flt/core/domain';
 import { Decimal, initialMargin, notional } from '@flt/core/domain';
 import { z } from 'zod';
 import { boundPrice } from './mock';
+import { historySymbolFor } from './ostium-symbols';
+import { YahooPriceHistory } from '../history/yahoo';
 import type {
   Candle,
   OrderBook,
+  PerpCandleInterval,
   OrderPreview,
   PerpAccountRef,
   PerpAccountSummary,
@@ -201,6 +204,8 @@ export class OstiumVenue implements PerpVenue {
    */
   readonly requiresBridgedCollateral = true;
 
+  private readonly history = new YahooPriceHistory();
+
   /** Markets change rarely; prices change constantly. Cached separately. */
   private pairsCache: { at: number; pairs: OstiumPair[] } | null = null;
   private pricesCache: { at: number; prices: Map<string, OstiumPrice> } | null = null;
@@ -230,14 +235,39 @@ export class OstiumVenue implements PerpVenue {
   }
 
   /**
-   * Ostium publishes no candle history.
+   * History for the underlying, since the venue publishes none of its own.
    *
-   * Empty rather than fabricated: a chart assembled from repeated samples of the
-   * current price would look like history and be nothing of the kind. The
-   * caller renders "no chart available", which is true.
+   * Ostium fills against an oracle rather than a book, so there is no trade
+   * history at the venue to draw. But its underlyings are ordinary listed
+   * assets whose history exists elsewhere, and the venue's oracle tracks the
+   * same thing — so the chart and the mark agree by construction.
+   *
+   * Unmapped symbols return empty rather than falling back to a guess. Every
+   * mapping was checked against this venue's own mid, and the ones that
+   * disagreed were dropped: a chart that contradicts the price a leveraged
+   * position marks against is worse than no chart at all.
    */
-  async getCandles(): Promise<Candle[]> {
-    return [];
+  async getCandles(
+    symbol: string,
+    interval: PerpCandleInterval,
+    limit = 300,
+  ): Promise<Candle[]> {
+    const market = await this.requireMarket(symbol);
+    const source = historySymbolFor(market.symbol);
+    if (!source) return [];
+
+    try {
+      return await this.history.getCandles(source, interval, limit);
+    } catch (error) {
+      // A history outage must not take the ticket down with it. The chart is
+      // context; the price the position marks against comes from the venue.
+      console.error('[ostium] price history failed', {
+        symbol: market.symbol,
+        source,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
   }
 
   async getRecentTrades(): Promise<PerpTrade[]> {

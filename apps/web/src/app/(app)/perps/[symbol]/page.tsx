@@ -63,6 +63,9 @@ export default async function PerpMarketPage({
           maxLeverage,
           venueMaxLeverage: market.maxLeverage,
           minSize: market.minSize,
+          assetClass: market.assetClass,
+          isMarketOpen: market.isMarketOpen,
+          secondsToSessionChange: market.secondsToSessionChange,
         }}
         markets={all.map((entry) => ({ symbol: entry.symbol, name: entry.name }))}
         venueName={venue.meta.name}
