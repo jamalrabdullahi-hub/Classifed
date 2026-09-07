@@ -39,9 +39,19 @@ export function horizonToDays({ amount, unit }: HorizonSelection): number {
   return amount;
 }
 
-export function formatHorizon({ amount, unit }: HorizonSelection): string {
-  const plural = amount === 1 ? unit.slice(0, -1) : unit;
-  return `${amount} ${plural}`;
+/**
+ * `unitWords` lets a caller supply localized unit names — `{ hour, hours, day,
+ * days, week, weeks }` — since this module has no access to `next-intl`'s `t`.
+ * Falls back to English so existing callers keep working unchanged.
+ */
+export function formatHorizon(
+  { amount, unit }: HorizonSelection,
+  unitWords?: Record<string, string>,
+): string {
+  const singular = unit.slice(0, -1);
+  const plural = amount === 1 ? singular : unit;
+  const word = unitWords?.[plural] ?? unitWords?.[singular] ?? plural;
+  return `${amount} ${word}`;
 }
 
 /**

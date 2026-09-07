@@ -81,29 +81,38 @@ type OrderType =
   | 'TAKE_PROFIT_MARKET'
   | 'TAKE_PROFIT_LIMIT';
 
-const ORDER_TYPES: Array<{ value: OrderType; label: string }> = [
-  { value: 'MARKET', label: 'Market' },
-  { value: 'LIMIT', label: 'Limit' },
-  { value: 'STOP_MARKET', label: 'Stop' },
-  { value: 'STOP_LIMIT', label: 'Stop limit' },
-  { value: 'TAKE_PROFIT_MARKET', label: 'Take profit' },
-  { value: 'TAKE_PROFIT_LIMIT', label: 'TP limit' },
-];
-
 const needsTrigger = (type: OrderType) => type !== 'MARKET' && type !== 'LIMIT';
 const needsLimit = (type: OrderType) =>
   type === 'LIMIT' || type === 'STOP_LIMIT' || type === 'TAKE_PROFIT_LIMIT';
 
-const POLICY_LABELS: Record<PolicyKind, string> = {
-  BASE_DAY: 'Based',
-  BASE_SMOOTH: 'Smooth based',
-  OMNI: 'Omni basing',
+/** Ticket-namespace keys, keyed by the domain value — resolved through `t` at render time. */
+const ORDER_TYPE_KEYS: Record<OrderType, string> = {
+  MARKET: 'orderMarket',
+  LIMIT: 'orderLimit',
+  STOP_MARKET: 'orderStop',
+  STOP_LIMIT: 'orderStopLimit',
+  TAKE_PROFIT_MARKET: 'orderTakeProfit',
+  TAKE_PROFIT_LIMIT: 'orderTpLimit',
+};
+const ORDER_TYPE_VALUES: OrderType[] = [
+  'MARKET',
+  'LIMIT',
+  'STOP_MARKET',
+  'STOP_LIMIT',
+  'TAKE_PROFIT_MARKET',
+  'TAKE_PROFIT_LIMIT',
+];
+
+const POLICY_LABEL_KEYS: Record<PolicyKind, string> = {
+  BASE_DAY: 'policyBased',
+  BASE_SMOOTH: 'policySmoothBased',
+  OMNI: 'policyOmniBasing',
 };
 
-const POLICY_NOTES: Record<PolicyKind, string> = {
-  BASE_DAY: 'Calculated once at entry. Fixed for one day, never rebased.',
-  BASE_SMOOTH: 'Anchored to entry, scaling its response as the position deteriorates.',
-  OMNI: 'Re-anchors to the current price each time it rebases.',
+const POLICY_NOTE_KEYS: Record<PolicyKind, string> = {
+  BASE_DAY: 'policyNoteBaseDay',
+  BASE_SMOOTH: 'policyNoteBaseSmooth',
+  OMNI: 'policyNoteOmni',
 };
 
 export function ProtectedTicket({
@@ -118,6 +127,15 @@ export function ProtectedTicket({
   onPriceLinesChange,
 }: Props) {
   const t = useTranslations('protection');
+  const tt = useTranslations('ticket');
+  const horizonUnitWords = {
+    hour: tt('hour'),
+    hours: tt('hours'),
+    day: tt('day'),
+    days: tt('days'),
+    week: tt('week'),
+    weeks: tt('weeks'),
+  };
   const [side, setSide] = useState<'LONG' | 'SHORT'>('LONG');
   const [amount, setAmount] = useState('');
   const [leverageText, setLeverageText] = useState('2');
@@ -218,7 +236,7 @@ export function ProtectedTicket({
         id: 'protection-boundary',
         price: pricing.boundary.toNumber(),
         tone: 'positive',
-        title: `${z}σ cover`,
+        title: tt('boundaryChartLabel', { z }),
       });
     }
 
@@ -227,13 +245,13 @@ export function ProtectedTicket({
         id: 'liquidation',
         price: pricing.estimatedLiquidation.toNumber(),
         tone: 'negative',
-        title: 'Liquidation (est.)',
+        title: tt('liquidationEst'),
         dashed: true,
       });
     }
 
     onPriceLinesChange(lines);
-  }, [pricing, insured, z, onPriceLinesChange]);
+  }, [pricing, insured, z, onPriceLinesChange, tt]);
 
   const blocked = insured && pricing !== null && !pricing.waterfallHolds;
   const ready = Boolean(amount) && leverageValid && (!insured || pricing !== null) && !blocked;
@@ -264,10 +282,10 @@ export function ProtectedTicket({
             }
           : {}),
       });
-      setDone('Order prepared. Sign it in your wallet to send it to the venue.');
+      setDone(tt('orderPrepared'));
       setConfirming(false);
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Could not prepare the order.');
+      setError(caught instanceof ApiError ? caught.message : tt('prepareError'));
       setConfirming(false);
     } finally {
       setPending(false);
@@ -314,13 +332,13 @@ export function ProtectedTicket({
                 : 'border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]',
             )}
           >
-            {option === 'LONG' ? 'Buy / Long' : 'Sell / Short'}
+            {option === 'LONG' ? tt('buyLong') : tt('sellShort')}
           </button>
         ))}
       </div>
 
       <LabeledInput
-        label={`Amount (${quoteAsset})`}
+        label={tt('amountLabel', { asset: quoteAsset })}
         value={amount}
         onChange={setAmount}
         placeholder="1000"
@@ -328,62 +346,65 @@ export function ProtectedTicket({
       />
 
       <LabeledInput
-        label="Leverage"
+        label={tt('leverageLabel')}
         value={leverageText}
         onChange={(next) => setLeverageText(next.replace(/[^\d]/g, ''))}
         placeholder="2"
         hint={
           pricing && insured
-            ? `up to ${Math.min(pricing.maxLeverage, maxLeverage)}x with this cover`
-            : `1x to ${maxLeverage}x`
+            ? tt('leverageHintWithCover', { n: Math.min(pricing.maxLeverage, maxLeverage) })
+            : tt('leverageHintRange', { n: maxLeverage })
         }
       />
 
       <Segmented
-        label="Order type"
-        options={ORDER_TYPES.map((entry) => ({ value: entry.value, label: entry.label }))}
+        label={tt('orderTypeLabel')}
+        options={ORDER_TYPE_VALUES.map((value) => ({ value, label: tt(ORDER_TYPE_KEYS[value]) }))}
         value={orderType}
         onChange={(next) => setOrderType(next as OrderType)}
       />
 
       {needsTrigger(orderType) ? (
         <LabeledInput
-          label="Trigger price"
+          label={tt('triggerPriceLabel')}
           value={triggerPrice}
           onChange={setTriggerPrice}
           placeholder={markPrice ?? '0'}
           hint={
             orderType.startsWith('STOP')
               ? side === 'LONG'
-                ? 'Fires below the market'
-                : 'Fires above the market'
+                ? tt('firesBelowMarket')
+                : tt('firesAboveMarket')
               : side === 'LONG'
-                ? 'Fires above the market'
-                : 'Fires below the market'
+                ? tt('firesAboveMarket')
+                : tt('firesBelowMarket')
           }
         />
       ) : null}
 
       {needsLimit(orderType) ? (
         <LabeledInput
-          label="Limit price"
+          label={tt('limitPriceLabel')}
           value={limitPrice}
           onChange={setLimitPrice}
           placeholder={markPrice ?? '0'}
-          hint="Rests until filled"
+          hint={tt('restsUntilFilled')}
         />
       ) : null}
 
       {/* ── Bracket ──────────────────────────────────────────────────────── */}
       <div className="rounded-[var(--radius-md)] border border-[var(--border)]">
         <Disclosure
-          label="Bracket (OCO)"
+          label={tt('bracketLabel')}
           summary={
             bracket && (takeProfit || stopLoss)
-              ? [takeProfit ? `TP ${takeProfit}` : null, stopLoss ? `SL ${stopLoss}` : null]
+              ? [
+                  takeProfit ? tt('tpShort', { value: takeProfit }) : null,
+                  stopLoss ? tt('slShort', { value: stopLoss }) : null,
+                ]
                   .filter(Boolean)
                   .join(' · ')
-              : 'Off'
+              : tt('off')
           }
           open={showBracket}
           onToggle={() => setShowBracket((v) => !v)}
@@ -392,7 +413,7 @@ export function ProtectedTicket({
         {showBracket ? (
         <div className="space-y-2 border-t border-[var(--border)] p-2">
         <label className="flex items-center justify-between gap-2">
-          <span className="font-medium text-[var(--text)]">Attach protective legs</span>
+          <span className="font-medium text-[var(--text)]">{tt('attachProtectiveLegs')}</span>
           <input
             type="checkbox"
             checked={bracket}
@@ -404,20 +425,19 @@ export function ProtectedTicket({
         {bracket ? (
           <>
             <LabeledInput
-              label="Take profit"
+              label={tt('takeProfitLabel')}
               value={takeProfit}
               onChange={setTakeProfit}
               placeholder={markPrice ?? '0'}
             />
             <LabeledInput
-              label="Stop loss"
+              label={tt('stopLossLabel')}
               value={stopLoss}
               onChange={setStopLoss}
               placeholder={markPrice ?? '0'}
             />
             <p className="text-[10px] leading-relaxed text-[var(--text-subtle)]">
-              Both legs go to the venue with the entry, in one request. Filling one cancels the
-              other, so a whipsaw cannot execute both and leave you positioned the wrong way.
+              {tt('bracketNote')}
             </p>
           </>
         ) : null}
@@ -428,11 +448,15 @@ export function ProtectedTicket({
       {/* ── Coverage ─────────────────────────────────────────────────────── */}
       <div className="rounded-[var(--radius-md)] border border-[var(--border)]">
         <Disclosure
-          label="Coverage"
+          label={tt('coverageLabel')}
           summary={
             insured
-              ? `${POLICY_LABELS[policy]} · ${formatHorizon(effectiveHorizon)} · ${z}σ`
-              : 'Off'
+              ? tt('coverageSummary', {
+                  policy: tt(POLICY_LABEL_KEYS[policy]),
+                  horizon: formatHorizon(effectiveHorizon, horizonUnitWords),
+                  z,
+                })
+              : tt('off')
           }
           open={showCoverage}
           onToggle={() => setShowCoverage((v) => !v)}
@@ -441,7 +465,7 @@ export function ProtectedTicket({
         {showCoverage ? (
         <div className="space-y-2 border-t border-[var(--border)] p-2">
         <label className="flex items-center justify-between gap-2">
-          <span className="font-medium text-[var(--text)]">Buy cover</span>
+          <span className="font-medium text-[var(--text)]">{tt('buyCover')}</span>
           <input
             type="checkbox"
             checked={insured}
@@ -453,32 +477,32 @@ export function ProtectedTicket({
 
         {protectionRequired && leverage > 1 ? (
           <p className="text-[10px] text-[var(--text-subtle)]">
-            Required on leveraged positions.
+            {tt('requiredOnLeveraged')}
           </p>
         ) : null}
 
         {insured ? (
           <>
             <Segmented
-              label="Policy"
+              label={tt('policyLabel')}
               options={(['BASE_DAY', 'BASE_SMOOTH', 'OMNI'] as const).map((kind) => ({
                 value: kind,
-                label: POLICY_LABELS[kind],
+                label: tt(POLICY_LABEL_KEYS[kind]),
               }))}
               value={policy}
               onChange={(next) => setPolicy(next as PolicyKind)}
             />
             <p className="text-[10px] leading-relaxed text-[var(--text-subtle)]">
-              {POLICY_NOTES[policy]}
+              {tt(POLICY_NOTE_KEYS[policy])}
             </p>
 
             <div className="space-y-1">
               <span className="text-[10px] uppercase tracking-[0.08em] text-[var(--text-subtle)]">
-                Time frame
+                {tt('timeFrameLabel')}
               </span>
               {policy === 'BASE_DAY' ? (
                 <p className="text-[10.5px] text-[var(--text-muted)]">
-                  Fixed at 1 day — Based is a single-day policy.
+                  {tt('fixedAtOneDay')}
                 </p>
               ) : (
                 <>
@@ -492,7 +516,7 @@ export function ProtectedTicket({
                         })
                       }
                       inputMode="numeric"
-                      aria-label="Time frame amount"
+                      aria-label={tt('timeFrameAmountAria')}
                       className="w-14 rounded-[var(--radius)] border border-[var(--border)] bg-transparent px-1.5 py-1 text-center font-[family-name:var(--font-mono)] tabular-nums text-[var(--text)] outline-none focus:border-[var(--text-muted)]"
                     />
                     <div className="flex flex-1 gap-1">
@@ -509,7 +533,7 @@ export function ProtectedTicket({
                               : 'border-[var(--border)] text-[var(--text-muted)]',
                           )}
                         >
-                          {unit}
+                          {tt(unit)}
                         </button>
                       ))}
                     </div>
@@ -517,12 +541,12 @@ export function ProtectedTicket({
                   <div className="flex flex-wrap gap-1 pt-0.5">
                     {HORIZON_PRESETS.map((preset) => (
                       <button
-                        key={formatHorizon(preset)}
+                        key={formatHorizon(preset, horizonUnitWords)}
                         type="button"
                         onClick={() => setHorizon(preset)}
                         className="rounded-[var(--radius)] border border-[var(--border)] px-1.5 py-0.5 text-[9.5px] text-[var(--text-subtle)] hover:text-[var(--text)]"
                       >
-                        {formatHorizon(preset)}
+                        {formatHorizon(preset, horizonUnitWords)}
                       </button>
                     ))}
                   </div>
@@ -533,11 +557,11 @@ export function ProtectedTicket({
             <div className="space-y-1">
               <div className="flex items-baseline justify-between">
                 <span className="text-[10px] uppercase tracking-[0.08em] text-[var(--text-subtle)]">
-                  Cover
+                  {tt('coverLabel')}
                 </span>
                 {pricing ? (
                   <span className="font-[family-name:var(--font-mono)] text-[10px] text-[var(--text-subtle)]">
-                    {(pricing.confidence * 100).toFixed(2)}% one-tailed
+                    {tt('oneTailedPct', { pct: (pricing.confidence * 100).toFixed(2) })}
                   </span>
                 ) : null}
               </div>
@@ -562,7 +586,7 @@ export function ProtectedTicket({
                   value={String(z)}
                   onChange={(event) => setZ(Number(event.target.value) || 0)}
                   inputMode="decimal"
-                  aria-label="Standard deviations"
+                  aria-label={tt('standardDeviationsAria')}
                   className="w-14 rounded-[var(--radius)] border border-[var(--border)] bg-transparent px-1.5 py-1 text-center font-[family-name:var(--font-mono)] tabular-nums text-[var(--text)] outline-none focus:border-[var(--text-muted)]"
                 />
               </div>
@@ -576,48 +600,50 @@ export function ProtectedTicket({
       {/* ── The calculator ───────────────────────────────────────────────── */}
       {pricing ? (
         <div className="space-y-1 rounded-[var(--radius-md)] border border-[var(--border)] p-2">
-          <Row label={`${symbol} ${side === 'LONG' ? 'long' : 'short'}`} value={`${leverage}x`} />
+          <Row
+            label={`${symbol} ${side === 'LONG' ? tt('long') : tt('short')}`}
+            value={`${leverage}x`}
+          />
           {insured ? (
             <>
               <Row
-                label="Deviation over window"
+                label={tt('deviationOverWindow')}
                 value={`${pricing.horizonSigma.times(100).toFixed(2)}%`}
               />
               <Row
-                label={`Covered move (${z}σ)`}
+                label={tt('coveredMove', { z })}
                 value={`${pricing.coveredMagnitude.times(100).toFixed(2)}%`}
               />
-              <Row label="Boundary" value={money(pricing.boundary)} />
+              <Row label={tt('boundary')} value={money(pricing.boundary)} />
               <Row
-                label="Chance of peril"
+                label={tt('chanceOfPeril')}
                 value={`${pricing.perilProbability.times(100).toFixed(2)}%`}
               />
-              <Row label="Pays you if hit" value={money(pricing.indemnity)} emphasis />
+              <Row label={tt('paysYouIfHit')} value={money(pricing.indemnity)} emphasis />
             </>
           ) : null}
           <div className="border-t border-[var(--border)] pt-1">
-            <Row label="Margin" value={money(pricing.marginRequired)} />
+            <Row label={tt('margin')} value={money(pricing.marginRequired)} />
             {insured ? (
               <>
-                <Row label="Policy" value={money(pricing.contribution)} />
-                <Row label={`Fee (${operatorFeeBps / 100}%)`} value={money(pricing.operatorFee)} />
+                <Row label={tt('policyRow')} value={money(pricing.contribution)} />
+                <Row
+                  label={tt('feeRow', { pct: operatorFeeBps / 100 })}
+                  value={money(pricing.operatorFee)}
+                />
               </>
             ) : null}
-            <Row label="Total" value={money(pricing.totalToPay)} emphasis />
+            <Row label={tt('total')} value={money(pricing.totalToPay)} emphasis />
           </div>
           {pricing.estimatedLiquidation ? (
-            <Row
-              label="Liquidation (est.)"
-              value={money(pricing.estimatedLiquidation)}
-            />
+            <Row label={tt('liquidationEst')} value={money(pricing.estimatedLiquidation)} />
           ) : null}
         </div>
       ) : null}
 
       {blocked ? (
         <Notice tone="negative" icon={<TriangleAlert className="size-4" />}>
-          At {leverage}x the venue liquidates before cover reaches its boundary, so insurance
-          would never resolve first. {pricing?.maxLeverage}x is the most this cover supports.
+          {tt('blockedNotice', { leverage, max: pricing?.maxLeverage ?? 0 })}
         </Notice>
       ) : null}
 
@@ -627,7 +653,7 @@ export function ProtectedTicket({
         disabled={!ready || locked}
         onClick={() => setConfirming(true)}
       >
-        Execute
+        {tt('execute')}
       </Button>
       </fieldset>
 
@@ -651,6 +677,7 @@ export function ProtectedTicket({
           pending={pending}
           onCancel={() => setConfirming(false)}
           onConfirm={() => void execute()}
+          t={tt}
         />
       ) : null}
     </div>
@@ -676,6 +703,7 @@ function ConfirmDialog({
   pending,
   onCancel,
   onConfirm,
+  t,
 }: {
   orderType: OrderType;
   triggerPrice: string;
@@ -695,73 +723,87 @@ function ConfirmDialog({
   pending: boolean;
   onCancel: () => void;
   onConfirm: () => void;
+  t: ReturnType<typeof useTranslations<'ticket'>>;
 }) {
+  const horizonUnitWords = {
+    hour: t('hour'),
+    hours: t('hours'),
+    day: t('day'),
+    days: t('days'),
+    week: t('week'),
+    weeks: t('weeks'),
+  };
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Confirm order"
+      aria-label={t('confirmOrderAria')}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
     >
       <div className="w-full max-w-sm space-y-3 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--canvas)] p-4 text-[12px]">
         <h2 className="text-[15px] font-semibold text-[var(--text)]">
-          {side === 'LONG' ? 'Long' : 'Short'} {symbol} at {leverage}x
+          {t(side === 'LONG' ? 'dialogTitleLong' : 'dialogTitleShort', { symbol, leverage })}
         </h2>
 
         <div className="space-y-1.5">
           <Row
-            label="Amount"
+            label={t('amountRow')}
             value={`${money(pricing.marginRequired.times(leverage))} ${quoteAsset}`}
             emphasis
           />
-          <Row label="Order type" value={ORDER_TYPES.find((t) => t.value === orderType)!.label} />
+          <Row label={t('orderTypeRow')} value={t(ORDER_TYPE_KEYS[orderType])} />
           {needsTrigger(orderType) && triggerPrice ? (
-            <Row label="Trigger" value={`$${Number(triggerPrice).toLocaleString('en-US')}`} />
+            <Row label={t('triggerRow')} value={`$${Number(triggerPrice).toLocaleString('en-US')}`} />
           ) : null}
           {needsLimit(orderType) && limitPrice ? (
-            <Row label="Limit" value={`$${Number(limitPrice).toLocaleString('en-US')}`} />
+            <Row label={t('limitRow')} value={`$${Number(limitPrice).toLocaleString('en-US')}`} />
           ) : null}
           {bracket && takeProfit ? (
-            <Row label="Take profit" value={`$${Number(takeProfit).toLocaleString('en-US')}`} />
+            <Row label={t('takeProfitLabel')} value={`$${Number(takeProfit).toLocaleString('en-US')}`} />
           ) : null}
           {bracket && stopLoss ? (
-            <Row label="Stop loss" value={`$${Number(stopLoss).toLocaleString('en-US')}`} />
+            <Row label={t('stopLossLabel')} value={`$${Number(stopLoss).toLocaleString('en-US')}`} />
           ) : null}
-          <Row label="Margin" value={money(pricing.marginRequired)} />
+          <Row label={t('margin')} value={money(pricing.marginRequired)} />
           {insured ? (
             <>
-              <Row label="Policy" value={POLICY_LABELS[policy]} />
-              <Row label="Time frame" value={formatHorizon(horizon)} />
-              <Row label="Cover" value={`${z}σ — ${(pricing.confidence * 100).toFixed(2)}%`} />
-              <Row label="Boundary" value={money(pricing.boundary)} />
-              <Row label="Premium" value={money(pricing.contribution)} />
-              <Row label="Fee" value={money(pricing.operatorFee)} />
+              <Row label={t('policyRow')} value={t(POLICY_LABEL_KEYS[policy])} />
+              <Row label={t('timeFrameRow')} value={formatHorizon(horizon, horizonUnitWords)} />
+              <Row
+                label={t('coverLabel')}
+                value={`${z}σ — ${(pricing.confidence * 100).toFixed(2)}%`}
+              />
+              <Row label={t('boundary')} value={money(pricing.boundary)} />
+              <Row label={t('premiumRow')} value={money(pricing.contribution)} />
+              <Row label={t('feeLabel')} value={money(pricing.operatorFee)} />
             </>
           ) : null}
           <div className="border-t border-[var(--border)] pt-1.5">
-            <Row label="Total amount" value={money(pricing.totalToPay)} emphasis />
+            <Row label={t('totalAmountRow')} value={money(pricing.totalToPay)} emphasis />
           </div>
         </div>
 
         {insured ? (
           <p className="flex items-start gap-1.5 text-[10.5px] leading-relaxed text-[var(--text-subtle)]">
             <ShieldCheck className="mt-0.5 size-3.5 shrink-0" />
-            A {pricing.coveredMagnitude.times(100).toFixed(2)}% move against you within{' '}
-            {formatHorizon(horizon)} pays {money(pricing.indemnity)}. Cover resolves before the
-            venue&apos;s margin call.
+            {t('coverFootnote', {
+              pct: pricing.coveredMagnitude.times(100).toFixed(2),
+              horizon: formatHorizon(horizon, horizonUnitWords),
+              amount: money(pricing.indemnity),
+            })}
           </p>
         ) : (
           <Notice tone="warning" icon={<TriangleAlert className="size-4" />}>
-            No cover. A move against you is yours alone.
+            {t('noCoverTitle')}
           </Notice>
         )}
 
         <div className="grid grid-cols-2 gap-2">
           <Button variant="secondary" onClick={onCancel} disabled={pending}>
-            Cancel
+            {t('cancel')}
           </Button>
           <Button variant="primary" onClick={onConfirm} loading={pending}>
-            Confirm
+            {t('confirm')}
           </Button>
         </div>
       </div>
