@@ -47,9 +47,18 @@ const PRIMARY = [
  */
 const TRADE = { href: '/perps', label: 'Trade', icon: Gauge } as const;
 
+/**
+ * Referrals sits in the primary bar rather than the account menu.
+ *
+ * A referral programme nobody can find earns nothing. It was behind the avatar
+ * dropdown alongside Wallets and Account, which is where settings live — and a
+ * thing somebody is meant to act on is not a setting. It goes after Trade
+ * because that is the order of the work: trade first, then tell people about it.
+ */
+const REFERRALS = { href: '/referrals', label: 'Referrals', icon: Gift } as const;
+
 const ACCOUNT = [
   { href: '/plans', label: 'Plans', icon: Sparkles },
-  { href: '/referrals', label: 'Referrals', icon: Gift },
   { href: '/wallets', label: 'Wallets', icon: Wallet },
   { href: '/account', label: 'Account', icon: Settings },
 ] as const;
@@ -64,8 +73,8 @@ export function TopNav({ email, perpsEnabled = false }: { email: string; perpsEn
   // Without perpetuals the spot swap page takes the Trade slot, so the
   // destination exists either way.
   const primary = perpsEnabled
-    ? [...PRIMARY, TRADE]
-    : [...PRIMARY, { href: '/trade', label: 'Trade', icon: ArrowLeftRight } as const];
+    ? [...PRIMARY, TRADE, REFERRALS]
+    : [...PRIMARY, { href: '/trade', label: 'Trade', icon: ArrowLeftRight } as const, REFERRALS];
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--canvas)]/85 backdrop-blur-md">
