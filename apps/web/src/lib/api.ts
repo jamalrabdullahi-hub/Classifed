@@ -82,6 +82,11 @@ export function post<T>(path: string, body: unknown, idempotencyKey?: string): P
   });
 }
 
+/** PUT, for the confirm-an-existing-thing shape rather than create-a-new-one. */
+export function put<T>(path: string, body: unknown): Promise<T> {
+  return apiFetch<T>(path, { method: 'PUT', body: JSON.stringify(body) });
+}
+
 export function get<T>(path: string): Promise<T> {
   return apiFetch<T>(path, { method: 'GET' });
 }

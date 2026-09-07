@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { prisma } from '@flt/db';
 import { NotFoundError, TokenDisabledError } from '@flt/core/domain';
 import { RateLimits } from '@flt/core/services/ratelimit';
+import { entitlementsFor } from '@flt/core/services/entitlements';
 import { resolveFee } from '@flt/core/services/fees';
 import { dexRouter } from '@flt/providers';
 import { env } from '@flt/config';
@@ -32,11 +33,14 @@ export const POST = handler(
     if (!sellToken.isEnabled) throw new TokenDisabledError(sellToken.symbol, sellToken.disabledReason);
     if (!buyToken.isEnabled) throw new TokenDisabledError(buyToken.symbol, buyToken.disabledReason);
 
+    const entitlements = await entitlementsFor(user.id);
+
     const fee = await resolveFee(prisma, {
       chainId: sellToken.chainId,
       accountType: user.accountType,
       feeTokenAddress: buyToken.address,
       referenceAmount: body.sellAmount,
+      feeDiscountBps: entitlements.feeDiscountBps,
     });
 
     const price = await dexRouter().getIndicativePrice({

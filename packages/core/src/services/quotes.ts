@@ -22,6 +22,7 @@ import { addressesEqual, checksumAddress } from '../domain/address';
 import { assertMayTrade } from './kyc';
 import { calldataHash } from './crypto/hashing';
 import { AuditAction, audit } from './audit';
+import { entitlementsFor } from './entitlements';
 import { resolveFee, type ResolvedFee } from './fees';
 import type { DEXRouter, FirmQuote, IntegratorFee } from '../ports/dex';
 import type { RiskEngine } from '../risk/types';
@@ -119,11 +120,16 @@ export async function createQuote(
 
   // The fee is taken in the buy token, so the user pays it out of what they
   // receive rather than out of what they are spending.
+  // The subscriber's discount reduces the fee rather than the notional, and is
+  // resolved here so every quote — indicative or firm — prices the same way.
+  const entitlements = await entitlementsFor(context.user.id);
+
   const fee = await resolveFee(prisma, {
     chainId,
     accountType: context.user.accountType,
     feeTokenAddress: context.buyToken.address,
     referenceAmount: context.sellAmount,
+    feeDiscountBps: entitlements.feeDiscountBps,
   });
 
   const integratorFee: IntegratorFee | undefined =

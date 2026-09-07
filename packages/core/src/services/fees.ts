@@ -2,6 +2,7 @@ import { FeeType, type AccountType, type DbClient, type FeeConfig } from '@flt/d
 import { env } from '@flt/config';
 import { normalizeAddress } from '../domain/address';
 import { applyBps } from '../domain/money';
+import { applyFeeDiscount } from './entitlements';
 
 /**
  * Fee resolution.
@@ -22,6 +23,14 @@ import { applyBps } from '../domain/money';
 export interface FeeContext {
   chainId: number;
   accountType: AccountType;
+  /**
+   * The subscriber's discount, in basis points OF THE FEE.
+   *
+   * Applied after the rule is chosen rather than by matching a different rule
+   * per tier: the pricing table stays about what FLT charges, and the plan is a
+   * separate reduction on top. Two systems, one number each.
+   */
+  feeDiscountBps?: number;
   /** The token the fee would be taken in — the buy or the sell token. */
   feeTokenAddress: string;
   /** Base units of the fee token, used to convert a fixed fee to basis points. */
@@ -39,6 +48,10 @@ export interface ResolvedFee {
    * is visible rather than hidden. Equal to `bps` for a PERCENTAGE rule.
    */
   requestedBps: number;
+  /** What the rule charges before any subscription discount. */
+  listBps: number;
+  /** The discount applied, in basis points of the fee. Zero on the free tier. */
+  discountBps: number;
   /** The matched rule, or null when the default (no fee) applied. */
   config: FeeConfig | null;
   /** Recipient address, or null when fees are not configured. */
@@ -53,6 +66,8 @@ export const MAX_FEE_BPS = 1_000;
 export const NO_FEE: ResolvedFee = {
   bps: 0,
   requestedBps: 0,
+  listBps: 0,
+  discountBps: 0,
   config: null,
   recipientAddress: null,
   description: 'No FLT fee',
@@ -95,11 +110,14 @@ export async function resolveFee(db: DbClient, context: FeeContext): Promise<Res
 
   const best = applicable.sort(compareSpecificity)[0]!;
   const requestedBps = toBps(best, context.referenceAmount);
-  const bps = Math.min(requestedBps, MAX_FEE_BPS);
+  const listBps = Math.min(requestedBps, MAX_FEE_BPS);
+  const bps = applyFeeDiscount(listBps, context.feeDiscountBps ?? 0);
 
   return {
     bps,
     requestedBps,
+    listBps,
+    discountBps: context.feeDiscountBps ?? 0,
     config: best,
     recipientAddress: recipient,
     description: describe(best, bps, requestedBps),

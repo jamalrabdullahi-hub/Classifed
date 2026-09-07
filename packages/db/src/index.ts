@@ -42,6 +42,8 @@ export type {
   ProtectionEvent,
   ProtectionLedgerEntry,
   ProtectionSetting,
+  Subscription,
+  SubscriptionPlan,
 } from '@prisma/client';
 
 export {
@@ -68,4 +70,6 @@ export {
   ProtectionState,
   ProtectionLedgerKind,
   CreditDestination,
+  SubscriptionTier,
+  SubscriptionStatus,
 } from '@prisma/client';

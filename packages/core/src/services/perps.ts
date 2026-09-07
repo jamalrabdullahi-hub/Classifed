@@ -28,6 +28,7 @@ import {
   type PerpSide,
 } from '../domain/perps';
 import { assertMayTrade } from './kyc';
+import { assertLeverageAllowed, entitlementsFor } from './entitlements';
 import { protectionRequired, quoteProtection } from './protection-quote';
 import { AuditAction, audit } from './audit';
 import type {
@@ -253,6 +254,20 @@ export async function prepareOpen(
 
   // The lower of FLT's cap and the venue's, enforced before anything is built.
   assertLeverage(intent.leverage, maxLeverage);
+
+  /**
+   * The subscription is a fourth ceiling on leverage.
+   *
+   * A free account is held to 2x. That is where the commercial hook and a real
+   * risk boundary happen to coincide: past 2x an ordinary day's move can
+   * liquidate a position, and an account that has never paid anything has also
+   * never been asked to think about that.
+   *
+   * Checked here rather than at the route, so no future entry point can open a
+   * leveraged position by forgetting it.
+   */
+  const entitlements = await entitlementsFor(user.id);
+  assertLeverageAllowed(entitlements, intent.leverage);
 
   if (new Decimal(intent.size).lessThan(market.minSize)) {
     throw new ValidationError(`The minimum size on this market is ${market.minSize}`, {

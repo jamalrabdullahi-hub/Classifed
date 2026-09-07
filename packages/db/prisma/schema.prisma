@@ -231,6 +231,7 @@ model User {
   perpOrders         PerpOrder[]
   perpPositions      PerpPositionSnapshot[]
   protectionPolicies ProtectionPolicy[]
+  subscriptions      Subscription[]
 
   @@index([accountStatus])
   @@index([createdAt])
@@ -1336,4 +1337,125 @@ model ProtectionSetting {
   updatedById String?
 
   @@map("protection_settings")
+}
+
+/// The three subscription tiers, plus the implicit free tier.
+///
+/// Named rather than numbered so a row cannot be reordered into meaning
+/// something else, and so a log line saying PRO is readable a year later.
+enum SubscriptionTier {
+  /// Not a paid tier — what an account has when nothing is active. Carried in
+  /// the enum so entitlement checks never have to special-case null.
+  FREE
+  BASIC
+  PRO
+  ELITE
+}
+
+enum SubscriptionStatus {
+  /// Written when the plan is chosen; entitlements do NOT apply yet.
+  PENDING_PAYMENT
+  ACTIVE
+  /// Ran to its paid-through date without renewal.
+  EXPIRED
+  /// Ended early by the participant or an operator.
+  CANCELLED
+}
+
+/// Operator-controlled pricing and limits for one tier.
+///
+/// In the database rather than in code because price, limits and the fee
+/// discount are commercial decisions that change without a deploy, and because
+/// an operator changing them should leave an audit trail. The seed sets the
+/// published ladder; nothing here is hardcoded anywhere else.
+model SubscriptionPlan {
+  /// The tier this configures. One row each.
+  tier SubscriptionTier @id
+
+  /// Shown to the participant, e.g. "FLT Pro".
+  name        String
+  /// One line under the name on the pricing page.
+  tagline     String
+  /// Monthly price in USD, as a decimal string — never a float.
+  priceUsd    String
+  /// Drawn as the default choice on the pricing page. Exactly one should be true.
+  isFeatured  Boolean @default(false)
+  isAvailable Boolean @default(true)
+
+  /// Reduction on trading fees, in basis points OF THE FEE, not of notional.
+  /// 1000 = the fee is 10% smaller. Never a discount on notional, which would
+  /// be a different and much larger number.
+  feeDiscountBps Int @default(0)
+
+  /// Null means unlimited. Zero means the feature is off.
+  watchlistLimit  Int?
+  priceAlertLimit Int?
+  /// How far back trade history is visible. Null is unlimited.
+  historyDays     Int?
+
+  /// Capability flags, kept as columns rather than a JSON blob so a query can
+  /// answer "who has API access" without parsing every row.
+  advancedOrderTools          Boolean @default(false)
+  fullIndicators              Boolean @default(false)
+  advancedRiskAnalytics       Boolean @default(false)
+  advancedProtectionAnalytics Boolean @default(false)
+  fundingAnalytics            Boolean @default(false)
+  advancedPnl                 Boolean @default(false)
+  fullPnl                     Boolean @default(false)
+  apiAccess                   Boolean @default(false)
+  priorityData                Boolean @default(false)
+  prioritySupport             Boolean @default(false)
+
+  /// The highest leverage this tier may use.
+  ///
+  /// Free accounts are capped at 2x: leverage past that is the point at which a
+  /// position can be liquidated by an ordinary day's move, and gating it is
+  /// both the commercial hook and a real risk boundary. Still bounded by
+  /// PERP_MAX_LEVERAGE and by the venue, whichever is lower.
+  maxLeverage Int @default(2)
+
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+
+  subscriptions Subscription[]
+
+  @@map("subscription_plans")
+}
+
+/// One participant's subscription.
+model Subscription {
+  id     String @id
+  userId String
+
+  tier   SubscriptionTier
+  status SubscriptionStatus @default(PENDING_PAYMENT)
+
+  /// Entitlements apply only between these, and only while status is ACTIVE.
+  /// There is no auto-renewal: FLT holds no key that could pull from a wallet,
+  /// so a period is bought and then bought again.
+  startsAt DateTime?
+  endsAt   DateTime?
+
+  /// What was actually charged, recorded rather than re-derived — a later price
+  /// change must not rewrite what somebody paid.
+  pricePaidUsd String?
+  tokenAddress String?
+  chainId      Int?
+  /// The transfer, once verified on-chain. A browser claiming payment is not
+  /// payment.
+  txHash       String?
+  paidAt       DateTime?
+
+  cancelledAt  DateTime?
+  cancelReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan SubscriptionPlan @relation(fields: [tier], references: [tier])
+
+  @@index([userId, status])
+  @@index([status, endsAt])
+  @@map("subscriptions")
 }

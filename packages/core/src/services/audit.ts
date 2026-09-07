@@ -174,6 +174,11 @@ export const AuditAction = {
   PROTECTION_PREMIUM_PAID: 'protection.premium.paid',
   PROTECTION_SETTINGS_UPDATED: 'protection.settings.updated',
 
+  // Subscriptions
+  SUBSCRIPTION_ACTIVATED: 'subscription.activated',
+  SUBSCRIPTION_CANCELLED: 'subscription.cancelled',
+  ADMIN_PLAN_CHANGED: 'admin.plan.changed',
+
   // Security
   RATE_LIMITED: 'security.rate_limited',
   QUOTE_TAMPERED: 'security.quote_tampered',
