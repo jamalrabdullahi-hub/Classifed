@@ -68,7 +68,6 @@ export default async function PerpMarketPage({
         venueName={venue.meta.name}
         venueIsMock={venue.meta.isMock}
         requiresBridgedCollateral={venue.requiresBridgedCollateral}
-        builderMaxFeeRate={`${env().PERP_BUILDER_FEE_BPS / 100}%`}
       />
 
       <p className="text-[11px] leading-relaxed text-[var(--text-subtle)]">

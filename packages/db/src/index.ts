@@ -41,6 +41,7 @@ export type {
   ProtectionPolicy,
   ProtectionEvent,
   ProtectionLedgerEntry,
+  ProtectionSetting,
 } from '@prisma/client';
 
 export {
@@ -65,4 +66,5 @@ export {
   ProtectionPolicyKind,
   ProtectionState,
   ProtectionLedgerKind,
+  CreditDestination,
 } from '@prisma/client';

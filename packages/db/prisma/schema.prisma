@@ -1137,6 +1137,9 @@ model ProtectionPolicy {
   operatorTxHash      String?
   paidAt              DateTime?
 
+  /// Where this policy's credit should go when it is repriced or ends.
+  creditDestination CreditDestination @default(BALANCE)
+
   calculatedAt DateTime?
   /// Omni only: when the next rebase is due.
   nextRebaseAt DateTime?
@@ -1227,4 +1230,47 @@ model ProtectionLedgerEntry {
 
   @@index([policyId, kind, occurredAt])
   @@map("protection_ledger_entries")
+}
+
+/// Where credit from a repriced or ended policy goes.
+enum CreditDestination {
+  /// Held as a stablecoin balance the participant can withdraw.
+  BALANCE
+  /// Returned as margin against the position it was protecting.
+  POSITION
+}
+
+/// Operator-controlled protection settings, as a single row.
+///
+/// These are the numbers an operator has to be able to change without a deploy
+/// — the reserve address most of all, because it is where participant capital
+/// lands. Kept in the database rather than in env for that reason, and every
+/// change is written to the admin audit trail.
+///
+/// The environment still supplies the defaults and still refuses to boot
+/// without a reserve address in production; this overrides, it does not
+/// replace.
+model ProtectionSetting {
+  /// Always "singleton". A settings table with two rows has no meaning.
+  id String @id @default("singleton")
+
+  /// Where participants' contributions are sent. Never the fee address.
+  reserveAddress  String?
+  /// Where FLT's management fee is sent.
+  operatorAddress String?
+  /// FLT's cut, in basis points of the contribution, charged on top of it.
+  operatorFeeBps  Int     @default(1000)
+
+  /// Default routing for credit; participants may override per policy.
+  creditDestination CreditDestination @default(BALANCE)
+  /// Whether participants may choose, or the default is imposed.
+  allowCreditChoice Boolean           @default(true)
+
+  /// off | optional | required
+  mode String @default("off")
+
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+
+  @@map("protection_settings")
 }

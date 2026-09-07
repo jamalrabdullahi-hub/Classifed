@@ -6,7 +6,7 @@ import { OrderBook } from './order-book';
 import { TradeTape } from './trade-tape';
 import { TickerStrip, type TickerMarket } from './ticker-strip';
 import { ProtectionPanel } from './protection-panel';
-import { PerpOrderForm } from '@/components/perp-order-form';
+import { ProtectedTicket } from './protected-ticket';
 import { PerpPositionsPanel } from '@/components/perp-positions';
 
 /**
@@ -29,19 +29,18 @@ export function PerpTerminal({
   venueName,
   venueIsMock,
   requiresBridgedCollateral,
-  builderMaxFeeRate,
 }: {
   market: TickerMarket;
   markets: Array<{ symbol: string }>;
   venueName: string;
   venueIsMock: boolean;
   requiresBridgedCollateral: boolean;
-  /** What the user approves as FLT's maximum fee, e.g. "0.1%". */
-  builderMaxFeeRate: string;
 }) {
-  // Clicking a book level fills the ticket. Held here because the book and the
-  // ticket are siblings and neither should own the other.
-  const [priceFromBook, setPriceFromBook] = useState<string | null>(null);
+  // Clicking a book level is currently read by nothing: the protected ticket
+  // is market-only, because a limit order and a first-hit policy would start
+  // at two different reference prices and the premium would be quoted against
+  // a price the position never opened at.
+  const [, setPriceFromBook] = useState<string | null>(null);
 
   return (
     <div className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--canvas)]">
@@ -75,16 +74,12 @@ export function PerpTerminal({
           className="order-1 lg:order-3 lg:border-l"
           bodyClassName="p-0"
         >
-          <PerpOrderForm
+          <ProtectedTicket
             symbol={market.symbol}
             markPrice={market.markPrice}
             minSize={market.minSize}
             maxLeverage={market.maxLeverage}
             venueMaxLeverage={market.venueMaxLeverage}
-            venueName={venueName}
-            builderMaxFeeRate={builderMaxFeeRate}
-            priceFromBook={priceFromBook}
-            embedded
           />
         </Panel>
       </div>

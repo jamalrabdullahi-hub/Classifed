@@ -172,6 +172,7 @@ export const AuditAction = {
   PROTECTION_FUNDING_DECLARED: 'protection.funding.declared',
   PROTECTION_REDUCTION_ADVISED: 'protection.reduction.advised',
   PROTECTION_PREMIUM_PAID: 'protection.premium.paid',
+  PROTECTION_SETTINGS_UPDATED: 'protection.settings.updated',
 
   // Security
   RATE_LIMITED: 'security.rate_limited',

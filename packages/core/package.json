@@ -13,7 +13,10 @@
     "./services/*": "./src/services/*.ts",
     "./ports": "./src/ports/index.ts",
     "./protection": "./src/protection/index.ts",
-    "./risk": "./src/risk/index.ts"
+    "./protection/*": "./src/protection/*.ts",
+    "./risk": "./src/risk/index.ts",
+    "./domain/*": "./src/domain/*.ts",
+    "./ports/*": "./src/ports/*.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
