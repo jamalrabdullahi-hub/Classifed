@@ -14,7 +14,11 @@ import {
   type WaterfallBound,
 } from '../protection/premium';
 import { HistoricalStdDev, INTERVAL_DAYS, toDailySigma } from '../protection/volatility';
-import { PROTECTION_DEFAULTS } from './protection';
+import {
+  calculateExpectedLossPremium,
+  estimationWindowFor,
+  type ExpectedLossPremium,
+} from '../protection/expected-loss';
 
 /**
  * Pricing protection for a position that does not exist yet.
@@ -83,6 +87,8 @@ export interface ProtectionQuote {
   estimatedLiquidation: Decimal | null;
 
   premium: Premium;
+  /** The risk being priced: probability, indemnity, and what the pool retains. */
+  expected: ExpectedLossPremium;
   waterfall: WaterfallBound;
   /** True when the boundary is reached before the venue's liquidation price. */
   waterfallHolds: boolean;
@@ -123,8 +129,20 @@ export async function quoteProtection(
 
   const percentile = request.percentile ?? DEFAULT_PRESET;
   const horizonDays = new Decimal(request.horizonDays ?? 1);
-  const interval = request.interval ?? PROTECTION_DEFAULTS.interval;
-  const window = request.window ?? PROTECTION_DEFAULTS.window;
+
+  /**
+   * σ is measured against the policy's own timeframe.
+   *
+   * A one-day policy is priced on the 24-hour deviation, a six-week policy on
+   * the six-week deviation. σ√T supplies the scaling, but the estimate feeding
+   * it has to be drawn from history that spans the window — seven days of
+   * hourly candles cannot describe a six-week deviation however many bars it
+   * contains. So the interval and window follow the horizon unless a caller
+   * deliberately overrides them.
+   */
+  const matched = estimationWindowFor(horizonDays.toNumber());
+  const interval = request.interval ?? (matched.interval as PerpCandleInterval);
+  const window = request.window ?? matched.window;
 
   const periodDays = INTERVAL_DAYS[interval];
   if (!periodDays) {
@@ -144,13 +162,36 @@ export async function quoteProtection(
     z,
   });
 
-  // Protection is priced on the position's full value, not on the margin
-  // backing it. §12: a 9% underlying move is a 9% peril whatever the leverage,
-  // and the exposure being protected is the whole notional.
-  const contribution = calculateContribution({
-    notional: contracts.times(markPrice),
+  /**
+   * Priced on expected loss, not severity.
+   *
+   * The premium is P(peril within the horizon) × the indemnity, which for the
+   * 50% share collapses to N·(1−C)·(1−e^(−D)). Reserving the full modelled
+   * move instead demanded 52% of notional on a 180-day policy and 101% at
+   * 99.7% cover — it grew as the insured event got rarer, which is backwards.
+   *
+   * Still priced on the position's full value rather than the margin behind
+   * it (§12): a 9% underlying move is a 9% peril at every leverage.
+   */
+  const protectedNotional = contracts.times(markPrice);
+
+  const expected = calculateExpectedLossPremium({
+    notional: protectedNotional,
     statisticalMove: peril.statisticalMove,
+    percentile,
   });
+
+  // The contribution shape the rest of the engine speaks, carrying the
+  // expected loss as the required amount.
+  const contribution = {
+    ...calculateContribution({
+      notional: protectedNotional,
+      statisticalMove: peril.statisticalMove,
+    }),
+    statisticalRisk: expected.reserveRatio,
+    baseContribution: expected.expectedLoss,
+    requiredContribution: expected.expectedLoss,
+  };
 
   const premium = calculatePremium(contribution, config.PROTECTION_OPERATOR_FEE_BPS);
 
@@ -192,6 +233,7 @@ export async function quoteProtection(
     estimatedLiquidation,
 
     premium,
+    expected,
     waterfall,
     waterfallHolds,
     refusal,

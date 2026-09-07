@@ -84,6 +84,25 @@ export interface PreparedPurchase {
   policyId: string;
   quote: Awaited<ReturnType<typeof quoteProtection>>;
   transfers: TransferCall[];
+  /**
+   * The three destinations a protected position pays into, in one place so the
+   * interface can show them together:
+   *
+   *   margin        -> the venue, backing the position itself
+   *   contribution  -> the protection reserve
+   *   fee           -> FLT
+   *
+   * Margin is not listed among `transfers` because it does not move through an
+   * ERC-20 transfer FLT can encode — it is posted to the venue by the venue's
+   * own flow. It appears here so the participant sees the full cost of opening
+   * a protected position rather than two of its three parts.
+   */
+  breakdown: {
+    marginToVenue: string;
+    contributionToReserve: string;
+    feeToOperator: string;
+    total: string;
+  };
   note: string;
 }
 
@@ -214,6 +233,12 @@ export async function preparePurchase(
   return {
     policyId: policy.id,
     quote,
+    breakdown: {
+      marginToVenue: quote.marginRequired.toFixed(),
+      contributionToReserve: quote.premium.contribution.toFixed(),
+      feeToOperator: quote.premium.operatorFee.toFixed(),
+      total: quote.marginRequired.plus(quote.premium.totalPremium).toFixed(),
+    },
     transfers: [
       transfer(
         'contribution',
@@ -235,8 +260,10 @@ export async function preparePurchase(
       ),
     ],
     note:
-      'Sign both transfers from your own wallet. FLT cannot broadcast them and never holds ' +
-      'either amount. The policy becomes active only once both are confirmed on-chain.',
+      'Opening a protected position pays three ways: margin to the venue, the contribution to ' +
+      'the protection reserve, and the fee to FLT. Sign both transfers from your own wallet — ' +
+      'FLT cannot broadcast them. The policy becomes active only once both are confirmed ' +
+      'on-chain.',
   };
 }
 

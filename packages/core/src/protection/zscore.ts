@@ -96,6 +96,29 @@ export function inverseNormalCdf(p: number): number {
 }
 
 /**
+ * Φ(x) — the standard normal CDF.
+ *
+ * Abramowitz & Stegun 26.2.17, |error| < 7.5e-8. Needed for the first-hit
+ * probability, which prices the policy; `inverseNormalCdf` only goes the other
+ * way.
+ */
+export function normalCdf(x: number): number {
+  if (!Number.isFinite(x)) return x > 0 ? 1 : 0;
+
+  const sign = x < 0 ? -1 : 1;
+  const z = Math.abs(x) / Math.SQRT2;
+  const t = 1 / (1 + 0.3275911 * z);
+  const y =
+    1 -
+    ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t +
+      0.254829592) *
+      t *
+      Math.exp(-z * z);
+
+  return 0.5 * (1 + sign * y);
+}
+
+/**
  * The protection percentile, as a fraction in (0.5, 1).
  *
  * Below 0.5 the "boundary" would sit above the reference price for a long,

@@ -18,5 +18,6 @@ export * from './volatility';
 export * from './peril';
 export * from './contribution';
 export * from './premium';
+export * from './expected-loss';
 export * from './policies';
 export * from './state';
