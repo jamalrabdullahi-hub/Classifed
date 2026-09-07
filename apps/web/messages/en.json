@@ -211,6 +211,44 @@
     "chooseArrow": "Choose",
     "footerNote": "Protection is never behind a plan — every account sees the calculation and can buy cover. Plans pay for the software. Nothing renews automatically."
   },
+  "tickerStrip": {
+    "perp": "perp",
+    "classPerp": "{assetClass} perp",
+    "marketClosed": "Market closed",
+    "reopensIn": " · reopens in {wait}",
+    "mark": "Mark",
+    "index": "Index",
+    "fundingHours": "Funding / {hours}h",
+    "fundingYr": "Funding / yr",
+    "openInterest": "Open interest",
+    "maxLeverage": "Max leverage",
+    "venueAllowsMore": "{venue} allows {venueMax}×; FLT caps it here",
+    "searchPlaceholder": "Search {count} perps and spot"
+  },
+  "perpChartPanel": {
+    "chartUnavailable": "Chart unavailable",
+    "noHistory": "No price history is available for this market.",
+    "loadingChart": "Loading chart…"
+  },
+  "tradeTape": {
+    "price": "Price",
+    "size": "Size",
+    "time": "Time",
+    "loading": "Loading…",
+    "noRecentTrades": "No recent trades"
+  },
+  "orderBookPanel": {
+    "bookUnavailable": "Book unavailable",
+    "loadingBook": "Loading book…",
+    "price": "Price",
+    "size": "Size",
+    "total": "Total",
+    "mark": "mark",
+    "bestAsk": "best ask",
+    "spread": " · spread {spread}",
+    "ordersResting": "{count} orders resting",
+    "usePriceAria": "Use {price} as the order price"
+  },
   "terminal": {
     "chartLabel": "{symbol} chart",
     "orderBook": "Order book",

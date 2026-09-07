@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@flt/ui';
 import { ApiError, get } from '@/lib/api';
 
@@ -68,6 +69,7 @@ export function OrderBook({
    */
   emptyNote?: string | null;
 }) {
+  const t = useTranslations('orderBookPanel');
   const [book, setBook] = useState<Book | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -83,7 +85,7 @@ export function OrderBook({
         }
       } catch (caught) {
         if (!cancelled) {
-          setError(caught instanceof ApiError ? caught.message : 'Book unavailable');
+          setError(caught instanceof ApiError ? caught.message : t('bookUnavailable'));
         }
       }
     }
@@ -100,7 +102,7 @@ export function OrderBook({
     return <PanelMessage>{error}</PanelMessage>;
   }
   if (!book) {
-    return <PanelMessage>Loading book…</PanelMessage>;
+    return <PanelMessage>{t('loadingBook')}</PanelMessage>;
   }
 
   const hasLevels = (book?.bids.length ?? 0) > 0 || (book?.asks.length ?? 0) > 0;
@@ -124,14 +126,14 @@ export function OrderBook({
   return (
     <div className="flex h-full flex-col text-[11px]">
       <div className="grid grid-cols-[1fr_1fr_1fr] px-2.5 py-1.5 font-[family-name:var(--font-mono)] text-[9.5px] uppercase tracking-[0.09em] text-[var(--text-subtle)]">
-        <span>Price</span>
-        <span className="text-right">Size</span>
-        <span className="text-right">Total</span>
+        <span>{t('price')}</span>
+        <span className="text-right">{t('size')}</span>
+        <span className="text-right">{t('total')}</span>
       </div>
 
       <div className="flex flex-1 flex-col justify-end">
         {[...book.asks].reverse().map((level) => (
-          <Row key={`a${level.price}`} level={level} side="ask" onClick={onPriceClick} />
+          <Row key={`a${level.price}`} level={level} side="ask" onClick={onPriceClick} t={t} />
         ))}
       </div>
 
@@ -145,13 +147,14 @@ export function OrderBook({
           {markPrice ?? book.bestAsk ?? '—'}
         </span>
         <span className="font-[family-name:var(--font-mono)] text-[10px] text-[var(--text-subtle)]">
-          {markPrice ? 'mark' : 'best ask'} · spread {book.spread ?? '—'}
+          {markPrice ? t('mark') : t('bestAsk')}
+          {t('spread', { spread: book.spread ?? '—' })}
         </span>
       </div>
 
       <div className="flex flex-1 flex-col">
         {book.bids.map((level) => (
-          <Row key={`b${level.price}`} level={level} side="bid" onClick={onPriceClick} />
+          <Row key={`b${level.price}`} level={level} side="bid" onClick={onPriceClick} t={t} />
         ))}
       </div>
     </div>
@@ -162,10 +165,12 @@ function Row({
   level,
   side,
   onClick,
+  t,
 }: {
   level: Level;
   side: 'bid' | 'ask';
   onClick?: (price: string) => void;
+  t: ReturnType<typeof useTranslations<'orderBookPanel'>>;
 }) {
   const content = (
     <>
@@ -182,7 +187,7 @@ function Row({
       </span>
       <span
         className="relative z-10 text-right font-[family-name:var(--font-mono)] text-[var(--text-subtle)]"
-        title={level.orderCount ? `${level.orderCount} orders resting` : undefined}
+        title={level.orderCount ? t('ordersResting', { count: level.orderCount }) : undefined}
       >
         {trim(level.total)}
       </span>
@@ -211,7 +216,7 @@ function Row({
       type="button"
       onClick={() => onClick(level.price)}
       className={cn(className, 'text-left hover:bg-[var(--surface-raised)]')}
-      aria-label={`Use ${level.price} as the order price`}
+      aria-label={t('usePriceAria', { price: level.price })}
     >
       {content}
     </button>

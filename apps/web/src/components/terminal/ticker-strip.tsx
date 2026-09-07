@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { cn } from '@flt/ui';
 import { InstrumentSearch } from '@/components/instrument-search';
 import type { SearchableMarket } from './market-search';
@@ -43,6 +44,7 @@ export function TickerStrip({
   markets: SearchableMarket[];
   venueName: string;
 }) {
+  const t = useTranslations('tickerStrip');
   const funding = market.fundingRate ? Number(market.fundingRate) : null;
   const annual = market.fundingRateAnnualised ? Number(market.fundingRateAnnualised) : null;
 
@@ -53,7 +55,9 @@ export function TickerStrip({
           {market.symbol}
         </span>
         <span className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.09em] text-[var(--text-subtle)]">
-          {market.assetClass === 'CRYPTO' ? 'perp' : `${market.assetClass.toLowerCase()} perp`}
+          {market.assetClass === 'CRYPTO'
+            ? t('perp')
+            : t('classPerp', { assetClass: market.assetClass.toLowerCase() })}
         </span>
 
         {/*
@@ -64,40 +68,40 @@ export function TickerStrip({
         */}
         {market.isMarketOpen === false ? (
           <span className="rounded-[3px] border border-[var(--warning)] px-1.5 py-0.5 text-[9.5px] uppercase tracking-[0.07em] text-[var(--warning)]">
-            Market closed
+            {t('marketClosed')}
             {market.secondsToSessionChange
-              ? ` · reopens in ${formatWait(market.secondsToSessionChange)}`
+              ? t('reopensIn', { wait: formatWait(market.secondsToSessionChange) })
               : ''}
           </span>
         ) : null}
       </div>
 
-      <Stat label="Mark" value={price(market.markPrice)} emphasis />
-      <Stat label="Index" value={price(market.indexPrice)} />
+      <Stat label={t('mark')} value={price(market.markPrice)} emphasis />
+      <Stat label={t('index')} value={price(market.indexPrice)} />
       <Stat
-        label={`Funding / ${market.fundingIntervalHours}h`}
+        label={t('fundingHours', { hours: market.fundingIntervalHours })}
         value={funding === null ? '—' : `${signed(funding * 100, 4)}%`}
         tone={funding === null ? undefined : funding >= 0 ? 'positive' : 'negative'}
       />
       <Stat
-        label="Funding / yr"
+        label={t('fundingYr')}
         value={annual === null ? '—' : `${signed(annual * 100, 2)}%`}
         tone={annual === null ? undefined : annual >= 0 ? 'positive' : 'negative'}
       />
-      <Stat label="Open interest" value={compact(market.openInterest)} />
+      <Stat label={t('openInterest')} value={compact(market.openInterest)} />
       <Stat
-        label="Max leverage"
+        label={t('maxLeverage')}
         value={`${market.maxLeverage}×`}
         hint={
           market.venueMaxLeverage > market.maxLeverage
-            ? `${venueName} allows ${market.venueMaxLeverage}×; FLT caps it here`
+            ? t('venueAllowsMore', { venue: venueName, venueMax: market.venueMaxLeverage })
             : undefined
         }
       />
 
       <InstrumentSearch
         className="ml-auto w-56"
-        placeholder={`Search ${markets.length} perps and spot`}
+        placeholder={t('searchPlaceholder', { count: markets.length })}
       />
     </div>
   );

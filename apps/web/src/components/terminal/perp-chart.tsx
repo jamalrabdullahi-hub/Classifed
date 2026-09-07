@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import type { Candle, PerpCandleInterval } from '@flt/core/ports';
 import { cn } from '@flt/ui';
 import { ApiError, get } from '@/lib/api';
@@ -53,6 +54,7 @@ export function PerpChart({
    */
   historyNote?: string | null;
 }) {
+  const t = useTranslations('perpChartPanel');
   const [interval, setInterval_] = useState<PerpCandleInterval>('15m');
   const [candles, setCandles] = useState<Candle[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +74,7 @@ export function PerpChart({
         setError(null);
       } catch (caught) {
         if (!cancelled) {
-          setError(caught instanceof ApiError ? caught.message : 'Chart unavailable');
+          setError(caught instanceof ApiError ? caught.message : t('chartUnavailable'));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -116,12 +118,12 @@ export function PerpChart({
       <div className="flex-1">
         {!loading && !error && candles.length === 0 ? (
           <p className="p-6 text-center text-[12px] text-[var(--text-subtle)]">
-            No price history is available for this market.
+            {t('noHistory')}
           </p>
         ) : error && candles.length === 0 ? (
           <p className="p-6 text-center text-[12px] text-[var(--text-subtle)]">{error}</p>
         ) : loading && candles.length === 0 ? (
-          <p className="p-6 text-center text-[12px] text-[var(--text-subtle)]">Loading chart…</p>
+          <p className="p-6 text-center text-[12px] text-[var(--text-subtle)]">{t('loadingChart')}</p>
         ) : (
           <PriceChart
             candles={candles}

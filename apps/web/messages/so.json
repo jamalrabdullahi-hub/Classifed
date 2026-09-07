@@ -211,6 +211,44 @@
     "chooseArrow": "Dooro",
     "footerNote": "Ilaalintu marnaba qorshe kama danbaysid — akoon kastaa wuu arki karaa xisaabinta wuuna iibsan karaa ilaalin. Qorshayaashu waxay bixiyaan lacagta software-ka. Waxba si toos ah ma cusboonaysan doonaan."
   },
+  "tickerStrip": {
+    "perp": "perp",
+    "classPerp": "{assetClass} perp",
+    "marketClosed": "Suuqu waa xidhan",
+    "reopensIn": " · dib ayuu u furmayaa {wait}",
+    "mark": "Mark",
+    "index": "Index",
+    "fundingHours": "Funding / {hours}sac",
+    "fundingYr": "Funding / sanadle",
+    "openInterest": "Danaha furan",
+    "maxLeverage": "Leverage-ka ugu badan",
+    "venueAllowsMore": "{venue} wuxuu oggol yahay {venueMax}×; FLT ayaa halkan ku xaddidaya",
+    "searchPlaceholder": "Baadh {count} perps iyo spot"
+  },
+  "perpChartPanel": {
+    "chartUnavailable": "Jaantuska lama heli karo",
+    "noHistory": "Taariikh qiimo oo suuqan ah lama heli karo.",
+    "loadingChart": "Waa la soo raraya jaantuska…"
+  },
+  "tradeTape": {
+    "price": "Qiimaha",
+    "size": "Cabbirka",
+    "time": "Waqtiga",
+    "loading": "Waa la soo raraya…",
+    "noRecentTrades": "Ganacsi dhawaan ah ma jiro"
+  },
+  "orderBookPanel": {
+    "bookUnavailable": "Buugga lama heli karo",
+    "loadingBook": "Waa la soo raraya buugga…",
+    "price": "Qiimaha",
+    "size": "Cabbirka",
+    "total": "Wadarta",
+    "mark": "mark",
+    "bestAsk": "iibinta ugu fiican",
+    "spread": " · farqiga {spread}",
+    "ordersResting": "{count} dalab oo sugaya",
+    "usePriceAria": "Isticmaal {price} sida qiimaha dalabka"
+  },
   "terminal": {
     "chartLabel": "Jaantuska {symbol}",
     "orderBook": "Buugga dalabka",

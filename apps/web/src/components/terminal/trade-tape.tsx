@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@flt/ui';
 import { get } from '@/lib/api';
 
@@ -24,6 +25,7 @@ interface Trade {
 }
 
 export function TradeTape({ symbol, limit = 26 }: { symbol: string; limit?: number }) {
+  const t = useTranslations('tradeTape');
   const [trades, setTrades] = useState<Trade[] | null>(null);
 
   useEffect(() => {
@@ -52,16 +54,16 @@ export function TradeTape({ symbol, limit = 26 }: { symbol: string; limit?: numb
   return (
     <div className="flex h-full flex-col text-[11px]">
       <div className="grid grid-cols-[1.1fr_0.9fr_0.7fr] px-2.5 py-1.5 font-[family-name:var(--font-mono)] text-[9.5px] uppercase tracking-[0.09em] text-[var(--text-subtle)]">
-        <span>Price</span>
-        <span className="text-right">Size</span>
-        <span className="text-right">Time</span>
+        <span>{t('price')}</span>
+        <span className="text-right">{t('size')}</span>
+        <span className="text-right">{t('time')}</span>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         {trades === null ? (
-          <p className="p-3 text-center text-[11px] text-[var(--text-subtle)]">Loading…</p>
+          <p className="p-3 text-center text-[11px] text-[var(--text-subtle)]">{t('loading')}</p>
         ) : trades.length === 0 ? (
-          <p className="p-3 text-center text-[11px] text-[var(--text-subtle)]">No recent trades</p>
+          <p className="p-3 text-center text-[11px] text-[var(--text-subtle)]">{t('noRecentTrades')}</p>
         ) : (
           trades.map((trade, index) => (
             <div
