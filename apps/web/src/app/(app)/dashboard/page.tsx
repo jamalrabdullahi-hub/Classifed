@@ -18,6 +18,8 @@ import { explorerAddressUrl } from '@flt/core/chains';
 import { AddressChip } from '@flt/ui';
 import { ResendVerification } from '@/components/resend-verification';
 import { requireUserPage } from '@/server/session';
+import { entitlementsFor } from '@flt/core/services/entitlements';
+import { UpgradeBanner } from '@/components/upgrade-banner';
 
 export const metadata: Metadata = { title: 'Home' };
 export const dynamic = 'force-dynamic';
@@ -32,6 +34,9 @@ export const dynamic = 'force-dynamic';
  */
 export default async function DashboardPage() {
   const user = await requireUserPage();
+  // Only free accounts are prompted, and the banner itself enforces that too —
+  // one forgetful call site should not start nagging paying customers.
+  const entitlements = await entitlementsFor(user.id);
 
   const [kyc, wallets, recentTransactions] = await Promise.all([
     prisma.kycProfile.findUnique({ where: { userId: user.id } }),
@@ -51,6 +56,8 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8">
+      <UpgradeBanner tier={entitlements.tier} reason="general" />
+
       <div>
         <h1 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text)]">
           Welcome back

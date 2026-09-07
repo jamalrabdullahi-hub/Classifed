@@ -8,7 +8,7 @@ import {
   type User,
 } from '@flt/db';
 import { env } from '@flt/config';
-import { NotFoundError, ValidationError } from '../domain/errors';
+import { ForbiddenError, NotFoundError, ValidationError } from '../domain/errors';
 import { newId } from '../domain/id';
 import { Decimal } from '../domain/money';
 import { publicClient } from '../chains/client';
@@ -362,4 +362,153 @@ export async function currentSubscription(userId: string): Promise<{
   });
 
   return { tier, expiresAt, subscription };
+}
+
+
+// ── Operator ────────────────────────────────────────────────────────────────
+
+export interface UpdatePlanInput {
+  tier: SubscriptionTier;
+  name?: string;
+  tagline?: string;
+  priceUsd?: string;
+  isFeatured?: boolean;
+  isAvailable?: boolean;
+  feeDiscountBps?: number;
+  maxLeverage?: number;
+  watchlistLimit?: number | null;
+  priceAlertLimit?: number | null;
+  historyDays?: number | null;
+  advancedOrderTools?: boolean;
+  fullIndicators?: boolean;
+  advancedRiskAnalytics?: boolean;
+  advancedProtectionAnalytics?: boolean;
+  fundingAnalytics?: boolean;
+  advancedPnl?: boolean;
+  fullPnl?: boolean;
+  apiAccess?: boolean;
+  priorityData?: boolean;
+  prioritySupport?: boolean;
+  reason: string;
+}
+
+/**
+ * Repricing a plan.
+ *
+ * Changes the definition, never anybody's running subscription: a participant
+ * paid for what was advertised when they paid, and a price change must not
+ * rewrite that. `Subscription.pricePaidUsd` records what was actually charged
+ * for exactly this reason.
+ *
+ * Guards refuse rather than clamp. An operator typing 15000 basis points of
+ * discount should be told it is impossible, not have it silently saved and then
+ * quietly capped the first time somebody trades.
+ */
+export async function updatePlan(
+  admin: { id: string; role: string },
+  input: UpdatePlanInput,
+): Promise<SubscriptionPlan> {
+  if (admin.role !== 'SUPER_ADMIN') {
+    throw new ForbiddenError('Only a super admin may change plan pricing');
+  }
+  if (!input.reason?.trim()) {
+    throw new ValidationError('A reason is required for this change');
+  }
+  if (input.tier === SubscriptionTier.FREE && input.priceUsd && input.priceUsd !== '0') {
+    throw new ValidationError('The free tier cannot have a price');
+  }
+
+  if (input.priceUsd !== undefined) {
+    if (!/^\d+(\.\d{1,2})?$/.test(input.priceUsd)) {
+      throw new ValidationError('Price must be a dollar amount with at most two decimals', {
+        priceUsd: input.priceUsd,
+      });
+    }
+  }
+  if (input.feeDiscountBps !== undefined) {
+    if (
+      !Number.isInteger(input.feeDiscountBps) ||
+      input.feeDiscountBps < 0 ||
+      input.feeDiscountBps > 10_000
+    ) {
+      throw new ValidationError(
+        'The fee discount must be a whole number of basis points between 0 and 10000 ' +
+          '(10000 would make trading free).',
+        { feeDiscountBps: input.feeDiscountBps },
+      );
+    }
+  }
+  if (input.maxLeverage !== undefined) {
+    if (!Number.isInteger(input.maxLeverage) || input.maxLeverage < 1 || input.maxLeverage > 100) {
+      throw new ValidationError('Leverage must be a whole number between 1 and 100', {
+        maxLeverage: input.maxLeverage,
+      });
+    }
+  }
+
+  const previous = await prisma.subscriptionPlan.findUnique({ where: { tier: input.tier } });
+  if (!previous) throw new NotFoundError('Plan');
+
+  const { tier, reason, ...changes } = input;
+
+  const updated = await prisma.$transaction(async (tx) => {
+    // Exactly one plan is featured, or the pricing page has no default. Setting
+    // one unsets the others rather than leaving the operator to notice.
+    if (changes.isFeatured === true) {
+      await tx.subscriptionPlan.updateMany({
+        where: { NOT: { tier } },
+        data: { isFeatured: false },
+      });
+    }
+
+    return tx.subscriptionPlan.update({
+      where: { tier },
+      data: { ...changes, updatedById: admin.id },
+    });
+  });
+
+  await audit(prisma, {
+    action: AuditAction.ADMIN_PLAN_CHANGED,
+    actorType: 'ADMIN',
+    actorAdminId: admin.id,
+    entityType: 'subscription_plan',
+    entityId: tier,
+    before: {
+      name: previous.name,
+      priceUsd: previous.priceUsd,
+      feeDiscountBps: previous.feeDiscountBps,
+      maxLeverage: previous.maxLeverage,
+      isAvailable: previous.isAvailable,
+    },
+    after: {
+      name: updated.name,
+      priceUsd: updated.priceUsd,
+      feeDiscountBps: updated.feeDiscountBps,
+      maxLeverage: updated.maxLeverage,
+      isAvailable: updated.isAvailable,
+      reason,
+    },
+  });
+
+  return updated;
+}
+
+/** Every plan with a count of who is on it, for the operator view. */
+export async function planSummary(): Promise<
+  Array<SubscriptionPlan & { activeCount: number }>
+> {
+  const [plans, counts] = await Promise.all([
+    prisma.subscriptionPlan.findMany(),
+    prisma.subscription.groupBy({
+      by: ['tier'],
+      where: { status: SubscriptionStatus.ACTIVE, endsAt: { gt: new Date() } },
+      _count: true,
+    }),
+  ]);
+
+  const byTier = new Map(counts.map((row) => [row.tier, row._count]));
+
+  return plans
+    .sort((a, b) => new Decimal(a.priceUsd).comparedTo(new Decimal(b.priceUsd)))
+    .map((plan) => ({ ...plan, activeCount: byTier.get(plan.tier) ?? 0 }));
 }

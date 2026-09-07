@@ -82,7 +82,16 @@ const PLANS = [
     apiAccess: false,
     priorityData: false,
     prioritySupport: false,
-    maxLeverage: 5,
+    /**
+     * Ten.
+     *
+     * Note this only means ten where the platform allows it: PERP_MAX_LEVERAGE
+     * is a hard ceiling over every plan, so on a deployment capped at 10x this
+     * makes Basic, Pro and Elite identical on leverage and the ladder stops
+     * differentiating there. Raise the platform cap if the tiers are meant to
+     * differ by leverage.
+     */
+    maxLeverage: 10,
   },
   {
     tier: SubscriptionTier.PRO,
