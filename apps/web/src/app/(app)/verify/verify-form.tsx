@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { Clock, ShieldCheck, XCircle } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   Button,
   Card,
@@ -33,6 +34,8 @@ export function VerifyForm({
   submittedAt: string | null;
 }) {
   const router = useRouter();
+  const t = useTranslations('verifyForm');
+  const locale = useLocale();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
@@ -54,7 +57,7 @@ export function VerifyForm({
       });
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Could not submit. Try again.');
+      setError(caught instanceof ApiError ? caught.message : t('submitError'));
     } finally {
       setPending(false);
     }
@@ -68,10 +71,8 @@ export function VerifyForm({
             <ShieldCheck className="size-5 text-[var(--positive)]" />
           </span>
           <div>
-            <p className="text-sm font-semibold text-[var(--text)]">Identity verified</p>
-            <p className="mt-1 text-[13px] text-[var(--text-muted)]">
-              Your account is approved for trading.
-            </p>
+            <p className="text-sm font-semibold text-[var(--text)]">{t('verifiedTitle')}</p>
+            <p className="mt-1 text-[13px] text-[var(--text-muted)]">{t('verifiedBody')}</p>
           </div>
         </CardContent>
       </Card>
@@ -86,14 +87,13 @@ export function VerifyForm({
             <Clock className="size-5 text-[var(--warning)]" />
           </span>
           <div className="max-w-sm">
-            <p className="text-sm font-semibold text-[var(--text)]">Under review</p>
+            <p className="text-sm font-semibold text-[var(--text)]">{t('underReviewTitle')}</p>
             <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-muted)]">
-              A member of our compliance team is reviewing your submission. You can connect a wallet
-              and browse markets while you wait.
+              {t('underReviewBody')}
             </p>
             {submittedAt ? (
               <p className="mt-2 text-[11px] text-[var(--text-subtle)]">
-                Submitted {new Date(submittedAt).toLocaleString()}
+                {t('submitted', { when: new Date(submittedAt).toLocaleString(locale) })}
               </p>
             ) : null}
           </div>
@@ -106,18 +106,15 @@ export function VerifyForm({
     <Card>
       <CardHeader>
         <div>
-          <CardTitle>Verify your identity</CardTitle>
-          <CardDescription>
-            Required before trading. A member of our compliance team reviews each submission — this
-            is not an automated check, so it may take a little time.
-          </CardDescription>
+          <CardTitle>{t('verifyTitle')}</CardTitle>
+          <CardDescription>{t('verifyDesc')}</CardDescription>
         </div>
       </CardHeader>
 
       <CardContent>
         {status === 'REJECTED' ? (
           <Notice tone="negative" icon={<XCircle className="size-4" />} className="mb-4">
-            {rejectionReason ?? 'Your previous submission was not approved. You may submit again.'}
+            {rejectionReason ?? t('rejectedFallback')}
           </Notice>
         ) : null}
 
@@ -125,7 +122,7 @@ export function VerifyForm({
           {error ? <Notice tone="negative">{error}</Notice> : null}
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Legal first name" required>
+            <Field label={t('legalFirstName')} required>
               {(props) => (
                 <Input
                   {...props}
@@ -137,7 +134,7 @@ export function VerifyForm({
               )}
             </Field>
 
-            <Field label="Legal last name" required>
+            <Field label={t('legalLastName')} required>
               {(props) => (
                 <Input
                   {...props}
@@ -150,7 +147,7 @@ export function VerifyForm({
             </Field>
           </div>
 
-          <Field label="Date of birth" description="You must be at least 18." required>
+          <Field label={t('dateOfBirth')} description={t('dateOfBirthHint')} required>
             {(props) => (
               <Input
                 {...props}
@@ -164,8 +161,8 @@ export function VerifyForm({
           </Field>
 
           <Field
-            label="Country of residence"
-            description="Two-letter country code, for example US or GB."
+            label={t('countryOfResidence')}
+            description={t('countryHint')}
             required
           >
             {(props) => (
@@ -182,13 +179,11 @@ export function VerifyForm({
           </Field>
 
           <Button type="submit" variant="primary" block loading={pending}>
-            Submit for review
+            {t('submitForReview')}
           </Button>
 
           <p className="text-[11px] leading-relaxed text-[var(--text-subtle)]">
-            These details are used only to verify your identity for regulatory purposes. FLT never
-            asks for a seed phrase, private key or wallet password as part of verification, and
-            nobody legitimate ever will.
+            {t('footerNote')}
           </p>
         </form>
       </CardContent>
