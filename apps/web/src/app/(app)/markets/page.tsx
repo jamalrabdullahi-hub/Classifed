@@ -20,8 +20,12 @@ import {
 import { BASE_CHAIN_ID, explorerTokenUrl } from '@flt/core/chains';
 import { formatUsd } from '@flt/core/domain';
 import { requireUserPage } from '@/server/session';
+import { InstrumentSearch } from '@/components/instrument-search';
 
-export const metadata: Metadata = { title: 'Markets' };
+export const metadata: Metadata = { title: 'Scanner' };
+
+/** How many rows to render without a query. */
+const DEFAULT_ROWS = 100;
 export const dynamic = 'force-dynamic';
 
 /**
@@ -36,13 +40,44 @@ export const dynamic = 'force-dynamic';
  * estimates. A field the provider did not give us renders as "—" rather than
  * as zero.
  */
-export default async function MarketsPage() {
+export default async function MarketsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   await requireUserPage();
 
+  const { q } = await searchParams;
+  const query = (q ?? '').trim();
+
+  /**
+   * Bounded by default.
+   *
+   * The registry went from seven hand-picked tokens to 2,675 imported ones, and
+   * rendering all of them server-side produces a page nobody scrolls and a
+   * response nobody waits for. Reviewed tokens first, then the rest
+   * alphabetically, capped — and the search box above is how you reach the
+   * long tail.
+   */
   const tokens = await prisma.token.findMany({
-    where: { chainId: BASE_CHAIN_ID },
+    where: {
+      chainId: BASE_CHAIN_ID,
+      ...(query
+        ? {
+            OR: [
+              { symbol: { contains: query, mode: 'insensitive' as const } },
+              { name: { contains: query, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+    },
     include: { marketData: true },
     orderBy: [{ isEnabled: 'desc' }, { verificationTier: 'asc' }, { symbol: 'asc' }],
+    take: DEFAULT_ROWS,
+  });
+
+  const total = await prisma.token.count({
+    where: { chainId: BASE_CHAIN_ID, isEnabled: true },
   });
 
   const unverified = tokens.filter((token) => token.verificationTier === 'UNVERIFIED').length;
@@ -54,9 +89,28 @@ export default async function MarketsPage() {
   return (
     <div className="space-y-6">
       <SectionHeader
-        title="Markets"
-        description="Tokens FLT has reviewed and enabled for trading on Base. Contract addresses are always shown — check them before you trade."
+        title="Scanner"
+        description={`${total.toLocaleString()} tokens on Base, plus every perpetual market. Contract addresses are always shown — check them before you trade.`}
       />
+
+      <InstrumentSearch
+        className="max-w-md"
+        placeholder="Search spot and perpetual markets"
+      />
+
+      {query ? (
+        <p className="text-[12px] text-[var(--text-subtle)]">
+          Showing {tokens.length} match{tokens.length === 1 ? '' : 'es'} for “{query}”.{' '}
+          <Link href="/markets" className="underline">
+            Clear
+          </Link>
+        </p>
+      ) : (
+        <p className="text-[12px] text-[var(--text-subtle)]">
+          Showing the first {tokens.length} of {total.toLocaleString()}. Use the search to find
+          anything else.
+        </p>
+      )}
 
       {unverified > 0 ? (
         <Notice tone="warning" icon={<ShieldAlert className="size-4" />}>

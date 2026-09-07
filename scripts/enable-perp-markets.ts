@@ -18,6 +18,28 @@ import { perpVenue } from '@flt/providers';
  *   pnpm tsx scripts/enable-perp-markets.ts --dry-run  say what would change
  *   pnpm tsx scripts/enable-perp-markets.ts --max 20   cap FLT leverage at 20x
  */
+/**
+ * What a perpetual tracks.
+ *
+ * Hyperliquid's `/info` does not publish an asset class, so it is derived from
+ * the symbol against an explicit table. That is a deliberate table and not a
+ * pattern match: `SPX` on Hyperliquid is SPX6900, a memecoin, and classifying
+ * it as an index because the ticker resembles one would put a meme in the
+ * equities tab and mislead precisely the person who went looking there.
+ *
+ * Everything unlisted stays CRYPTO, which is what all 177 of Hyperliquid's
+ * live markets currently are.
+ */
+const ASSET_CLASSES: Record<string, 'EQUITY' | 'FUTURE' | 'FOREX' | 'COMMODITY'> = {
+  // Tokenised gold — a commodity claim rather than a crypto asset.
+  PAXG: 'COMMODITY',
+  XAUT: 'COMMODITY',
+};
+
+function classify(symbol: string): 'CRYPTO' | 'EQUITY' | 'FUTURE' | 'FOREX' | 'COMMODITY' {
+  return ASSET_CLASSES[symbol.toUpperCase()] ?? 'CRYPTO';
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const dryRun = args.includes('--dry-run');
@@ -66,6 +88,7 @@ async function main(): Promise<void> {
             maxLeverage: cap,
             sizeDecimals: market.sizeDecimals,
             minSize: market.minSize,
+            assetClass: classify(market.symbol),
             isEnabled: true,
           },
         });
@@ -81,6 +104,7 @@ async function main(): Promise<void> {
       row.venueMaxLeverage !== market.maxLeverage ||
       row.sizeDecimals !== market.sizeDecimals ||
       row.minSize !== market.minSize ||
+      row.assetClass !== classify(market.symbol) ||
       (fltCap !== null && row.maxLeverage !== cap);
 
     if (!needsEnable && !needsUpdate) continue;
@@ -97,6 +121,7 @@ async function main(): Promise<void> {
           venueMaxLeverage: market.maxLeverage,
           sizeDecimals: market.sizeDecimals,
           minSize: market.minSize,
+          assetClass: classify(market.symbol),
           isEnabled: true,
           disabledReason: null,
           ...(fltCap !== null ? { maxLeverage: cap } : {}),

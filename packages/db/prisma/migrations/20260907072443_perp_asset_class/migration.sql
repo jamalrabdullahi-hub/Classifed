@@ -1,0 +1,2 @@
+-- CreateEnum
+CREATE TYPE "PerpAssetClass" AS ENUM ('CRYPTO', 'EQUITY', 'FUTURE', 'FOREX', 'COMMODITY');

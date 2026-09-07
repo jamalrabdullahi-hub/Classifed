@@ -1,7 +1,8 @@
 'use client';
 
 import { cn } from '@flt/ui';
-import { MarketSearch, type SearchableMarket } from './market-search';
+import { InstrumentSearch } from '@/components/instrument-search';
+import type { SearchableMarket } from './market-search';
 
 /**
  * The instrument header.
@@ -75,7 +76,10 @@ export function TickerStrip({
         }
       />
 
-      <MarketSearch markets={markets} current={market.symbol} />
+      <InstrumentSearch
+        className="ml-auto w-56"
+        placeholder={`Search ${markets.length} perps and spot`}
+      />
     </div>
   );
 }

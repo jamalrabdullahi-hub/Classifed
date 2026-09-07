@@ -141,6 +141,26 @@ enum PerpOrderKind {
 /// limit order. A stop and a take-profit differ only in which side of the mark
 /// the trigger sits, but they are named separately because confusing them is
 /// how a protective stop becomes a profit-taker.
+/// What a perpetual actually tracks.
+///
+/// A perp is a synthetic, so the underlying need not be a crypto asset: venues
+/// list equity, index, FX and commodity perps that settle in stablecoins and
+/// trade like any other contract. They behave differently in ways a trader has
+/// to see — an FX pair moves in pips and trades around the clock on weekdays,
+/// an equity mimic gaps over a weekend the crypto book trades straight through
+/// — so the class is carried explicitly rather than guessed from a symbol.
+enum PerpAssetClass {
+  CRYPTO
+  /// Tracks a listed equity.
+  EQUITY
+  /// Tracks an index or a dated future.
+  FUTURE
+  /// Tracks a currency pair.
+  FOREX
+  /// Tracks a physical commodity.
+  COMMODITY
+}
+
 enum PerpOrderType {
   MARKET
   LIMIT
@@ -900,7 +920,14 @@ model PerpMarket {
   sizeDecimals     Int
   minSize          String
 
-  isEnabled      Boolean @default(false)
+  isEnabled  Boolean        @default(false)
+  /// What the contract tracks. A perp is a synthetic, so the underlying need
+  /// not be crypto: venues list equity, index, FX and commodity perps that
+  /// settle in stablecoins. They behave differently in ways a trader has to
+  /// see — an equity mimic gaps over a weekend the crypto book trades straight
+  /// through — so the class is carried rather than guessed from a symbol.
+  assetClass PerpAssetClass @default(CRYPTO)
+
   disabledReason String?
 
   createdAt DateTime @default(now())
