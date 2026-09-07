@@ -33,6 +33,9 @@ import {
 interface Props {
   orderId: string;
   order: SubmittableOrder;
+  /** A bracket's legs, sent in the same request so the entry is never naked. */
+  attached?: SubmittableOrder[];
+  grouping?: 'na' | 'normalTpsl' | 'positionTpsl';
   venueName: string;
   /** The rate the user is asked to approve, as a percentage string. */
   builderMaxFeeRate: string;
@@ -41,7 +44,15 @@ interface Props {
 
 type Phase = 'checking' | 'needs-auth' | 'authorising' | 'ready' | 'submitting' | 'done';
 
-export function PerpSubmit({ orderId, order, venueName, builderMaxFeeRate, onDone }: Props) {
+export function PerpSubmit({
+  orderId,
+  order,
+  attached,
+  grouping,
+  venueName,
+  builderMaxFeeRate,
+  onDone,
+}: Props) {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
 
@@ -81,7 +92,7 @@ export function PerpSubmit({ orderId, order, venueName, builderMaxFeeRate, onDon
     setPhase('submitting');
 
     try {
-      const outcome = await submitOrder({ owner: address, order });
+      const outcome = await submitOrder({ owner: address, order, attached, grouping });
 
       // Reported to FLT as a claim, not as proof. The worker reconciles it
       // against the venue's own record and is what actually marks it filled.

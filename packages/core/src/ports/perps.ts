@@ -89,6 +89,22 @@ export interface TypedDataRequest {
  * compares it against the fills the venue actually reports. See the perp order
  * service.
  */
+/**
+ * A resting condition on an order that is not yet live.
+ *
+ * `kind` is the venue's own vocabulary: a take-profit triggers when the mark
+ * moves in the position's favour, a stop when it moves against. The distinction
+ * is not cosmetic — venues match them against different sides of the mark, and
+ * submitting one as the other produces an order that fires at exactly the wrong
+ * moment.
+ */
+export interface VenueTrigger {
+  triggerPrice: string;
+  kind: 'tp' | 'sl';
+  /** Submit as a market order once triggered, rather than resting as a limit. */
+  isMarket: boolean;
+}
+
 export interface NormalizedVenueOrder {
   /** The venue's own market identifier, resolved from the symbol. */
   assetId: number;
@@ -105,6 +121,8 @@ export interface NormalizedVenueOrder {
   limitPrice: string;
   timeInForce: 'IOC' | 'GTC' | 'ALO';
   reduceOnly: boolean;
+  /** Null for an ordinary order; set for a stop or take-profit. */
+  trigger: VenueTrigger | null;
   /** Builder code, in tenths of a basis point, as the venue expresses it. */
   builderFeeTenthsBps: number | null;
   builderAddress: string | null;
@@ -141,6 +159,21 @@ export type PreparedAction =
       kind: 'venue-order';
       endpoint: string;
       order: NormalizedVenueOrder;
+      /**
+       * Protective legs submitted with the entry, as one atomic action.
+       *
+       * A bracket has to reach the venue in the same request as its entry. Sent
+       * separately, a fill between the two leaves the position naked for as
+       * long as the round trip takes — which is exactly the moment the stop
+       * existed to cover.
+       */
+      attached?: NormalizedVenueOrder[];
+      /**
+       * How the venue should treat the group. `normalTpsl` cancels the sibling
+       * when one leg fills, which is what makes a bracket an OCO rather than
+       * two independent orders that could both execute.
+       */
+      grouping?: 'na' | 'normalTpsl' | 'positionTpsl';
       /**
        * True when submission needs the browser-held agent key rather than a
        * wallet prompt. The interface uses this to route the user through

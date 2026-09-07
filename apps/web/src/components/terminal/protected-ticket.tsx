@@ -16,6 +16,7 @@ import {
   type Pricing,
 } from '@/lib/protection-math';
 import type { Candle } from '@flt/core/ports/history';
+import type { PriceLineSpec } from '@/components/price-chart';
 
 /**
  * The execution ticket, with cover priced as you type.
@@ -52,7 +53,36 @@ interface Props {
   quoteAsset?: string;
   operatorFeeBps?: number;
   protectionRequired?: boolean;
+  /**
+   * Reports the boundary and liquidation price up so the chart can draw them.
+   *
+   * The only useful question about those two numbers is spatial — how far is
+   * the price from each, and which is reached first — and a pair of figures in
+   * a panel cannot answer it. Drawn on the price axis, it is immediate.
+   */
+  onPriceLinesChange?: (lines: PriceLineSpec[]) => void;
 }
+
+type OrderType =
+  | 'MARKET'
+  | 'LIMIT'
+  | 'STOP_MARKET'
+  | 'STOP_LIMIT'
+  | 'TAKE_PROFIT_MARKET'
+  | 'TAKE_PROFIT_LIMIT';
+
+const ORDER_TYPES: Array<{ value: OrderType; label: string }> = [
+  { value: 'MARKET', label: 'Market' },
+  { value: 'LIMIT', label: 'Limit' },
+  { value: 'STOP_MARKET', label: 'Stop' },
+  { value: 'STOP_LIMIT', label: 'Stop limit' },
+  { value: 'TAKE_PROFIT_MARKET', label: 'Take profit' },
+  { value: 'TAKE_PROFIT_LIMIT', label: 'TP limit' },
+];
+
+const needsTrigger = (type: OrderType) => type !== 'MARKET' && type !== 'LIMIT';
+const needsLimit = (type: OrderType) =>
+  type === 'LIMIT' || type === 'STOP_LIMIT' || type === 'TAKE_PROFIT_LIMIT';
 
 const POLICY_LABELS: Record<PolicyKind, string> = {
   BASE_DAY: 'Based',
@@ -74,10 +104,17 @@ export function ProtectedTicket({
   quoteAsset = 'USDC',
   operatorFeeBps = 1_000,
   protectionRequired = true,
+  onPriceLinesChange,
 }: Props) {
   const [side, setSide] = useState<'LONG' | 'SHORT'>('LONG');
   const [amount, setAmount] = useState('');
   const [leverageText, setLeverageText] = useState('2');
+  const [orderType, setOrderType] = useState<OrderType>('MARKET');
+  const [limitPrice, setLimitPrice] = useState('');
+  const [triggerPrice, setTriggerPrice] = useState('');
+  const [bracket, setBracket] = useState(false);
+  const [takeProfit, setTakeProfit] = useState('');
+  const [stopLoss, setStopLoss] = useState('');
   const [insured, setInsured] = useState(true);
   const [policy, setPolicy] = useState<PolicyKind>('BASE_DAY');
   const [horizon, setHorizon] = useState<HorizonSelection>({ amount: 1, unit: 'days' });
@@ -141,6 +178,41 @@ export function ProtectedTicket({
     operatorFeeBps,
   ]);
 
+  // Colour carries meaning here rather than decoration: the boundary is where
+  // protection resolves and liquidation is where the venue takes the position,
+  // and the whole product claim is that the first comes before the second.
+  useEffect(() => {
+    if (!onPriceLinesChange) return;
+
+    if (!pricing) {
+      onPriceLinesChange([]);
+      return;
+    }
+
+    const lines: PriceLineSpec[] = [];
+
+    if (insured) {
+      lines.push({
+        id: 'protection-boundary',
+        price: pricing.boundary.toNumber(),
+        tone: 'positive',
+        title: `${z}σ cover`,
+      });
+    }
+
+    if (pricing.estimatedLiquidation) {
+      lines.push({
+        id: 'liquidation',
+        price: pricing.estimatedLiquidation.toNumber(),
+        tone: 'negative',
+        title: 'Liquidation (est.)',
+        dashed: true,
+      });
+    }
+
+    onPriceLinesChange(lines);
+  }, [pricing, insured, z, onPriceLinesChange]);
+
   const blocked = insured && pricing !== null && !pricing.waterfallHolds;
   const ready = Boolean(amount) && leverageValid && (!insured || pricing !== null) && !blocked;
 
@@ -157,6 +229,11 @@ export function ProtectedTicket({
         marginMode: 'ISOLATED',
         slippageBps: 50,
         reduceOnly: false,
+        orderType,
+        limitPrice: needsLimit(orderType) ? limitPrice.trim() : null,
+        triggerPrice: needsTrigger(orderType) ? triggerPrice.trim() : null,
+        takeProfitPrice: bracket && takeProfit.trim() ? takeProfit.trim() : null,
+        stopLossPrice: bracket && stopLoss.trim() ? stopLoss.trim() : null,
         ...(insured
           ? {
               protectionPercentile: pricing!.confidence,
@@ -218,6 +295,75 @@ export function ProtectedTicket({
             : `1x to ${maxLeverage}x`
         }
       />
+
+      <Segmented
+        label="Order type"
+        options={ORDER_TYPES.map((entry) => ({ value: entry.value, label: entry.label }))}
+        value={orderType}
+        onChange={(next) => setOrderType(next as OrderType)}
+      />
+
+      {needsTrigger(orderType) ? (
+        <LabeledInput
+          label="Trigger price"
+          value={triggerPrice}
+          onChange={setTriggerPrice}
+          placeholder={markPrice ?? '0'}
+          hint={
+            orderType.startsWith('STOP')
+              ? side === 'LONG'
+                ? 'Fires below the market'
+                : 'Fires above the market'
+              : side === 'LONG'
+                ? 'Fires above the market'
+                : 'Fires below the market'
+          }
+        />
+      ) : null}
+
+      {needsLimit(orderType) ? (
+        <LabeledInput
+          label="Limit price"
+          value={limitPrice}
+          onChange={setLimitPrice}
+          placeholder={markPrice ?? '0'}
+          hint="Rests until filled"
+        />
+      ) : null}
+
+      {/* ── Bracket ──────────────────────────────────────────────────────── */}
+      <div className="space-y-2 rounded-[var(--radius-md)] border border-[var(--border)] p-2">
+        <label className="flex items-center justify-between gap-2">
+          <span className="font-medium text-[var(--text)]">Bracket (OCO)</span>
+          <input
+            type="checkbox"
+            checked={bracket}
+            onChange={(event) => setBracket(event.target.checked)}
+            className="size-3.5 accent-[var(--text)]"
+          />
+        </label>
+
+        {bracket ? (
+          <>
+            <LabeledInput
+              label="Take profit"
+              value={takeProfit}
+              onChange={setTakeProfit}
+              placeholder={markPrice ?? '0'}
+            />
+            <LabeledInput
+              label="Stop loss"
+              value={stopLoss}
+              onChange={setStopLoss}
+              placeholder={markPrice ?? '0'}
+            />
+            <p className="text-[10px] leading-relaxed text-[var(--text-subtle)]">
+              Both legs go to the venue with the entry, in one request. Filling one cancels the
+              other, so a whipsaw cannot execute both and leave you positioned the wrong way.
+            </p>
+          </>
+        ) : null}
+      </div>
 
       {/* ── Coverage ─────────────────────────────────────────────────────── */}
       <div className="space-y-2 rounded-[var(--radius-md)] border border-[var(--border)] p-2">
@@ -406,6 +552,12 @@ export function ProtectedTicket({
 
       {confirming && pricing ? (
         <ConfirmDialog
+          orderType={orderType}
+          triggerPrice={triggerPrice}
+          limitPrice={limitPrice}
+          bracket={bracket}
+          takeProfit={takeProfit}
+          stopLoss={stopLoss}
           symbol={symbol}
           side={side}
           leverage={leverage}
@@ -425,6 +577,12 @@ export function ProtectedTicket({
 }
 
 function ConfirmDialog({
+  orderType,
+  triggerPrice,
+  limitPrice,
+  bracket,
+  takeProfit,
+  stopLoss,
   symbol,
   side,
   leverage,
@@ -438,6 +596,12 @@ function ConfirmDialog({
   onCancel,
   onConfirm,
 }: {
+  orderType: OrderType;
+  triggerPrice: string;
+  limitPrice: string;
+  bracket: boolean;
+  takeProfit: string;
+  stopLoss: string;
   symbol: string;
   side: 'LONG' | 'SHORT';
   leverage: number;
@@ -469,6 +633,19 @@ function ConfirmDialog({
             value={`${money(pricing.marginRequired.times(leverage))} ${quoteAsset}`}
             emphasis
           />
+          <Row label="Order type" value={ORDER_TYPES.find((t) => t.value === orderType)!.label} />
+          {needsTrigger(orderType) && triggerPrice ? (
+            <Row label="Trigger" value={`$${Number(triggerPrice).toLocaleString('en-US')}`} />
+          ) : null}
+          {needsLimit(orderType) && limitPrice ? (
+            <Row label="Limit" value={`$${Number(limitPrice).toLocaleString('en-US')}`} />
+          ) : null}
+          {bracket && takeProfit ? (
+            <Row label="Take profit" value={`$${Number(takeProfit).toLocaleString('en-US')}`} />
+          ) : null}
+          {bracket && stopLoss ? (
+            <Row label="Stop loss" value={`$${Number(stopLoss).toLocaleString('en-US')}`} />
+          ) : null}
           <Row label="Margin" value={money(pricing.marginRequired)} />
           {insured ? (
             <>

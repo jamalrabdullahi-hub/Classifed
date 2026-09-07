@@ -123,9 +123,40 @@ export interface PerpPosition {
 }
 
 /** What the user asked for, before it becomes a signable action. */
+export type PerpOrderType =
+  | 'MARKET'
+  | 'LIMIT'
+  | 'STOP_MARKET'
+  | 'STOP_LIMIT'
+  | 'TAKE_PROFIT_MARKET'
+  | 'TAKE_PROFIT_LIMIT';
+
+/** True for the four types that wait off the book for a trigger price. */
+export function isTriggerOrder(type: PerpOrderType): boolean {
+  return type !== 'MARKET' && type !== 'LIMIT';
+}
+
+/** True for the two that rest as a limit once triggered. */
+export function triggerRestsAsLimit(type: PerpOrderType): boolean {
+  return type === 'STOP_LIMIT' || type === 'TAKE_PROFIT_LIMIT';
+}
+
 export interface PerpOrderIntent {
   symbol: string;
   side: PerpSide;
+  /** How the order reaches the book. Defaults to MARKET. */
+  orderType?: PerpOrderType;
+  /** Required for the trigger types; meaningless for MARKET and LIMIT. */
+  triggerPrice?: string | null;
+  /**
+   * A bracket's protective legs, submitted with the entry.
+   *
+   * Both are reduce-only and cancel each other when one fills. Sent with the
+   * entry rather than after it, because a fill between two requests leaves the
+   * position unprotected for exactly the moment the stop was bought for.
+   */
+  takeProfitPrice?: string | null;
+  stopLossPrice?: string | null;
   /** Contracts, decimal string. */
   size: string;
   leverage: number;

@@ -1,5 +1,4 @@
 import { encodeFunctionData, erc20Abi, parseEventLogs, getAddress } from 'viem';
-import { env } from '@flt/config';
 import {
   ProtectionLedgerKind,
   ProtectionPolicyKind as PolicyKindEnum,
@@ -18,6 +17,7 @@ import { protectionEligibility } from '../protection/premium';
 import { assertMayTrade } from './kyc';
 import { AuditAction, audit } from './audit';
 import { quoteProtection } from './protection-quote';
+import { resolveProtectionSettings } from './protection-settings';
 import type { PerpVenue } from '../ports/perps';
 
 /**
@@ -120,16 +120,19 @@ export async function preparePurchase(
 ): Promise<PreparedPurchase> {
   assertMayTrade(context.user);
 
-  const config = env();
   const symbol = input.symbol.toUpperCase();
 
-  if (config.PROTECTION_MODE === 'off') {
+  // Operator settings override the environment, so an address can be changed
+  // from the admin panel without a deploy.
+  const settings = await resolveProtectionSettings();
+
+  if (settings.mode === 'off') {
     throw new ValidationError('Protection is not being sold on this deployment');
   }
 
-  const poolAddress = config.PROTECTION_POOL_ADDRESS;
-  const operatorAddress = config.FLT_FEE_RECIPIENT_ADDRESS;
-  const tokenAddress = config.PROTECTION_PREMIUM_TOKEN_ADDRESS;
+  const poolAddress = settings.reserveAddress;
+  const operatorAddress = settings.operatorAddress;
+  const tokenAddress = settings.premiumTokenAddress;
 
   if (!poolAddress || !operatorAddress || !tokenAddress) {
     throw new ValidationError(
@@ -143,7 +146,7 @@ export async function preparePurchase(
   if (!market || !market.isEnabled) throw new NotFoundError('Market');
 
   const token = await prisma.token.findFirst({
-    where: { chainId: config.PROTECTION_PREMIUM_CHAIN_ID, address: tokenAddress.toLowerCase() },
+    where: { chainId: settings.premiumChainId, address: tokenAddress.toLowerCase() },
   });
   if (!token) {
     throw new ValidationError(
@@ -224,7 +227,7 @@ export async function preparePurchase(
       premiumOperatorFee: quote.premium.operatorFee.toFixed(),
       premiumTotal: quote.premium.totalPremium.toFixed(),
       premiumTokenAddress: tokenAddress.toLowerCase(),
-      premiumChainId: config.PROTECTION_PREMIUM_CHAIN_ID,
+      premiumChainId: settings.premiumChainId,
       poolAddress: poolAddress.toLowerCase(),
       operatorAddress: operatorAddress.toLowerCase(),
     },
@@ -244,7 +247,7 @@ export async function preparePurchase(
         'contribution',
         poolAddress,
         tokenAddress,
-        config.PROTECTION_PREMIUM_CHAIN_ID,
+        settings.premiumChainId,
         quote.premium.contribution,
         token.decimals,
         'Risk capital, to the protection pool.',
@@ -253,7 +256,7 @@ export async function preparePurchase(
         'operator-fee',
         operatorAddress,
         tokenAddress,
-        config.PROTECTION_PREMIUM_CHAIN_ID,
+        settings.premiumChainId,
         quote.premium.operatorFee,
         token.decimals,
         `FLT's fee, ${quote.premium.operatorFeeBps / 100}% of the contribution.`,

@@ -63,6 +63,7 @@ export {
   PerpMarginMode,
   PerpOrderStatus,
   PerpOrderKind,
+  PerpOrderType,
   ProtectionPolicyKind,
   ProtectionState,
   ProtectionLedgerKind,

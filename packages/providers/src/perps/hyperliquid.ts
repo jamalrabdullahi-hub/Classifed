@@ -1,6 +1,13 @@
 import { env } from '@flt/config';
 import { ProviderError, ProviderNotConfiguredError, ValidationError } from '@flt/core/domain';
-import { Decimal, initialMargin, notional } from '@flt/core/domain';
+import {
+  Decimal,
+  initialMargin,
+  isTriggerOrder,
+  notional,
+  triggerRestsAsLimit,
+  type PerpOrderIntent,
+} from '@flt/core/domain';
 import { z } from 'zod';
 import { boundPrice } from './mock';
 import type {
@@ -20,6 +27,7 @@ import type {
   PrepareOrderRequest,
   PreparedAction,
   ProviderMeta,
+  NormalizedVenueOrder,
   VenueAuthorization,
 } from './types';
 
@@ -469,24 +477,111 @@ export class HyperliquidPerpVenue implements PerpVenue {
     }
 
     const isBuy = intent.side === 'LONG';
-    const reference = intent.limitPrice ?? market.markPrice;
+    const orderType = intent.orderType ?? 'MARKET';
+    const size = this.roundSize(intent.size, market);
+
+    if (isTriggerOrder(orderType) && !intent.triggerPrice) {
+      throw new ValidationError('A trigger price is required for this order type', {
+        orderType,
+      });
+    }
+
+    // The price the order is judged against. A trigger order is priced from its
+    // own trigger, not the mark — pricing a stop off the current mark would
+    // send a bound computed for a price the order will never execute at.
+    const reference = isTriggerOrder(orderType)
+      ? intent.triggerPrice!
+      : (intent.limitPrice ?? market.markPrice);
+
+    const restsAsLimit = orderType === 'LIMIT' || triggerRestsAsLimit(orderType);
+
+    const entry: NormalizedVenueOrder = {
+      assetId: market.venueAssetId,
+      symbol: market.symbol,
+      isBuy,
+      size,
+      limitPrice: restsAsLimit
+        ? this.roundPrice(reference, market)
+        : boundPrice(reference, isBuy, intent.slippageBps),
+      // A market order goes out as immediate-or-cancel at a bounded price,
+      // never as an unbounded market order.
+      timeInForce: restsAsLimit ? 'GTC' : 'IOC',
+      reduceOnly: intent.reduceOnly,
+      trigger: isTriggerOrder(orderType)
+        ? {
+            triggerPrice: this.roundPrice(intent.triggerPrice!, market),
+            // A stop protects against the position moving against you; a
+            // take-profit fires in your favour. The venue matches them against
+            // different sides of the mark.
+            kind: orderType.startsWith('STOP') ? 'sl' : 'tp',
+            isMarket: !triggerRestsAsLimit(orderType),
+          }
+        : null,
+      ...this.builderFee(request.fee),
+    };
+
+    // Bracket legs close the position, so they are the opposite side of the
+    // entry and always reduce-only — a rounding error must never be able to
+    // open a position on the other side.
+    const attached: NormalizedVenueOrder[] = [];
+
+    if (intent.takeProfitPrice) {
+      attached.push(this.protectiveLeg(market, intent, size, !isBuy, intent.takeProfitPrice, 'tp'));
+    }
+    if (intent.stopLossPrice) {
+      attached.push(this.protectiveLeg(market, intent, size, !isBuy, intent.stopLossPrice, 'sl'));
+    }
 
     return {
       kind: 'venue-order',
       endpoint: `${this.baseUrl()}/exchange`,
       requiresAgentKey: true,
-      order: {
-        assetId: market.venueAssetId,
-        symbol: market.symbol,
-        isBuy,
-        size: this.roundSize(intent.size, market),
-        limitPrice: boundPrice(reference, isBuy, intent.slippageBps),
-        // A market order goes out as immediate-or-cancel at a bounded price,
-        // never as an unbounded market order.
-        timeInForce: intent.limitPrice ? 'GTC' : 'IOC',
-        reduceOnly: intent.reduceOnly,
-        ...this.builderFee(request.fee),
+      order: entry,
+      ...(attached.length > 0
+        ? {
+            attached,
+            // normalTpsl makes the pair an OCO: filling one cancels the other.
+            // Without it both legs rest and a whipsaw could execute both,
+            // leaving a position opposite the one that was closed.
+            grouping: 'normalTpsl' as const,
+          }
+        : {}),
+    };
+  }
+
+  /**
+   * One leg of a bracket.
+   *
+   * Never carries a builder fee: the fee is charged once, on the entry. Taking
+   * it again on the exit would double-charge a round trip that the participant
+   * was quoted once.
+   */
+  private protectiveLeg(
+    market: PerpMarket,
+    intent: PerpOrderIntent,
+    size: string,
+    isBuy: boolean,
+    triggerPrice: string,
+    kind: 'tp' | 'sl',
+  ): NormalizedVenueOrder {
+    return {
+      assetId: market.venueAssetId,
+      symbol: market.symbol,
+      isBuy,
+      size,
+      // Market on trigger: a protective stop that rests as a limit can be
+      // skipped straight past in a fast move, which is the one case it exists
+      // for. Bounded by slippage rather than unbounded.
+      limitPrice: boundPrice(triggerPrice, isBuy, Math.max(intent.slippageBps, 100)),
+      timeInForce: 'IOC',
+      reduceOnly: true,
+      trigger: {
+        triggerPrice: this.roundPrice(triggerPrice, market),
+        kind,
+        isMarket: true,
       },
+      builderFeeTenthsBps: null,
+      builderAddress: null,
     };
   }
 
@@ -528,6 +623,7 @@ export class HyperliquidPerpVenue implements PerpVenue {
         limitPrice: boundPrice(market.markPrice, isBuy, request.slippageBps),
         timeInForce: 'IOC',
         reduceOnly: true,
+        trigger: null,
         ...this.builderFee(request.fee),
       },
     };
@@ -556,6 +652,7 @@ export class HyperliquidPerpVenue implements PerpVenue {
         limitPrice: market.markPrice ?? '0',
         timeInForce: 'GTC',
         reduceOnly: false,
+        trigger: null,
         builderFeeTenthsBps: null,
         builderAddress: null,
       },
@@ -590,6 +687,19 @@ export class HyperliquidPerpVenue implements PerpVenue {
       builderFeeTenthsBps: Math.round(fee.bps * 10),
       builderAddress: fee.recipientAddress,
     };
+  }
+
+  /**
+   * Hyperliquid accepts at most five significant figures on a price, and
+   * (6 - sizeDecimals) decimal places. A price outside that is rejected
+   * outright, so it is clamped here rather than at the venue.
+   */
+  private roundPrice(price: string, market: PerpMarket): string {
+    const maxDecimals = Math.max(0, 6 - market.sizeDecimals);
+    return new Decimal(price)
+      .toSignificantDigits(5, Decimal.ROUND_HALF_UP)
+      .toDecimalPlaces(maxDecimals, Decimal.ROUND_HALF_UP)
+      .toFixed();
   }
 
   private roundSize(size: string, market: PerpMarket): string {

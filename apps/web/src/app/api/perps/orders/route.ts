@@ -43,6 +43,14 @@ const schema = z.object({
   usdNotional: decimalString.optional(),
   /** The cover level chosen, when protection is being bought with the trade. */
   protectionPercentile: z.coerce.number().gt(0.5).lt(1).optional(),
+  orderType: z
+    .enum(['MARKET', 'LIMIT', 'STOP_MARKET', 'STOP_LIMIT', 'TAKE_PROFIT_MARKET', 'TAKE_PROFIT_LIMIT'])
+    .optional(),
+  /** Required for the trigger types. */
+  triggerPrice: decimalString.nullish(),
+  /** Bracket legs, submitted with the entry as an OCO. */
+  takeProfitPrice: decimalString.nullish(),
+  stopLossPrice: decimalString.nullish(),
   leverage: z.coerce.number().int().min(1).max(100).optional(),
   marginMode: z.enum(['ISOLATED', 'CROSS']).default('ISOLATED'),
   limitPrice: decimalString.nullish(),
@@ -97,6 +105,10 @@ export const POST = handler(
         slippageBps: body.slippageBps ?? 50,
         reduceOnly: body.reduceOnly ?? false,
         protectionPercentile: body.protectionPercentile,
+        orderType: body.orderType,
+        triggerPrice: body.triggerPrice ?? null,
+        takeProfitPrice: body.takeProfitPrice ?? null,
+        stopLossPrice: body.stopLossPrice ?? null,
       },
       ip: context.ip,
       userAgent: context.userAgent,

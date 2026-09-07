@@ -21,6 +21,8 @@ export function ProtectionSettingsForm({
     creditDestination: 'BALANCE' | 'POSITION';
     allowCreditChoice: boolean;
     mode: 'off' | 'optional' | 'required';
+    premiumTokenAddress: string | null;
+    premiumChainId: number;
   };
 }) {
   const router = useRouter();
@@ -31,6 +33,10 @@ export function ProtectionSettingsForm({
   const [creditDestination, setCreditDestination] = useState(initial.creditDestination);
   const [allowCreditChoice, setAllowCreditChoice] = useState(initial.allowCreditChoice);
   const [mode, setMode] = useState(initial.mode);
+  const [premiumTokenAddress, setPremiumTokenAddress] = useState(
+    initial.premiumTokenAddress ?? '',
+  );
+  const [premiumChainId, setPremiumChainId] = useState(String(initial.premiumChainId));
   const [reason, setReason] = useState('');
 
   const [pending, setPending] = useState(false);
@@ -67,6 +73,8 @@ export function ProtectionSettingsForm({
           creditDestination,
           allowCreditChoice,
           mode,
+          premiumTokenAddress: premiumTokenAddress.trim(),
+          premiumChainId: Number(premiumChainId),
           reason,
         }),
       });
@@ -127,6 +135,33 @@ export function ProtectionSettingsForm({
             {...props}
             value={operatorFeeBps}
             onChange={(event) => setOperatorFeeBps(event.target.value.replace(/[^\d]/g, ''))}
+            inputMode="numeric"
+            className="num"
+          />
+        )}
+      </Field>
+
+      <Field
+        label="Premium token"
+        description="The stablecoin premiums are charged in. A volatile asset would change value between the quote and the transfer."
+      >
+        {(props) => (
+          <Input
+            {...props}
+            value={premiumTokenAddress}
+            onChange={(event) => setPremiumTokenAddress(event.target.value)}
+            placeholder="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 (USDC on Base)"
+            className="num"
+          />
+        )}
+      </Field>
+
+      <Field label="Premium chain ID" description="8453 is Base.">
+        {(props) => (
+          <Input
+            {...props}
+            value={premiumChainId}
+            onChange={(event) => setPremiumChainId(event.target.value.replace(/[^\d]/g, ''))}
             inputMode="numeric"
             className="num"
           />

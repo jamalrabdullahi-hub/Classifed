@@ -134,6 +134,22 @@ enum PerpOrderKind {
   LEVERAGE_CHANGE
 }
 
+/// How an order reaches the book.
+///
+/// MARKET and LIMIT rest or cross immediately. The four trigger types sit off
+/// the book until the mark reaches `triggerPrice`, then submit as a market or
+/// limit order. A stop and a take-profit differ only in which side of the mark
+/// the trigger sits, but they are named separately because confusing them is
+/// how a protective stop becomes a profit-taker.
+enum PerpOrderType {
+  MARKET
+  LIMIT
+  STOP_MARKET
+  STOP_LIMIT
+  TAKE_PROFIT_MARKET
+  TAKE_PROFIT_LIMIT
+}
+
 enum FeeType {
   PERCENTAGE
   FIXED
@@ -917,6 +933,19 @@ model PerpOrder {
   kind      PerpOrderKind   @default(OPEN)
   status    PerpOrderStatus @default(PREPARED)
 
+  orderType    PerpOrderType @default(MARKET)
+  /// The mark price at which a trigger order becomes live. Null for MARKET and
+  /// LIMIT, which have nothing to wait for.
+  triggerPrice String?
+
+  /// A bracket's two protective legs, recorded on the entry that created them.
+  /// Both are reduce-only and cancel each other when one fills.
+  takeProfitPrice String?
+  stopLossPrice   String?
+  /// Groups an entry with the protective legs submitted alongside it, so the
+  /// three can be reconciled as one intent rather than three unrelated orders.
+  bracketGroupId  String?
+
   side          PerpSide
   /// Contracts, as a decimal string. Perp venues quote sizes and prices at a
   /// human scale rather than in token base units.
@@ -1265,6 +1294,13 @@ model ProtectionSetting {
   creditDestination CreditDestination @default(BALANCE)
   /// Whether participants may choose, or the default is imposed.
   allowCreditChoice Boolean           @default(true)
+
+  /// The stablecoin premiums are paid in, and the chain it lives on.
+  /// A premium denominated in a volatile asset would change value between the
+  /// quote and the transfer, so this is a stablecoin address rather than a
+  /// choice offered per trade.
+  premiumTokenAddress String?
+  premiumChainId      Int?
 
   /// off | optional | required
   mode String @default("off")

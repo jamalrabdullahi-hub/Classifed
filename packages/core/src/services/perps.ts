@@ -19,6 +19,7 @@ import { Decimal } from '../domain/money';
 import { checksumAddress } from '../domain/address';
 import {
   assertLeverage,
+  isTriggerOrder,
   estimateLiquidationPrice,
   initialMargin,
   notional,
@@ -240,6 +241,8 @@ export async function prepareOpen(
     }
   }
 
+  assertOrderPrices(intent, market.markPrice);
+
   const fee = builderFee();
   const normalized: PerpOrderIntent = { ...intent, symbol: market.symbol };
 
@@ -276,6 +279,12 @@ export async function prepareOpen(
       isMarketOrder: intent.limitPrice === null,
       slippageBps: intent.slippageBps,
       reduceOnly: intent.reduceOnly,
+      orderType: (intent.orderType ?? 'MARKET') as never,
+      triggerPrice: intent.triggerPrice ?? null,
+      takeProfitPrice: intent.takeProfitPrice ?? null,
+      stopLossPrice: intent.stopLossPrice ?? null,
+      bracketGroupId:
+        intent.takeProfitPrice || intent.stopLossPrice ? newId() : null,
       referencePrice,
       estimatedLiquidationPrice: liquidation.price,
       marginRequired: preview.marginRequired,
@@ -552,4 +561,67 @@ export function orderEconomics(params: {
     notional: notional(params.size, params.price),
     margin: initialMargin(params.size, params.price, params.leverage),
   };
+}
+
+
+/**
+ * Trigger and bracket prices must sit on the right side of the market.
+ *
+ * A stop above the entry on a long is not a stop — it fires immediately, or
+ * takes profit, depending on the venue. Refusing here means the mistake is
+ * caught while it is still a form field rather than after it has been signed
+ * and sent, when it is the venue's problem and the user's money.
+ */
+function assertOrderPrices(intent: PerpOrderIntent, markPrice: string | null): void {
+  const orderType = intent.orderType ?? 'MARKET';
+  const isLong = intent.side === 'LONG';
+
+  if (isTriggerOrder(orderType)) {
+    if (!intent.triggerPrice) {
+      throw new ValidationError('This order type needs a trigger price', { orderType });
+    }
+    const trigger = new Decimal(intent.triggerPrice);
+    if (!trigger.isFinite() || trigger.lessThanOrEqualTo(0)) {
+      throw new ValidationError('The trigger price must be a positive number');
+    }
+  }
+
+  if (!markPrice) return;
+  const mark = new Decimal(markPrice);
+
+  // Both legs close the position, so they sit opposite one another around the
+  // entry: profit in the direction the position gains, stop the other way.
+  if (intent.takeProfitPrice) {
+    const tp = new Decimal(intent.takeProfitPrice);
+    const wrongSide = isLong ? tp.lessThanOrEqualTo(mark) : tp.greaterThanOrEqualTo(mark);
+    if (wrongSide) {
+      throw new ValidationError(
+        `A take-profit on a ${isLong ? 'long' : 'short'} must sit ${isLong ? 'above' : 'below'} the market price.`,
+        { takeProfitPrice: intent.takeProfitPrice, markPrice },
+      );
+    }
+  }
+
+  if (intent.stopLossPrice) {
+    const sl = new Decimal(intent.stopLossPrice);
+    const wrongSide = isLong ? sl.greaterThanOrEqualTo(mark) : sl.lessThanOrEqualTo(mark);
+    if (wrongSide) {
+      throw new ValidationError(
+        `A stop on a ${isLong ? 'long' : 'short'} must sit ${isLong ? 'below' : 'above'} the market price.`,
+        { stopLossPrice: intent.stopLossPrice, markPrice },
+      );
+    }
+  }
+
+  if (intent.takeProfitPrice && intent.stopLossPrice) {
+    const tp = new Decimal(intent.takeProfitPrice);
+    const sl = new Decimal(intent.stopLossPrice);
+    const crossed = isLong ? sl.greaterThanOrEqualTo(tp) : sl.lessThanOrEqualTo(tp);
+    if (crossed) {
+      throw new ValidationError('The stop and take-profit cross each other.', {
+        takeProfitPrice: intent.takeProfitPrice,
+        stopLossPrice: intent.stopLossPrice,
+      });
+    }
+  }
 }

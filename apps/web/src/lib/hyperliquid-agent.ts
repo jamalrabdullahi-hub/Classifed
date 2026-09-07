@@ -159,6 +159,12 @@ export async function authorizeAgent(params: {
   return { agentAddress: agent.address };
 }
 
+export interface SubmittableTrigger {
+  triggerPrice: string;
+  kind: 'tp' | 'sl';
+  isMarket: boolean;
+}
+
 export interface SubmittableOrder {
   assetId: number;
   isBuy: boolean;
@@ -166,6 +172,8 @@ export interface SubmittableOrder {
   limitPrice: string;
   timeInForce: 'IOC' | 'GTC' | 'ALO';
   reduceOnly: boolean;
+  /** Set for a stop or take-profit; null for an ordinary order. */
+  trigger?: SubmittableTrigger | null;
   builderAddress: string | null;
   builderFeeTenthsBps: number | null;
 }
@@ -181,6 +189,16 @@ export interface SubmittableOrder {
 export async function submitOrder(params: {
   owner: Address;
   order: SubmittableOrder;
+  /**
+   * A bracket's protective legs, sent in the SAME request as the entry.
+   *
+   * Not a convenience: submitted separately, a fill between the two requests
+   * leaves the position unprotected for exactly the moment the stop was bought
+   * to cover.
+   */
+  attached?: SubmittableOrder[];
+  /** `normalTpsl` makes the legs an OCO — filling one cancels the other. */
+  grouping?: 'na' | 'normalTpsl' | 'positionTpsl';
 }): Promise<{ venueOrderId: string | null; status: string }> {
   const privateKey = loadAgentKey(params.owner);
   if (!privateKey) {
@@ -193,19 +211,26 @@ export async function submitOrder(params: {
   });
 
   const { order } = params;
+  const all = [order, ...(params.attached ?? [])];
 
   const response = await client.order({
-    orders: [
-      {
-        a: order.assetId,
-        b: order.isBuy,
-        p: order.limitPrice,
-        s: order.size,
-        r: order.reduceOnly,
-        t: { limit: { tif: timeInForce(order.timeInForce) } },
-      },
-    ],
-    grouping: 'na',
+    orders: all.map((each) => ({
+      a: each.assetId,
+      b: each.isBuy,
+      p: each.limitPrice,
+      s: each.size,
+      r: each.reduceOnly,
+      t: each.trigger
+        ? {
+            trigger: {
+              isMarket: each.trigger.isMarket,
+              triggerPx: each.trigger.triggerPrice,
+              tpsl: each.trigger.kind,
+            },
+          }
+        : { limit: { tif: timeInForce(each.timeInForce) } },
+    })),
+    grouping: params.grouping ?? 'na',
     ...(order.builderAddress && order.builderFeeTenthsBps
       ? {
           builder: {

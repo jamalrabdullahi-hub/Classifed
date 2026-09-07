@@ -4,9 +4,11 @@ import {
   CandlestickSeries,
   HistogramSeries,
   createChart,
+  LineStyle,
   type CandlestickData,
   type HistogramData,
   type IChartApi,
+  type IPriceLine,
   type ISeriesApi,
   type Time,
   type UTCTimestamp,
@@ -41,6 +43,31 @@ interface PriceChartProps {
   /** Decimal places for the price axis, derived from the price magnitude. */
   precision: number;
   height?: number;
+  /**
+   * Horizontal reference lines drawn across the price axis.
+   *
+   * Used for the protection boundary and the venue's liquidation price. Drawn
+   * on the chart rather than listed beside it because the only useful question
+   * about them is spatial: how far is the price from each, and which comes
+   * first. A table of two numbers cannot answer that at a glance.
+   */
+  priceLines?: PriceLineSpec[];
+}
+
+export interface PriceLineSpec {
+  /** A stable key, so a line can be updated rather than recreated on a redraw. */
+  id: string;
+  price: number;
+  /**
+   * A semantic tone, not a colour.
+   *
+   * The canvas cannot resolve a CSS variable, and the palette is read from the
+   * DOM here and re-read on a theme change. A caller passing a literal colour
+   * would be right in one theme and wrong in the other.
+   */
+  tone: 'positive' | 'negative' | 'neutral';
+  title: string;
+  dashed?: boolean;
 }
 
 interface Palette {
@@ -73,11 +100,18 @@ function fade(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-export function PriceChart({ candles, interval, precision, height = 380 }: PriceChartProps) {
+export function PriceChart({
+  candles,
+  interval,
+  precision,
+  height = 380,
+  priceLines = [],
+}: PriceChartProps) {
   const container = useRef<HTMLDivElement>(null);
   const chart = useRef<IChartApi | null>(null);
   const priceSeries = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeSeries = useRef<ISeriesApi<'Histogram'> | null>(null);
+  const drawnLines = useRef<Map<string, IPriceLine>>(new Map());
   const [palette, setPalette] = useState<Palette | null>(null);
 
   // Re-read the palette whenever the theme attribute flips.
@@ -209,6 +243,52 @@ export function PriceChart({ candles, interval, precision, height = 380 }: Price
     volumeSeries.current.setData(volumeData);
     chart.current?.timeScale().fitContent();
   }, [candles, palette]);
+
+  /**
+   * Reference lines, reconciled rather than redrawn.
+   *
+   * Removing and recreating every line on each render makes them flicker as the
+   * ticket's inputs change, which is precisely when they are being read. So
+   * lines are matched by id: existing ones are updated in place and only
+   * genuinely departed ones are removed.
+   */
+  useEffect(() => {
+    const series = priceSeries.current;
+    // Palette is null until the chart has mounted and read the tokens; a line
+    // drawn before then would be coloured from a theme that is not in effect.
+    if (!series || !palette) return;
+
+    const wanted = new Set(priceLines.map((line) => line.id));
+
+    for (const [id, drawn] of drawnLines.current) {
+      if (!wanted.has(id)) {
+        series.removePriceLine(drawn);
+        drawnLines.current.delete(id);
+      }
+    }
+
+    for (const line of priceLines) {
+      if (!Number.isFinite(line.price) || line.price <= 0) continue;
+
+      const options = {
+        price: line.price,
+        color:
+          line.tone === 'positive'
+            ? palette.positive
+            : line.tone === 'negative'
+              ? palette.negative
+              : palette.subtle,
+        lineWidth: 1 as const,
+        lineStyle: line.dashed ? LineStyle.Dashed : LineStyle.Solid,
+        axisLabelVisible: true,
+        title: line.title,
+      };
+
+      const existing = drawnLines.current.get(line.id);
+      if (existing) existing.applyOptions(options);
+      else drawnLines.current.set(line.id, series.createPriceLine(options));
+    }
+  }, [priceLines, palette]);
 
   return (
     <div

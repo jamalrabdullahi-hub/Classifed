@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import type { Candle, PerpCandleInterval } from '@flt/core/ports';
 import { cn } from '@flt/ui';
 import { ApiError, get } from '@/lib/api';
-import { PriceChart } from '@/components/price-chart';
+import { PriceChart, type PriceLineSpec } from '@/components/price-chart';
 
 /**
  * The terminal's chart panel.
@@ -35,9 +35,12 @@ const REFRESH_MS: Record<PerpCandleInterval, number> = {
 export function PerpChart({
   symbol,
   height = 360,
+  priceLines = [],
 }: {
   symbol: string;
   height?: number;
+  /** Protection boundary and liquidation price, drawn across the price axis. */
+  priceLines?: PriceLineSpec[];
 }) {
   const [interval, setInterval_] = useState<PerpCandleInterval>('15m');
   const [candles, setCandles] = useState<Candle[]>([]);
@@ -105,7 +108,13 @@ export function PerpChart({
         ) : loading && candles.length === 0 ? (
           <p className="p-6 text-center text-[12px] text-[var(--text-subtle)]">Loading chart…</p>
         ) : (
-          <PriceChart candles={candles} interval={interval} precision={precision} height={height} />
+          <PriceChart
+            candles={candles}
+            interval={interval}
+            precision={precision}
+            height={height}
+            priceLines={priceLines}
+          />
         )}
       </div>
     </div>

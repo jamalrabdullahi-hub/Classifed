@@ -32,6 +32,13 @@ const schema = z.object({
   creditDestination: z.nativeEnum(CreditDestination).optional(),
   allowCreditChoice: z.coerce.boolean().optional(),
   mode: z.enum(['off', 'optional', 'required']).optional(),
+  /** The stablecoin premiums are charged in. */
+  premiumTokenAddress: z
+    .string()
+    .trim()
+    .regex(/^(0x[a-fA-F0-9]{40})?$/, 'Must be a 20-byte hex address, or empty to clear')
+    .optional(),
+  premiumChainId: z.coerce.number().int().positive().optional(),
   reason: reasonSchema,
 });
 
@@ -47,6 +54,8 @@ export const POST = adminHandler(
     creditDestination: body.creditDestination,
     allowCreditChoice: body.allowCreditChoice,
     mode: body.mode,
+    premiumTokenAddress: body.premiumTokenAddress,
+    premiumChainId: body.premiumChainId,
     reason: body.reason,
   });
 
@@ -58,6 +67,8 @@ export const POST = adminHandler(
         creditDestination: settings.creditDestination,
         allowCreditChoice: settings.allowCreditChoice,
         mode: settings.mode,
+        premiumTokenAddress: settings.premiumTokenAddress,
+        premiumChainId: settings.premiumChainId,
         updatedAt: settings.updatedAt,
       },
     };

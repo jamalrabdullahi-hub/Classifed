@@ -32,6 +32,9 @@ export interface ResolvedProtectionSettings {
   creditDestination: CreditDestination;
   allowCreditChoice: boolean;
   mode: 'off' | 'optional' | 'required';
+  /** The stablecoin premiums are paid in, and the chain it lives on. */
+  premiumTokenAddress: string | null;
+  premiumChainId: number;
   /** True when a stored row is overriding the environment. */
   fromDatabase: boolean;
 }
@@ -54,6 +57,9 @@ export async function resolveProtectionSettings(): Promise<ResolvedProtectionSet
     creditDestination: row?.creditDestination ?? CreditDestination.BALANCE,
     allowCreditChoice: row?.allowCreditChoice ?? true,
     mode: (row?.mode as ResolvedProtectionSettings['mode']) ?? config.PROTECTION_MODE,
+    premiumTokenAddress:
+      row?.premiumTokenAddress ?? config.PROTECTION_PREMIUM_TOKEN_ADDRESS ?? null,
+    premiumChainId: row?.premiumChainId ?? config.PROTECTION_PREMIUM_CHAIN_ID,
     fromDatabase: row !== null,
   };
 }
@@ -65,6 +71,8 @@ export interface UpdateSettingsInput {
   creditDestination?: CreditDestination;
   allowCreditChoice?: boolean;
   mode?: 'off' | 'optional' | 'required';
+  premiumTokenAddress?: string | null;
+  premiumChainId?: number;
   reason: string;
 }
 
@@ -86,6 +94,7 @@ export async function updateProtectionSettings(
 
   const reserveAddress = normaliseAddress(input.reserveAddress, 'reserveAddress');
   const operatorAddress = normaliseAddress(input.operatorAddress, 'operatorAddress');
+  const premiumTokenAddress = normaliseAddress(input.premiumTokenAddress, 'premiumTokenAddress');
 
   if (input.operatorFeeBps !== undefined) {
     if (
@@ -119,6 +128,17 @@ export async function updateProtectionSettings(
   }
 
   const mode = input.mode ?? (previous?.mode as ResolvedProtectionSettings['mode']) ?? config.PROTECTION_MODE;
+  const effectivePremiumToken =
+    premiumTokenAddress ??
+    previous?.premiumTokenAddress ??
+    config.PROTECTION_PREMIUM_TOKEN_ADDRESS ??
+    null;
+
+  if (mode !== 'off' && !effectivePremiumToken) {
+    throw new ValidationError(
+      'Protection cannot be sold without a premium token: there would be nothing to charge in.',
+    );
+  }
   if (mode !== 'off' && !effectiveReserve) {
     throw new ValidationError(
       'Protection cannot be sold without a reserve address: a premium would be taken against ' +
@@ -136,6 +156,8 @@ export async function updateProtectionSettings(
       creditDestination: input.creditDestination ?? CreditDestination.BALANCE,
       allowCreditChoice: input.allowCreditChoice ?? true,
       mode,
+      premiumTokenAddress,
+      premiumChainId: input.premiumChainId ?? config.PROTECTION_PREMIUM_CHAIN_ID,
       updatedById: admin.id,
     },
     update: {
@@ -147,6 +169,8 @@ export async function updateProtectionSettings(
         ? { allowCreditChoice: input.allowCreditChoice }
         : {}),
       ...(input.mode ? { mode: input.mode } : {}),
+      ...(premiumTokenAddress !== undefined ? { premiumTokenAddress } : {}),
+      ...(input.premiumChainId !== undefined ? { premiumChainId: input.premiumChainId } : {}),
       updatedById: admin.id,
     },
   });
@@ -166,6 +190,7 @@ export async function updateProtectionSettings(
           operatorAddress: previous.operatorAddress,
           operatorFeeBps: previous.operatorFeeBps,
           creditDestination: previous.creditDestination,
+          premiumTokenAddress: previous.premiumTokenAddress,
           mode: previous.mode,
         }
       : { note: 'no stored settings; environment defaults were in effect' },
@@ -174,6 +199,7 @@ export async function updateProtectionSettings(
       operatorAddress: updated.operatorAddress,
       operatorFeeBps: updated.operatorFeeBps,
       creditDestination: updated.creditDestination,
+      premiumTokenAddress: updated.premiumTokenAddress,
       mode: updated.mode,
       reason: input.reason,
     },

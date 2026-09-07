@@ -7,6 +7,7 @@ import { TradeTape } from './trade-tape';
 import { TickerStrip, type TickerMarket } from './ticker-strip';
 import { ProtectionPanel } from './protection-panel';
 import { ProtectedTicket } from './protected-ticket';
+import type { PriceLineSpec } from '@/components/price-chart';
 import { PerpPositionsPanel } from '@/components/perp-positions';
 
 /**
@@ -42,6 +43,11 @@ export function PerpTerminal({
   // a price the position never opened at.
   const [, setPriceFromBook] = useState<string | null>(null);
 
+  // The ticket computes the boundary as the participant changes cover; the
+  // chart draws it. Held here because the two are siblings and neither should
+  // own the other, exactly as with the book's click-to-price.
+  const [protectionLines, setProtectionLines] = useState<PriceLineSpec[]>([]);
+
   return (
     <div className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--canvas)]">
       <TickerStrip market={market} markets={markets} venueName={venueName} />
@@ -54,7 +60,7 @@ export function PerpTerminal({
 
       <div className="grid lg:grid-cols-[minmax(0,1fr)_200px_264px]">
         <Panel label={`${market.symbol} chart`} className="order-2 lg:order-1 min-h-[380px]">
-          <PerpChart symbol={market.symbol} height={360} />
+          <PerpChart symbol={market.symbol} height={360} priceLines={protectionLines} />
         </Panel>
 
         <Panel
@@ -75,6 +81,7 @@ export function PerpTerminal({
           bodyClassName="p-0"
         >
           <ProtectedTicket
+            onPriceLinesChange={setProtectionLines}
             symbol={market.symbol}
             markPrice={market.markPrice}
             minSize={market.minSize}

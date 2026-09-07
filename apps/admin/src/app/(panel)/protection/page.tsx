@@ -41,6 +41,13 @@ export default async function ProtectionPage() {
         </Badge>
       </div>
 
+      {settings.mode !== 'off' && !settings.premiumTokenAddress ? (
+        <Notice tone="warning" title="No premium token">
+          Protection cannot be bought until a premium token is set — there would be nothing to
+          charge in.
+        </Notice>
+      ) : null}
+
       {!settings.reserveAddress ? (
         <Notice tone="warning" title="No reserve address">
           Protection cannot be sold until a reserve address is set. Without one a premium would be
@@ -67,6 +74,8 @@ export default async function ProtectionPage() {
               creditDestination: settings.creditDestination,
               allowCreditChoice: settings.allowCreditChoice,
               mode: settings.mode,
+              premiumTokenAddress: settings.premiumTokenAddress,
+              premiumChainId: settings.premiumChainId,
             }}
           />
         ) : (
