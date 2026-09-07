@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAccount, useSendTransaction, useSwitchChain, useWriteContract } from 'wagmi';
 import { erc20Abi } from 'viem';
 import { AlertTriangle, ArrowDown, Check, ExternalLink, Info, Wallet } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import {
   AddressChip,
   Badge,
@@ -94,6 +95,7 @@ const EXPLORER = 'https://basescan.org';
 
 export function TradeClient({ tokens, wallets }: { tokens: TokenView[]; wallets: WalletView[] }) {
   const router = useRouter();
+  const t = useTranslations('tradeClient');
   const { address: connectedAddress, isConnected, chainId } = useAccount();
   const { switchChainAsync } = useSwitchChain();
   const { sendTransactionAsync } = useSendTransaction();
@@ -184,7 +186,7 @@ export function TradeClient({ tokens, wallets }: { tokens: TokenView[]; wallets:
       setQuote(result);
       setPhase('quoted');
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Could not get a quote.');
+      setError(caught instanceof ApiError ? caught.message : t('quoteError'));
       setQuote(null);
     } finally {
       setBusy(false);
@@ -220,11 +222,9 @@ export function TradeClient({ tokens, wallets }: { tokens: TokenView[]; wallets:
       // the user re-quotes rather than signing a swap that would revert.
       setQuote(null);
       setPhase('idle');
-      setError(
-        'Approval submitted. Once it confirms on-chain, request a new quote to complete the trade.',
-      );
+      setError(t('approvalSubmitted'));
     } catch (caught) {
-      setError(describeWalletError(caught));
+      setError(describeWalletError(caught, t));
       setPhase('quoted');
     } finally {
       setBusy(false);
@@ -262,7 +262,7 @@ export function TradeClient({ tokens, wallets }: { tokens: TokenView[]; wallets:
       if (caught instanceof ApiError) {
         setError(caught.message);
       } else {
-        setError(describeWalletError(caught));
+        setError(describeWalletError(caught, t));
       }
       setPhase('quoted');
     } finally {
@@ -290,10 +290,9 @@ export function TradeClient({ tokens, wallets }: { tokens: TokenView[]; wallets:
             </span>
 
             <div>
-              <h2 className="text-lg font-semibold text-[var(--text)]">Transaction broadcast</h2>
+              <h2 className="text-lg font-semibold text-[var(--text)]">{t('broadcastTitle')}</h2>
               <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--text-muted)]">
-                Your wallet signed and sent the transaction. Settlement happens on-chain and takes a
-                few seconds. FLT is watching it and will record the result.
+                {t('broadcastBody')}
               </p>
             </div>
 
@@ -306,15 +305,15 @@ export function TradeClient({ tokens, wallets }: { tokens: TokenView[]; wallets:
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
               <Button asChild variant="secondary" size="sm">
                 <a href={`${EXPLORER}/tx/${submittedTx}`} target="_blank" rel="noopener noreferrer">
-                  View on Basescan
+                  {t('viewOnExplorer')}
                   <ExternalLink className="size-3.5" />
                 </a>
               </Button>
               <Button asChild variant="secondary" size="sm">
-                <Link href="/activity">Go to Activity</Link>
+                <Link href="/activity">{t('goToActivity')}</Link>
               </Button>
               <Button variant="primary" size="sm" onClick={reset}>
-                New trade
+                {t('newTrade')}
               </Button>
             </div>
           </CardContent>
@@ -328,13 +327,13 @@ export function TradeClient({ tokens, wallets }: { tokens: TokenView[]; wallets:
       {/* ── Order panel ─────────────────────────────────────────────────── */}
       <Card className="h-fit">
         <CardHeader>
-          <CardTitle>Trade</CardTitle>
+          <CardTitle>{t('trade')}</CardTitle>
           <Badge tone="neutral">{SUPPORTED_CHAIN.name}</Badge>
         </CardHeader>
 
         <CardContent className="space-y-3">
           <TokenAmountField
-            label="You pay"
+            label={t('youPay')}
             token={sellToken}
             tokens={tokens}
             amount={amount}
@@ -357,14 +356,14 @@ export function TradeClient({ tokens, wallets }: { tokens: TokenView[]; wallets:
                 'rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] p-1.5',
                 'text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text)]',
               )}
-              aria-label="Swap the pair"
+              aria-label={t('swapPairAria')}
             >
               <ArrowDown className="size-3.5" />
             </button>
           </div>
 
           <TokenAmountField
-            label="You receive"
+            label={t('youReceive')}
             token={buyToken}
             tokens={tokens}
             amount={
@@ -383,22 +382,21 @@ export function TradeClient({ tokens, wallets }: { tokens: TokenView[]; wallets:
           />
 
           {error ? (
-            <Notice tone={error.startsWith('Approval submitted') ? 'info' : 'negative'}>
-              {error}
-            </Notice>
+            <Notice tone={error === t('approvalSubmitted') ? 'info' : 'negative'}>{error}</Notice>
           ) : null}
 
           {walletMismatch ? (
-            <Notice tone="warning" title="Different wallet connected">
-              Your browser wallet is {shorten(connectedAddress!)}, but this trade is set up for{' '}
-              {shorten(preferred.address)}. Switch accounts in your wallet, or link the connected
-              one.
+            <Notice tone="warning" title={t('differentWalletTitle')}>
+              {t('differentWalletBody', {
+                connected: shorten(connectedAddress!),
+                preferred: shorten(preferred.address),
+              })}
             </Notice>
           ) : null}
 
           {!isConnected ? (
             <Notice tone="info">
-              Connect your wallet to sign. Your linked address is {shorten(preferred.address)}.
+              {t('connectToSign', { address: shorten(preferred.address) })}
             </Notice>
           ) : null}
 
@@ -411,7 +409,7 @@ export function TradeClient({ tokens, wallets }: { tokens: TokenView[]; wallets:
               loading={busy}
               disabled={!baseUnits || baseUnits === '0'}
             >
-              Review trade
+              {t('reviewTrade')}
             </Button>
           ) : quote.allowance.required ? (
             <Button
@@ -422,7 +420,7 @@ export function TradeClient({ tokens, wallets }: { tokens: TokenView[]; wallets:
               loading={busy || phase === 'approving'}
               disabled={!isConnected || walletMismatch}
             >
-              Approve {quote.sellToken.symbol}
+              {t('approve', { symbol: quote.sellToken.symbol })}
             </Button>
           ) : (
             <Button
@@ -433,12 +431,14 @@ export function TradeClient({ tokens, wallets }: { tokens: TokenView[]; wallets:
               loading={busy || phase === 'signing'}
               disabled={!isConnected || walletMismatch || secondsLeft === 0}
             >
-              {secondsLeft > 0 ? `Sign in wallet · ${secondsLeft}s` : 'Quote expired'}
+              {secondsLeft > 0
+                ? t('signInWallet', { seconds: secondsLeft })
+                : t('quoteExpired')}
             </Button>
           )}
 
           <p className="text-center text-[11px] leading-relaxed text-[var(--text-subtle)]">
-            Your wallet signs this transaction. FLT never holds your funds and cannot move them.
+            {t('walletSignsNote')}
           </p>
         </CardContent>
       </Card>
@@ -451,6 +451,7 @@ export function TradeClient({ tokens, wallets }: { tokens: TokenView[]; wallets:
         buyToken={buyToken}
         wallet={preferred}
         secondsLeft={secondsLeft}
+        t={t}
       />
     </div>
   );
@@ -469,6 +470,7 @@ function ExecutionPanel({
   buyToken,
   wallet,
   secondsLeft,
+  t,
 }: {
   quote: Quote | null;
   indicative: IndicativePrice | null;
@@ -476,6 +478,7 @@ function ExecutionPanel({
   buyToken: TokenView;
   wallet: WalletView;
   secondsLeft: number;
+  t: ReturnType<typeof useTranslations<'tradeClient'>>;
 }) {
   /**
    * Which side of the pair to chart.
@@ -496,7 +499,7 @@ function ExecutionPanel({
           is still deciding what to trade. */}
       <Card>
         <CardHeader>
-          <CardTitle>{chartToken.symbol} price</CardTitle>
+          <CardTitle>{t('chartPrice', { symbol: chartToken.symbol })}</CardTitle>
           <Badge tone="neutral">
             {sellToken.symbol} → {buyToken.symbol}
           </Badge>
@@ -508,42 +511,40 @@ function ExecutionPanel({
 
       <Card>
         <CardHeader>
-          <CardTitle>Execution details</CardTitle>
+          <CardTitle>{t('executionDetails')}</CardTitle>
           {quote ? (
             <StatusPill tone={secondsLeft > 8 ? 'positive' : 'warning'} pulse={secondsLeft <= 8}>
-              Quote valid {secondsLeft}s
+              {t('quoteValid', { seconds: secondsLeft })}
             </StatusPill>
           ) : (
-            <StatusPill tone="neutral">No quote yet</StatusPill>
+            <StatusPill tone="neutral">{t('noQuoteYet')}</StatusPill>
           )}
         </CardHeader>
 
         <CardContent>
           {!quote ? (
             <p className="py-6 text-center text-[13px] leading-relaxed text-[var(--text-muted)]">
-              {indicative?.liquidityAvailable
-                ? 'This is an indicative price. Request a quote to see the exact output, the guaranteed minimum, every fee, and the contract your wallet will be asked to call.'
-                : 'Enter an amount to see what this trade would cost and where it would execute.'}
+              {indicative?.liquidityAvailable ? t('indicativeHint') : t('enterAmountHint')}
             </p>
           ) : (
             <div className="divide-y divide-[var(--border)]">
               <div className="pb-1">
                 <DetailRow
-                  label="Expected output"
+                  label={t('expectedOutput')}
                   value={`${formatAmount(quote.buyAmount, buyToken.decimals)} ${buyToken.symbol}`}
                   emphasis
                 />
                 <DetailRow
                   label={
                     <span className="inline-flex items-center gap-1.5">
-                      Minimum received
-                      <Tooltip content="Enforced on-chain. If the pool cannot deliver at least this, the transaction reverts and you keep your input.">
+                      {t('minimumReceived')}
+                      <Tooltip content={t('minimumReceivedTooltip')}>
                         <Info className="size-3 text-[var(--text-subtle)]" />
                       </Tooltip>
                     </span>
                   }
                   value={`${formatAmount(quote.minBuyAmount, buyToken.decimals)} ${buyToken.symbol}`}
-                  hint={`Slippage tolerance ${(quote.slippageBps / 100).toFixed(2)}%`}
+                  hint={t('slippageTolerance', { pct: (quote.slippageBps / 100).toFixed(2) })}
                 />
               </div>
 
@@ -551,8 +552,8 @@ function ExecutionPanel({
                 <DetailRow
                   label={
                     <span className="inline-flex items-center gap-1.5">
-                      Price impact
-                      <Tooltip content="Estimated by comparing this trade's rate against a very small reference trade. The routing provider does not report this directly.">
+                      {t('priceImpact')}
+                      <Tooltip content={t('priceImpactTooltip')}>
                         <Info className="size-3 text-[var(--text-subtle)]" />
                       </Tooltip>
                     </span>
@@ -574,22 +575,22 @@ function ExecutionPanel({
                       </span>
                     )
                   }
-                  hint={quote.priceImpactBps === null ? 'Could not be estimated' : 'Estimate'}
+                  hint={quote.priceImpactBps === null ? t('couldNotEstimate') : t('estimate')}
                 />
                 <DetailRow
-                  label="Network fee"
+                  label={t('networkFee')}
                   value={
                     quote.networkFeeNative
                       ? `~${formatAmount(quote.networkFeeNative, 18)} ETH`
                       : '—'
                   }
-                  hint="Paid to the network by you, not to FLT"
+                  hint={t('networkFeeHint')}
                 />
                 <DetailRow
-                  label="FLT fee"
+                  label={t('fltFee')}
                   value={
                     quote.fee.bps === 0
-                      ? 'None'
+                      ? t('none')
                       : `${formatAmount(quote.fee.amount ?? '0', buyToken.decimals)} ${buyToken.symbol}`
                   }
                   hint={quote.fee.description}
@@ -598,7 +599,7 @@ function ExecutionPanel({
 
               <div className="py-1">
                 <DetailRow
-                  label="Liquidity source"
+                  label={t('liquiditySource')}
                   value={
                     quote.route && quote.route.fills.length > 0 ? (
                       <span className="flex flex-wrap justify-end gap-1">
@@ -616,7 +617,7 @@ function ExecutionPanel({
                     )
                   }
                 />
-                <DetailRow label="Routed by" value={quote.provider} />
+                <DetailRow label={t('routedBy')} value={quote.provider} />
               </div>
             </div>
           )}
@@ -626,40 +627,40 @@ function ExecutionPanel({
       {/* What the user is actually signing. */}
       <Card>
         <CardHeader>
-          <CardTitle>What you are signing</CardTitle>
+          <CardTitle>{t('whatYouAreSigning')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3.5">
-          <Field label="Signing wallet">
+          <Field label={t('signingWallet')}>
             <AddressChip
               address={wallet.address}
               explorerUrl={`${EXPLORER}/address/${wallet.address}`}
             />
           </Field>
 
-          <Field label={`Selling · ${sellToken.symbol}`}>
+          <Field label={t('selling', { symbol: sellToken.symbol })}>
             <div className="flex flex-wrap items-center gap-2">
               <AddressChip
                 address={sellToken.address}
                 explorerUrl={`${EXPLORER}/token/${sellToken.address}`}
               />
-              <VerificationBadge tier={sellToken.verificationTier} />
+              <VerificationBadge tier={sellToken.verificationTier} t={t} />
             </div>
           </Field>
 
-          <Field label={`Buying · ${buyToken.symbol}`}>
+          <Field label={t('buying', { symbol: buyToken.symbol })}>
             <div className="flex flex-wrap items-center gap-2">
               <AddressChip
                 address={buyToken.address}
                 explorerUrl={`${EXPLORER}/token/${buyToken.address}`}
               />
-              <VerificationBadge tier={buyToken.verificationTier} />
+              <VerificationBadge tier={buyToken.verificationTier} t={t} />
             </div>
           </Field>
 
           {quote ? (
             <>
               <Separator />
-              <Field label="Contract being called">
+              <Field label={t('contractBeingCalled')}>
                 <AddressChip
                   address={quote.transaction.to}
                   explorerUrl={`${EXPLORER}/address/${quote.transaction.to}`}
@@ -667,7 +668,7 @@ function ExecutionPanel({
                 />
               </Field>
               {quote.allowance.required && quote.allowance.spender ? (
-                <Field label="Approval required for">
+                <Field label={t('approvalRequiredFor')}>
                   <AddressChip
                     address={quote.allowance.spender}
                     explorerUrl={`${EXPLORER}/address/${quote.allowance.spender}`}
@@ -695,8 +696,7 @@ function ExecutionPanel({
       ) : null}
 
       <Notice tone="neutral" icon={<Wallet className="size-4" />}>
-        This transaction settles on Base. Once your wallet signs it, it cannot be cancelled or
-        reversed by FLT or by anyone else.
+        {t('settlesOnBase')}
       </Notice>
     </div>
   );
@@ -711,10 +711,16 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function VerificationBadge({ tier }: { tier: string }) {
-  if (tier === 'VERIFIED') return <Badge tone="positive">Verified</Badge>;
-  if (tier === 'RECOGNIZED') return <Badge tone="neutral">Recognized</Badge>;
-  return <Badge tone="warning">Unverified</Badge>;
+function VerificationBadge({
+  tier,
+  t,
+}: {
+  tier: string;
+  t: ReturnType<typeof useTranslations<'tradeClient'>>;
+}) {
+  if (tier === 'VERIFIED') return <Badge tone="positive">{t('verified')}</Badge>;
+  if (tier === 'RECOGNIZED') return <Badge tone="neutral">{t('recognized')}</Badge>;
+  return <Badge tone="warning">{t('unverified')}</Badge>;
 }
 
 function TokenAmountField({
@@ -736,13 +742,14 @@ function TokenAmountField({
   readOnly?: boolean;
   excludeAddress?: string;
 }) {
+  const t = useTranslations('tradeClient');
   return (
     <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-sunken)] p-3.5">
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-subtle)]">
           {label}
         </span>
-        <VerificationBadge tier={token.verificationTier} />
+        <VerificationBadge tier={token.verificationTier} t={t} />
       </div>
 
       <div className="mt-2 flex items-center gap-3">
@@ -830,17 +837,20 @@ function shorten(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
-function describeWalletError(error: unknown): string {
+function describeWalletError(
+  error: unknown,
+  t: ReturnType<typeof useTranslations<'tradeClient'>>,
+): string {
   const message = error instanceof Error ? error.message : String(error);
 
   if (/user rejected|user denied|rejected the request/i.test(message)) {
-    return 'You declined the request in your wallet. Nothing was signed and no funds moved.';
+    return t('declinedNoFunds');
   }
   if (/insufficient funds/i.test(message)) {
-    return 'This wallet does not have enough to cover the trade and the network fee.';
+    return t('insufficientFunds');
   }
   if (/already pending/i.test(message)) {
-    return 'Your wallet already has a pending request. Open it and respond there first.';
+    return t('pendingRequest');
   }
-  return 'Your wallet could not complete the request. Nothing was signed.';
+  return t('genericWalletError');
 }

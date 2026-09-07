@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Badge, Card, CardContent, CardHeader, CardTitle, cn } from '@flt/ui';
 import { MarketChart } from '@/components/market-chart';
 
@@ -47,6 +48,7 @@ function pickDefault(tokens: PreviewToken[]): PreviewToken | null {
 }
 
 export function MarketPreview({ tokens }: { tokens: PreviewToken[] }) {
+  const t = useTranslations('tradeClient');
   const [selected, setSelected] = useState<PreviewToken | null>(() => pickDefault(tokens));
 
   if (!selected) return null;
@@ -54,8 +56,8 @@ export function MarketPreview({ tokens }: { tokens: PreviewToken[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{selected.symbol} price</CardTitle>
-        <Badge tone="neutral">Market data</Badge>
+        <CardTitle>{t('chartPrice', { symbol: selected.symbol })}</CardTitle>
+        <Badge tone="neutral">{t('marketData')}</Badge>
       </CardHeader>
 
       <CardContent className="space-y-3">
