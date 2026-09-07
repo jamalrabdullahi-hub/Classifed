@@ -11,7 +11,8 @@
     "./market": "./src/market/index.ts",
     "./history": "./src/history/index.ts",
     "./kyc": "./src/kyc/index.ts",
-    "./mail": "./src/mail/index.ts"
+    "./mail": "./src/mail/index.ts",
+    "./perps/*": "./src/perps/*.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

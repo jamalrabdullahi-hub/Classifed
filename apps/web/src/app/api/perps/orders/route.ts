@@ -3,8 +3,9 @@ import { prisma } from '@flt/db';
 import { resolveTradingWallet } from '@flt/core/services/wallets';
 import { prepareClose, prepareOpen } from '@flt/core/services/perps';
 import { RateLimits } from '@flt/core/services/ratelimit';
-import { perpVenue } from '@flt/providers';
+import { perpVenue, perpVenues } from '@flt/providers';
 import { handler } from '@/server/api';
+import { resolveOfferedMarket } from '@flt/core/services/perps';
 import { ValidationError, Decimal, NotFoundError } from '@flt/core/domain';
 import { contractsForUsd } from '@flt/core/protection';
 import type { PerpVenue } from '@flt/core/ports';
@@ -61,7 +62,14 @@ const schema = z.object({
 export const POST = handler(
   { schema, rateLimit: { rule: RateLimits.QUOTE, scope: 'perp-order' } },
   async ({ body, user, context }) => {
-    const venue = perpVenue();
+    /**
+     * The venue that actually lists this symbol.
+     *
+     * Not the configured default: AAPL is on Ostium and BTC on Hyperliquid, and
+     * building an order against the wrong one would either fail or — worse on a
+     * symbol both list — send a contract on the wrong chain.
+     */
+    const venue = (await perpVenueForSymbol(body.symbol)) ?? perpVenue();
     const wallet = await resolveTradingWallet(prisma, user.id);
 
     if (body.action === 'close') {
@@ -137,4 +145,11 @@ async function sizeFromUsd(venue: PerpVenue, symbol: string, usd: string): Promi
     new Decimal(market.markPrice),
     market.sizeDecimals,
   ).toFixed();
+}
+
+
+/** The venue listing a symbol, or null when nothing offers it. */
+async function perpVenueForSymbol(symbol: string) {
+  const offered = await resolveOfferedMarket(perpVenues(), symbol);
+  return offered?.venue ?? null;
 }

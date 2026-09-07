@@ -434,6 +434,9 @@ export class MockPerpVenue implements PerpVenue {
       fundingRate: spec.fundingRate,
       fundingIntervalHours: 1,
       openInterest: new Decimal(this.roll(`oi:${spec.symbol}`) % 90_000).plus(10_000).toFixed(),
+      assetClass: 'CRYPTO',
+      isMarketOpen: true,
+      secondsToSessionChange: null,
       isDelisted: false,
     };
   }

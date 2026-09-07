@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { env } from '@flt/config';
 import { annualisedFundingRate } from '@flt/core/domain';
-import { getOfferedMarket, listOfferedMarkets } from '@flt/core/services/perps';
-import { perpVenue } from '@flt/providers';
+import { listAllOfferedMarkets, resolveOfferedMarket } from '@flt/core/services/perps';
+import { perpVenues } from '@flt/providers';
 import { requireUserPage } from '@/server/session';
 import { PerpTerminal } from '@/components/terminal/perp-terminal';
 
@@ -36,15 +36,15 @@ export default async function PerpMarketPage({
   if (!env().PERPS_ENABLED) notFound();
 
   const { symbol } = await params;
-  const venue = perpVenue();
+  const venues = perpVenues();
 
   const [offered, all] = await Promise.all([
-    getOfferedMarket(venue, symbol),
-    listOfferedMarkets(venue),
+    resolveOfferedMarket(venues, symbol),
+    listAllOfferedMarkets(venues),
   ]);
 
   if (!offered) notFound();
-  const { market, maxLeverage } = offered;
+  const { market, maxLeverage, venue } = offered;
 
   return (
     <div className="space-y-4">

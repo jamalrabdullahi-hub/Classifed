@@ -87,6 +87,32 @@ const schema = z.object({
    */
   PERP_MAX_LEVERAGE: z.coerce.number().int().min(1).max(100).default(10),
 
+  /**
+   * Ostium — perpetuals on equities, indices, FX and commodities.
+   *
+   * A second venue rather than more markets on the first, because Hyperliquid
+   * lists only crypto. Collateral is USDC on Arbitrum, which is a different
+   * chain from the rest of the platform and therefore a disclosure.
+   */
+  OSTIUM_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  OSTIUM_SUBGRAPH_URL: z
+    .string()
+    .url()
+    .default(
+      'https://api.subgraph.ormilabs.com/api/public/67a599d5-c8d2-4cc4-9c4d-2975a97bc5d8/subgraphs/ost-prod/live/gn',
+    ),
+  OSTIUM_METADATA_URL: z.string().url().default('https://metadata-backend.ostium.io'),
+  /** Arbitrum One mainnet contracts. */
+  OSTIUM_TRADING_ADDRESS: z
+    .string()
+    .default('0x6D0bA1f9996DBD8885827e1b2e8f6593e7702411'),
+  OSTIUM_USDC_ADDRESS: z
+    .string()
+    .default('0xaf88d065e77c8cC2239327C5EDb3A432268e5831'),
+
   // ── Position protection ──────────────────────────────────────────────────
 
   /**

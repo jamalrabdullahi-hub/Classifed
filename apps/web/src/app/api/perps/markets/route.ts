@@ -1,6 +1,6 @@
-import { listOfferedMarkets } from '@flt/core/services/perps';
+import { listAllOfferedMarkets } from '@flt/core/services/perps';
 import { annualisedFundingRate } from '@flt/core/domain';
-import { perpVenue } from '@flt/providers';
+import { perpVenues } from '@flt/providers';
 import { handler } from '@/server/api';
 
 /**
@@ -15,12 +15,21 @@ import { handler } from '@/server/api';
  * user can compare the cost of holding a position against anything else.
  */
 export const GET = handler({}, async () => {
-  const venue = perpVenue();
-  const markets = await listOfferedMarkets(venue);
+  const venues = perpVenues();
+  const markets = await listAllOfferedMarkets(venues);
+  const primary = venues[0]!;
 
   return {
-    venue: { slug: venue.meta.slug, name: venue.meta.name, isMock: venue.meta.isMock },
-    requiresBridgedCollateral: venue.requiresBridgedCollateral,
+    venues: venues.map((venue) => ({
+      slug: venue.meta.slug,
+      name: venue.meta.name,
+      isMock: venue.meta.isMock,
+      requiresBridgedCollateral: venue.requiresBridgedCollateral,
+      settlementChainId: venue.settlementChainId,
+    })),
+    // Kept for callers written before there was more than one venue.
+    venue: { slug: primary.meta.slug, name: primary.meta.name, isMock: primary.meta.isMock },
+    requiresBridgedCollateral: primary.requiresBridgedCollateral,
     markets: markets.map((market) => ({
       symbol: market.symbol,
       name: market.name,
@@ -28,6 +37,18 @@ export const GET = handler({}, async () => {
       indexPrice: market.indexPrice,
       maxLeverage: market.maxLeverage,
       venueMaxLeverage: market.venueMaxLeverage,
+      venueSlug: market.venueSlug,
+      assetClass: market.assetClass,
+      /**
+       * Whether the underlying's session is open.
+       *
+       * Crypto never closes and this is always true there. It is the single
+       * most important field on an equity or FX contract: the market shuts, the
+       * position stays open across the gap, and a frozen price reads as a quiet
+       * market rather than a shut one unless the interface says otherwise.
+       */
+      isMarketOpen: market.isMarketOpen,
+      secondsToSessionChange: market.secondsToSessionChange,
       minSize: market.minSize,
       sizeDecimals: market.sizeDecimals,
       fundingRate: market.fundingRate,

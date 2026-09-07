@@ -223,7 +223,11 @@ export class HyperliquidPerpVenue implements PerpVenue {
         fundingRate: context?.funding ?? null,
         fundingIntervalHours: 1,
         openInterest: context?.openInterest ?? null,
-        isDelisted: asset.isDelisted ?? false,
+        // Hyperliquid lists crypto only, and a crypto book never closes.
+      assetClass: 'CRYPTO',
+      isMarketOpen: true,
+      secondsToSessionChange: null,
+      isDelisted: asset.isDelisted ?? false,
       } satisfies PerpMarket;
     });
 

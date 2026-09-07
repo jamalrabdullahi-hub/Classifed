@@ -1,5 +1,6 @@
 import { prisma } from '@flt/db';
 import { env } from '@flt/config';
+import { perpVenues } from '@flt/providers';
 import { handler } from '@/server/api';
 
 /**
@@ -59,11 +60,11 @@ export const GET = handler({}, async ({ request }) => {
       ? prisma.perpMarket.findMany({
           where: {
             isEnabled: true,
-            // Only the venue actually configured. Rows left over from a
-            // simulator are still in the table and still enabled, and a
-            // search that returned them would offer a market that does not
-            // exist on the venue the order would be sent to.
-            venueSlug: config.PERP_VENUE,
+            // Only venues this deployment actually offers. Rows left over
+            // from a simulator, or from a venue since switched off, are still
+            // in the table and still enabled — returning them would offer a
+            // market that does not exist anywhere an order could be sent.
+            venueSlug: { in: perpVenues().map((venue) => venue.meta.slug) },
             OR: [
               { symbol: { contains: query, mode: 'insensitive' } },
               { name: { contains: query, mode: 'insensitive' } },

@@ -145,6 +145,70 @@ export async function listOfferedMarkets(venue: PerpVenue): Promise<
   });
 }
 
+/**
+ * Every offered market across every venue.
+ *
+ * Two venues list genuinely different things — Hyperliquid is crypto-only,
+ * Ostium carries equities, indices, FX and commodities — so a market has to be
+ * resolved by venue and not by symbol alone. Both list BTC, and an order built
+ * for one and sent to the other would be a different contract on a different
+ * chain.
+ *
+ * A venue that fails is skipped rather than failing the page: one venue's
+ * outage should not blank a list that another venue can still fill.
+ */
+export async function listAllOfferedMarkets(
+  venues: PerpVenue[],
+): Promise<Array<PerpMarket & { maxLeverage: number; venueMaxLeverage: number; venueSlug: string }>> {
+  assertPerpsEnabled();
+
+  const perVenue = await Promise.all(
+    venues.map(async (venue) => {
+      try {
+        const markets = await listOfferedMarkets(venue);
+        return markets.map((market) => ({ ...market, venueSlug: venue.meta.slug }));
+      } catch (error) {
+        console.error('[perps] venue listing failed', {
+          venue: venue.meta.slug,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return [];
+      }
+    }),
+  );
+
+  return perVenue.flat();
+}
+
+/**
+ * The venue that offers this symbol, and the market itself.
+ *
+ * Searched in the order given, so the first venue configured wins a symbol both
+ * list. That is a deliberate precedence rather than an accident: BTC should
+ * resolve to the deeper crypto venue, not to whichever query returned first.
+ */
+export async function resolveOfferedMarket(
+  venues: PerpVenue[],
+  symbol: string,
+): Promise<{ venue: PerpVenue; row: PerpMarketRow; market: PerpMarket; maxLeverage: number } | null> {
+  assertPerpsEnabled();
+
+  for (const venue of venues) {
+    try {
+      const offered = await getOfferedMarket(venue, symbol);
+      if (offered) return { venue, ...offered };
+    } catch (error) {
+      console.error('[perps] venue lookup failed', {
+        venue: venue.meta.slug,
+        symbol,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return null;
+}
+
 export async function getOfferedMarket(
   venue: PerpVenue,
   symbol: string,

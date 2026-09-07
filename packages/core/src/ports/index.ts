@@ -28,6 +28,7 @@ export {
 export type {
   NormalizedVenueOrder,
   OrderBook,
+  PerpAssetClass,
   OrderBookLevel,
   PerpCandleInterval,
   PerpTrade,

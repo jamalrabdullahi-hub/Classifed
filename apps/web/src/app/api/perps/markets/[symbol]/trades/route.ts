@@ -1,6 +1,6 @@
 import { NotFoundError } from '@flt/core/domain';
-import { getOfferedMarket } from '@flt/core/services/perps';
-import { perpVenue } from '@flt/providers';
+import { resolveOfferedMarket } from '@flt/core/services/perps';
+import { perpVenues } from '@flt/providers';
 import { routeHandler } from '@/server/api';
 
 /**
@@ -13,10 +13,11 @@ import { routeHandler } from '@/server/api';
 export const GET = routeHandler<unknown, { symbol: string }, unknown>(
   {},
   async ({ params, request }) => {
-    const venue = perpVenue();
-
-    const offered = await getOfferedMarket(venue, params.symbol);
+    // Resolved across venues: an equity or FX symbol lives on Ostium and a
+    // crypto one on Hyperliquid, and asking the wrong venue returns nothing.
+    const offered = await resolveOfferedMarket(perpVenues(), params.symbol);
     if (!offered) throw new NotFoundError('Market');
+    const { venue } = offered;
 
     const limit = Number(new URL(request.url).searchParams.get('limit') ?? 40);
     const trades = await venue.getRecentTrades(

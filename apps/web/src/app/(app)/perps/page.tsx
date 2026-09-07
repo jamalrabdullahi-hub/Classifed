@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { env } from '@flt/config';
-import { listOfferedMarkets } from '@flt/core/services/perps';
-import { perpVenue } from '@flt/providers';
+import { listAllOfferedMarkets } from '@flt/core/services/perps';
+import { perpVenues } from '@flt/providers';
 import { requireUserPage } from '@/server/session';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +23,7 @@ export default async function PerpsPage() {
   await requireUserPage();
   if (!env().PERPS_ENABLED) notFound();
 
-  const markets = await listOfferedMarkets(perpVenue());
+  const markets = await listAllOfferedMarkets(perpVenues());
   const first = markets[0];
 
   // Nothing enabled is a real state, and the market page says so properly

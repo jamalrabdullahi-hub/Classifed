@@ -1,7 +1,7 @@
 import { NotFoundError, ValidationError } from '@flt/core/domain';
-import { getOfferedMarket } from '@flt/core/services/perps';
+import { resolveOfferedMarket } from '@flt/core/services/perps';
 import { isPerpCandleInterval } from '@flt/core/ports';
-import { perpVenue } from '@flt/providers';
+import { perpVenues } from '@flt/providers';
 import { routeHandler } from '@/server/api';
 
 /**
@@ -16,10 +16,11 @@ import { routeHandler } from '@/server/api';
 export const GET = routeHandler<unknown, { symbol: string }, unknown>(
   {},
   async ({ params, request }) => {
-    const venue = perpVenue();
-
-    const offered = await getOfferedMarket(venue, params.symbol);
+    // Resolved across venues: an equity or FX symbol lives on Ostium and a
+    // crypto one on Hyperliquid, and asking the wrong venue returns nothing.
+    const offered = await resolveOfferedMarket(perpVenues(), params.symbol);
     if (!offered) throw new NotFoundError('Market');
+    const { venue } = offered;
 
     const url = new URL(request.url);
     const interval = url.searchParams.get('interval') ?? '15m';

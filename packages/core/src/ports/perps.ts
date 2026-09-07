@@ -341,6 +341,10 @@ export interface VenueAuthorization {
   expiresAt: Date | null;
 }
 
+// Re-exported so adapters can import the whole perp vocabulary from the port
+// rather than reaching past it into the domain module.
+export type { PerpAssetClass } from '../domain/perps';
+
 export interface PerpVenue {
   readonly meta: ProviderMeta;
 

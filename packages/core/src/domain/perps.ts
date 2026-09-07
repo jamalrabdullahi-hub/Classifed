@@ -93,7 +93,42 @@ export interface PerpMarket {
   openInterest: string | null;
   /** True when the venue has halted or delisted the market. */
   isDelisted: boolean;
+
+  /**
+   * What the contract tracks.
+   *
+   * A perp is a synthetic, so the underlying need not be crypto. A venue can
+   * list equities, indices, FX and commodities that settle in stablecoins and
+   * trade like any other contract.
+   */
+  assetClass: PerpAssetClass;
+
+  /**
+   * Whether the underlying's market is open right now.
+   *
+   * Crypto never closes, so on a crypto-only venue this is always true and easy
+   * to forget. It is not forgettable on an equity or FX contract: the market
+   * shuts on evenings and weekends, the position stays open across the gap, and
+   * a trader who cannot see that the session is closed will read a frozen price
+   * as a quiet market rather than a shut one.
+   *
+   * Null when the venue does not report it.
+   */
+  isMarketOpen: boolean | null;
+  /** Seconds until the session state flips, when the venue reports it. */
+  secondsToSessionChange: number | null;
 }
+
+export type PerpAssetClass = 'CRYPTO' | 'EQUITY' | 'FUTURE' | 'FOREX' | 'COMMODITY';
+
+/** How each class reads to a trader, for labelling. */
+export const ASSET_CLASS_LABELS: Record<PerpAssetClass, string> = {
+  CRYPTO: 'Crypto',
+  EQUITY: 'Stocks',
+  FUTURE: 'Indices',
+  FOREX: 'Forex',
+  COMMODITY: 'Commodities',
+};
 
 export interface PerpPosition {
   symbol: string;

@@ -13,6 +13,7 @@ import { ManualReviewKycProvider } from './kyc/manual';
 import type { KycProvider } from './kyc/types';
 import { MockPerpVenue } from './perps/mock';
 import { HyperliquidPerpVenue } from './perps/hyperliquid';
+import { OstiumVenue } from './perps/ostium';
 import type { PerpVenue } from './perps/types';
 import { ConsoleMailProvider } from './mail/console';
 import { ResendMailProvider } from './mail/resend';
@@ -41,7 +42,10 @@ interface Registry {
   risk: RiskEngine;
 }
 
-const globalForProviders = globalThis as unknown as { fltProviders?: Registry };
+const globalForProviders = globalThis as unknown as {
+  fltProviders?: Registry;
+  fltOstium?: OstiumVenue;
+};
 
 function build(): Registry {
   const config = env();
@@ -132,6 +136,38 @@ export function dexRouter(): DEXRouter {
 
 export function perpVenue(): PerpVenue {
   return registry().perps;
+}
+
+/**
+ * Every perpetual venue this deployment offers.
+ *
+ * Two venues rather than one because they list genuinely different things:
+ * Hyperliquid is crypto-only, Ostium carries equities, indices, FX and
+ * commodities. A market therefore has to be resolved *by venue* and not by
+ * symbol alone — both list BTC, and an order built for one and sent to the
+ * other would be a different contract on a different chain.
+ */
+export function perpVenues(): PerpVenue[] {
+  const config = env();
+  const venues: PerpVenue[] = [registry().perps];
+
+  if (config.OSTIUM_ENABLED) {
+    globalForProviders.fltOstium ??= new OstiumVenue();
+    venues.push(globalForProviders.fltOstium);
+  }
+
+  return venues;
+}
+
+/**
+ * The venue with this slug, or null.
+ *
+ * Returns null rather than throwing: a stored market row can outlive the venue
+ * being switched off, and a portfolio page that 500s because one old row points
+ * at a disabled venue is worse than one that omits it.
+ */
+export function perpVenueBySlug(slug: string): PerpVenue | null {
+  return perpVenues().find((venue) => venue.meta.slug === slug) ?? null;
 }
 
 export function marketDataProvider(): MarketDataProvider {

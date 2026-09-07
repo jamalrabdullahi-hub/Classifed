@@ -1,6 +1,8 @@
 export {
   dexRouter,
   perpVenue,
+  perpVenues,
+  perpVenueBySlug,
   marketDataProvider,
   priceHistoryProvider,
   kycProvider,
