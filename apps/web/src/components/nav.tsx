@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   ArrowLeftRight,
   ChevronDown,
@@ -23,6 +24,7 @@ import {
 import { cn } from '@flt/ui';
 import { Wordmark } from './brand';
 import { ThemeToggle } from './theme';
+import { LanguageSwitcher } from './language-switcher';
 
 /**
  * Primary navigation.
@@ -32,10 +34,10 @@ import { ThemeToggle } from './theme';
  * account menu because they are settings, not destinations.
  */
 const PRIMARY = [
-  { href: '/dashboard', label: 'Home', icon: LayoutGrid },
-  { href: '/markets', label: 'Scanner', icon: LineChart },
-  { href: '/portfolio', label: 'Portfolio', icon: PieChart },
-  { href: '/activity', label: 'Activity', icon: Receipt },
+  { href: '/dashboard', key: 'home', icon: LayoutGrid },
+  { href: '/markets', key: 'scanner', icon: LineChart },
+  { href: '/portfolio', key: 'portfolio', icon: PieChart },
+  { href: '/activity', key: 'activity', icon: Receipt },
 ] as const;
 
 /**
@@ -46,7 +48,7 @@ const PRIMARY = [
  * tabs both called some variant of "trade" made the user choose between them
  * before knowing what the difference was.
  */
-const TRADE = { href: '/perps', label: 'Trade', icon: Gauge } as const;
+const TRADE = { href: '/perps', key: 'trade', icon: Gauge } as const;
 
 /**
  * Referrals sits in the primary bar rather than the account menu.
@@ -56,13 +58,13 @@ const TRADE = { href: '/perps', label: 'Trade', icon: Gauge } as const;
  * thing somebody is meant to act on is not a setting. It goes after Trade
  * because that is the order of the work: trade first, then tell people about it.
  */
-const REFERRALS = { href: '/referrals', label: 'Referrals', icon: Gift } as const;
+const REFERRALS = { href: '/referrals', key: 'referrals', icon: Gift } as const;
 
 const ACCOUNT = [
-  { href: '/plans', label: 'Plans', icon: Sparkles },
-  { href: '/passive-cash', label: 'Passive cash', icon: PiggyBank },
-  { href: '/wallets', label: 'Wallets', icon: Wallet },
-  { href: '/account', label: 'Account', icon: Settings },
+  { href: '/plans', key: 'plans', icon: Sparkles },
+  { href: '/passive-cash', key: 'passiveCash', icon: PiggyBank },
+  { href: '/wallets', key: 'wallets', icon: Wallet },
+  { href: '/account', key: 'account', icon: Settings },
 ] as const;
 
 function isActive(pathname: string, href: string): boolean {
@@ -72,11 +74,12 @@ function isActive(pathname: string, href: string): boolean {
 export function TopNav({ email, perpsEnabled = false }: { email: string; perpsEnabled?: boolean }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const t = useTranslations('nav');
   // Without perpetuals the spot swap page takes the Trade slot, so the
   // destination exists either way.
   const primary = perpsEnabled
     ? [...PRIMARY, TRADE, REFERRALS]
-    : [...PRIMARY, { href: '/trade', label: 'Trade', icon: ArrowLeftRight } as const, REFERRALS];
+    : [...PRIMARY, { href: '/trade', key: 'trade', icon: ArrowLeftRight } as const, REFERRALS];
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--canvas)]/85 backdrop-blur-md">
@@ -86,7 +89,7 @@ export function TopNav({ email, perpsEnabled = false }: { email: string; perpsEn
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
-          {primary.map(({ href, label }) => (
+          {primary.map(({ href, key }) => (
             <Link
               key={href}
               href={href}
@@ -98,12 +101,13 @@ export function TopNav({ email, perpsEnabled = false }: { email: string; perpsEn
                   : 'text-[var(--text-muted)] hover:text-[var(--text)]',
               )}
             >
-              {label}
+              {t(key)}
             </Link>
           ))}
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
+          <LanguageSwitcher className="hidden sm:inline-flex" />
           <ThemeToggle className="hidden sm:inline-flex" />
           <AccountMenu email={email} pathname={pathname} />
 
@@ -111,7 +115,7 @@ export function TopNav({ email, perpsEnabled = false }: { email: string; perpsEn
             type="button"
             onClick={() => setMobileOpen((open) => !open)}
             className="rounded-[var(--radius-md)] p-2 text-[var(--text-muted)] md:hidden"
-            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+            aria-label={mobileOpen ? t('closeMenu') : t('openMenu')}
             aria-expanded={mobileOpen}
           >
             {mobileOpen ? <X className="size-4" /> : <Menu className="size-4" />}
@@ -124,7 +128,7 @@ export function TopNav({ email, perpsEnabled = false }: { email: string; perpsEn
           className="border-t border-[var(--border)] bg-[var(--surface)] px-4 py-2 md:hidden"
           aria-label="Primary"
         >
-          {[...primary, ...ACCOUNT].map(({ href, label, icon: Icon }) => (
+          {[...primary, ...ACCOUNT].map(({ href, key, icon: Icon }) => (
             <Link
               key={href}
               href={href}
@@ -137,10 +141,11 @@ export function TopNav({ email, perpsEnabled = false }: { email: string; perpsEn
               )}
             >
               <Icon className="size-4" />
-              {label}
+              {t(key)}
             </Link>
           ))}
-          <div className="px-3 py-3">
+          <div className="flex items-center justify-between px-3 py-3">
+            <LanguageSwitcher />
             <ThemeToggle />
           </div>
         </nav>
@@ -151,6 +156,7 @@ export function TopNav({ email, perpsEnabled = false }: { email: string; perpsEn
 
 function AccountMenu({ email, pathname }: { email: string; pathname: string }) {
   const [open, setOpen] = useState(false);
+  const t = useTranslations('nav');
 
   return (
     <div className="relative">
@@ -188,11 +194,11 @@ function AccountMenu({ email, pathname }: { email: string; pathname: string }) {
         >
           <div className="border-b border-[var(--border)] px-3 py-2.5">
             <p className="truncate text-[13px] font-medium text-[var(--text)]">{email}</p>
-            <p className="mt-0.5 text-[11px] text-[var(--text-subtle)]">Signed in</p>
+            <p className="mt-0.5 text-[11px] text-[var(--text-subtle)]">{t('signedIn')}</p>
           </div>
 
           <div className="p-1">
-            {ACCOUNT.map(({ href, label, icon: Icon }) => (
+            {ACCOUNT.map(({ href, key, icon: Icon }) => (
               <Link
                 key={href}
                 href={href}
@@ -205,7 +211,7 @@ function AccountMenu({ email, pathname }: { email: string; pathname: string }) {
                 )}
               >
                 <Icon className="size-3.5" />
-                {label}
+                {t(key)}
               </Link>
             ))}
           </div>
@@ -220,7 +226,7 @@ function AccountMenu({ email, pathname }: { email: string; pathname: string }) {
               )}
             >
               <LogOut className="size-3.5" />
-              Sign out
+              {t('signOut')}
             </button>
           </form>
         </div>

@@ -1,0 +1,132 @@
+{
+  "nav": {
+    "home": "Guriga",
+    "scanner": "Baadhe",
+    "portfolio": "Hantida",
+    "activity": "Dhaqdhaqaaqa",
+    "trade": "Ganacsi",
+    "referrals": "Jeedinta",
+    "plans": "Qorshayaasha",
+    "passiveCash": "Lacagta Fadhiya",
+    "wallets": "Boorsooyinka",
+    "account": "Akoonka",
+    "signedIn": "Waad soo gashay",
+    "signOut": "Ka bax",
+    "openMenu": "Fur liiska",
+    "closeMenu": "Xir liiska",
+    "language": "Luqadda"
+  },
+  "home": {
+    "eyebrow": "Ganacsi aan qofna hayn lacagtaada",
+    "title": "Ka ganacso boorsadaada",
+    "subtitle": "Ku xidh boorsadaada, kaganacso spot iyo perpetuals adigoo maraya exchange-yo aan hoggaan lahayn, adigoo hayaya hantidaada waqti kasta. FLT weligeed ma hayso furayaashaada mana taabato lacagtaada.",
+    "cta": "Ku xidh boorsada",
+    "secondary": "Eeg qorshayaasha",
+    "pillNonCustodial": "Adigaa haya furayaasha",
+    "pillNoLockup": "Ka bixi wakhti kasta",
+    "pillProtection": "Ilaalin ikhtiyaari ah oo booska ah"
+  },
+  "landing": {
+    "signIn": "Gal",
+    "openAccount": "Furo akoon",
+    "eyebrow": "Ganacsi aan qofna hayn lacagtaada",
+    "title": "Kaganacso exchange-yada aan hoggaan lahayn adigoo aan waxba u dhiibin hantidaada.",
+    "subtitle": "FLT wuxuu jihaynayaa dalabkaaga isagoo maraya lacag-bax on-chain ah, wuxuuna dhisayaa dhaqdhaqaaqa. Boorsadaadu way saxiixdaa, blockchain-ku wuu xasilliyaa, lacagtaaduna weligeed ma marto annaga. Weligayo kuma weydiisanno seed phrase ama furaha gaarka ah, maxaa yeelay marnaba uma baahnin.",
+    "howItWorks": "Sida ay ganacsigu u shaqeeyo",
+    "steps": [
+      {
+        "title": "Ku xidh boorsadaada",
+        "body": "Ku xidh boorsad iskood u maamusha adigoo saxiixaya fariin. Ma jiro wareejin, ma jiro dhigasho, mana jirto gas."
+      },
+      {
+        "title": "Dib u eeg jidka",
+        "body": "Arag wixii la filayo in laga helo, ugu yaraan la dammaanad qaaday, saameynta qiimaha, khidmad kasta, iyo qandaraaska loo yeeraya."
+      },
+      {
+        "title": "Adigu iska saxiix",
+        "body": "Boorsadaadu way saxiixdaa oo way baahisaa. FLT ma haysto furayaal mana wado inuu dhaqaajiyo lacagtaada."
+      },
+      {
+        "title": "Ku xasilo chain-ka",
+        "body": "Waan dan qabsanaa dhaqdhaqaaqa oo waxaan diiwaan galinnaa waxa dhab ahaan dhacay, ee ma aha waxa la filayey."
+      }
+    ],
+    "whatWeDontDoTitle": "Waxaanan samayn",
+    "whatWeDontDoIntro": "In la caddeeyo xaddidaadaha ayaa ka muhiimsan liiska sifooyinka. FLT si ula kac ah uma aha exchange dhexe, waxyaabo badan oo aad ka filan lahayd mid noocaas ah ayaa ugu maqan qaab-dhismeedka.",
+    "perpsAddendum": "Leverage-ka (perpetual futures) waxay u furan yihiin akoomada la xaqiijiyay, waana alaab leverage leh: si iskood ah ayaa loo xiri karaa, waxaadna lumin kartaa margin-ka ka danbeeya.",
+    "dontDoItems": [
+      "Ma haysanno hantidaada, sidaa darteed ma jiro rasiid FLT ah oo aad ka bixin karto.",
+      "Ma wado buug amar (order book) mana isku dari karno ganacsigaaga gudaha.",
+      "Ma soo celin karno dhaqdhaqaaq. Marka boorsadaadu saxiixdo, wuxuu ku jiraa chain-ka.",
+      "Hantidaada ma haysanno, sidaa darteed wax aan ku amaahin karno ama lumin karno halkan kuma jiraan.",
+      "Weligayo kuma weydiin doono seed phrase, furaha gaarka ah, ama furaha boorsadaada — qofna sax ahi ma weydiin doono."
+    ],
+    "disclaimer": "Hantida dijitaalka ah way isbedbeddeshaa waxaadna lumin kartaa lacag. Ganacsigu wuxuu ku xasilaa blockchain-yo dadweyne, mana soo noqon karto marka la saxiixo. FLT-Exchange waxay bixisaa interface lagaga gaadho lacag-bax aan hoggaan lahayn; ma bixiso talo maalgashi mana hayso hantida macaamiisha."
+  },
+  "auth": {
+    "loginTitle": "Gal",
+    "loginSubtitle": "Ku soo dhawoow mar labaad.",
+    "registerTitle": "Samee akoon",
+    "registerSubtitle": "Waxay qaadataa hal daqiiqad.",
+    "email": "Iimaylka",
+    "password": "Furaha sirta ah",
+    "confirmPassword": "Xaqiiji furaha sirta ah",
+    "submitLogin": "Gal",
+    "submitRegister": "Samee akoon",
+    "forgotPassword": "Ma illowday furahaaga?",
+    "noAccount": "Akoon ma lihid?",
+    "haveAccount": "Akoon horeba ma u lahayd?",
+    "signUp": "Isdiiwaangeli",
+    "signIn": "Gal",
+    "resetTitle": "Dib u deji furahaaga sirta ah",
+    "resetSubtitle": "Waxaan kuu soo diri doonaa link.",
+    "resetSubmit": "Dir linkiga dib-u-dejinta",
+    "newPasswordTitle": "Dooro furan cusub",
+    "newPasswordSubmit": "Cusboonaysii furaha",
+    "verifyEmailTitle": "Xaqiiji iimaylkaaga",
+    "verifyEmailBody": "Hubi sanduuqaaga boostada linkiga xaqiijinta.",
+    "resend": "Dib u dir iimaylka"
+  },
+  "plans": {
+    "title": "Qorshayaasha",
+    "subtitle": "Dhimista khidmadaha, kordhinta leverage-ka, iyo taariikh dheer. Ilaalintu waxay u furan tahay qof kasta, qorshe kastoo uu leeyahay.",
+    "lockedBanner": "Ma samayn kartid ganacsi ilaa aad shaqaysiiso qorshe.",
+    "lockedBannerCta": "Dooro qorshe",
+    "mostPopular": "Ugu caansan",
+    "current": "Qorshaha hadda",
+    "perMonth": "/bishii",
+    "choose": "Dooro",
+    "manage": "Maamul",
+    "free": "Bilaash"
+  },
+  "upgrade": {
+    "bannerTitle": "Furfur khidmado dhimis",
+    "bannerBody": "FLT Basic wuxuu ku siinayaa leverage 10x iyo 90 maalmood oo taariikh ah $4.99/bishii.",
+    "bannerCta": "Eeg qorshayaasha",
+    "dismiss": "Iska daa"
+  },
+  "protection": {
+    "needsPlanTitle": "Ganacsiga leverage-ka wuxuu u baahan yahay qorshe",
+    "needsPlanBody": "Wax kasta baad arki kartaa — qiimaha, jaantusyada, iyo xisaabinta ilaalinta dhammaantood way socdaan. Dhigista dalabka waxay u baahan tahay FLT Basic ama ka sarreeya.",
+    "seePlans": "Eeg qorshayaasha"
+  },
+  "referrals": {
+    "title": "Jeedinta",
+    "subtitle": "La wadaag koodkaaga. Waxaad heli 20% dakhliga FLT ee ka imaanaya qof kasta oo ganacsanaya isagoo isticmaalaya.",
+    "yourCode": "Koodkaaga",
+    "getCode": "Hel koodkayga",
+    "redeem": "Isticmaal kood",
+    "redeemPlaceholder": "Geli koodka",
+    "redeemSubmit": "Codso"
+  },
+  "passiveCash": {
+    "title": "Xisaabta Lacagta Fadhiya"
+  },
+  "common": {
+    "loading": "Waa la soo raraya…",
+    "save": "Keydi",
+    "cancel": "Jooji",
+    "continue": "Sii wad",
+    "back": "Dib u noqo"
+  }
+}

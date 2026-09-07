@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { IBM_Plex_Mono, IBM_Plex_Sans } from 'next/font/google';
+import { NextIntlClientProvider } from 'next-intl';
+import { getMessages, getLocale } from 'next-intl/server';
 import './globals.css';
 import { TooltipProvider } from '@flt/ui';
 import { ThemeScript } from '@/components/theme';
@@ -87,7 +89,10 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
     /*
      * The font variables go on <html>, not <body>.
@@ -96,13 +101,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
      * custom property is resolved where it is declared — so a face defined one
      * level down on <body> is invisible to them and every token silently falls
      * back to the system stack.
+     *
+     * `lang` follows the resolved locale (`resolveLocale` in
+     * `src/i18n/request.ts`) rather than being hardcoded, so assistive tech and
+     * the browser's own translate offer read Somali as Somali.
      */
-    <html lang="en" suppressHydrationWarning className={`${sans.variable} ${mono.variable}`}>
+    <html lang={locale} suppressHydrationWarning className={`${sans.variable} ${mono.variable}`}>
       <head>
         <ThemeScript />
       </head>
       <body className="min-h-screen antialiased">
-        <TooltipProvider>{children}</TooltipProvider>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <TooltipProvider>{children}</TooltipProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

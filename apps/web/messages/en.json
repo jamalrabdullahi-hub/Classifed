@@ -1,0 +1,132 @@
+{
+  "nav": {
+    "home": "Home",
+    "scanner": "Scanner",
+    "portfolio": "Portfolio",
+    "activity": "Activity",
+    "trade": "Trade",
+    "referrals": "Referrals",
+    "plans": "Plans",
+    "passiveCash": "Passive cash",
+    "wallets": "Wallets",
+    "account": "Account",
+    "signedIn": "Signed in",
+    "signOut": "Sign out",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "language": "Language"
+  },
+  "home": {
+    "eyebrow": "Non-custodial trading",
+    "title": "Trade from your own wallet",
+    "subtitle": "Connect a wallet, trade spot and perpetuals through decentralized exchanges, and keep custody of your assets the whole time. FLT never holds your keys and never touches your funds.",
+    "cta": "Connect wallet",
+    "secondary": "See plans",
+    "pillNonCustodial": "You hold the keys",
+    "pillNoLockup": "Withdraw any time",
+    "pillProtection": "Optional position protection"
+  },
+  "landing": {
+    "signIn": "Sign in",
+    "openAccount": "Open an account",
+    "eyebrow": "Non-custodial trading",
+    "title": "Trade on decentralized exchanges without handing over your assets.",
+    "subtitle": "FLT routes your order across on-chain liquidity and builds the transaction. Your wallet signs it, the blockchain settles it, and your funds never pass through us. We never ask for a seed phrase or a private key, because we never need one.",
+    "howItWorks": "How a trade works",
+    "steps": [
+      {
+        "title": "Connect your wallet",
+        "body": "Link a self-custody wallet by signing a message. No transfer, no deposit, no gas."
+      },
+      {
+        "title": "Review the route",
+        "body": "See the expected output, the guaranteed minimum, price impact, every fee, and the contract being called."
+      },
+      {
+        "title": "Sign it yourself",
+        "body": "Your wallet signs and broadcasts. FLT holds no keys and cannot move your funds."
+      },
+      {
+        "title": "Settle on-chain",
+        "body": "We watch the transaction and record what actually happened, not what we expected."
+      }
+    ],
+    "whatWeDontDoTitle": "What we do not do",
+    "whatWeDontDoIntro": "Being clear about the limits matters more than a feature list. FLT is deliberately not a centralized exchange, and several things you may expect from one are absent by design.",
+    "perpsAddendum": "Perpetual futures are available to verified accounts and are leveraged products: they can be closed automatically and you can lose the margin backing them.",
+    "dontDoItems": [
+      "We do not hold your assets, so there is no FLT balance to withdraw.",
+      "We do not operate an order book and cannot match your trade internally.",
+      "We cannot reverse a transaction. Once your wallet signs, it is on-chain.",
+      "We do not custody your assets, so there is nothing here for us to lend against or lose.",
+      "We never request a seed phrase, private key or wallet password — nobody legitimate ever will."
+    ],
+    "disclaimer": "Digital assets are volatile and you can lose money. Trades settle on public blockchains and cannot be reversed once signed. FLT-Exchange provides an interface to decentralized liquidity; it does not provide investment advice and does not take custody of client assets."
+  },
+  "auth": {
+    "loginTitle": "Sign in",
+    "loginSubtitle": "Welcome back.",
+    "registerTitle": "Create an account",
+    "registerSubtitle": "It takes a minute.",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm password",
+    "submitLogin": "Sign in",
+    "submitRegister": "Create account",
+    "forgotPassword": "Forgot password?",
+    "noAccount": "Don't have an account?",
+    "haveAccount": "Already have an account?",
+    "signUp": "Sign up",
+    "signIn": "Sign in",
+    "resetTitle": "Reset your password",
+    "resetSubtitle": "We'll email you a link.",
+    "resetSubmit": "Send reset link",
+    "newPasswordTitle": "Choose a new password",
+    "newPasswordSubmit": "Update password",
+    "verifyEmailTitle": "Verify your email",
+    "verifyEmailBody": "Check your inbox for a verification link.",
+    "resend": "Resend email"
+  },
+  "plans": {
+    "title": "Plans",
+    "subtitle": "Fee discounts, higher leverage and longer history. Protection is available to everyone regardless of plan.",
+    "lockedBanner": "You can't place trades until you activate a plan.",
+    "lockedBannerCta": "Choose a plan",
+    "mostPopular": "Most popular",
+    "current": "Current plan",
+    "perMonth": "/month",
+    "choose": "Choose",
+    "manage": "Manage",
+    "free": "Free"
+  },
+  "upgrade": {
+    "bannerTitle": "Unlock lower fees",
+    "bannerBody": "FLT Basic gets you 10x leverage and 90 days of history for $4.99/month.",
+    "bannerCta": "See plans",
+    "dismiss": "Dismiss"
+  },
+  "protection": {
+    "needsPlanTitle": "Perpetuals need a plan",
+    "needsPlanBody": "Look around as much as you like — prices, charts and the protection calculation are all live. Placing an order needs FLT Basic or above.",
+    "seePlans": "See plans"
+  },
+  "referrals": {
+    "title": "Referrals",
+    "subtitle": "Share your code. You earn 20% of FLT's revenue from anyone who trades using it.",
+    "yourCode": "Your code",
+    "getCode": "Get my code",
+    "redeem": "Redeem a code",
+    "redeemPlaceholder": "Enter a code",
+    "redeemSubmit": "Apply"
+  },
+  "passiveCash": {
+    "title": "Passive cash account"
+  },
+  "common": {
+    "loading": "Loading…",
+    "save": "Save",
+    "cancel": "Cancel",
+    "continue": "Continue",
+    "back": "Back"
+  }
+}
