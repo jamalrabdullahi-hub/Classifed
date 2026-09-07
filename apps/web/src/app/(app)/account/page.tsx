@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { prisma } from '@flt/db';
 import { KeyRound, Monitor, ShieldCheck } from 'lucide-react';
 import {
@@ -30,6 +31,7 @@ export const dynamic = 'force-dynamic';
  */
 export default async function AccountPage() {
   const user = await requireUserPage();
+  const t = await getTranslations('pages.account');
 
   const [mfa, sessions, devices, kyc] = await Promise.all([
     mfaStatus(prisma, user.id),
@@ -40,7 +42,7 @@ export default async function AccountPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <SectionHeader title="Account" description={user.email} />
+      <SectionHeader title={t('title')} description={user.email} />
 
       <Card>
         <CardHeader>

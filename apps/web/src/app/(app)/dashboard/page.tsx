@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { AccountStatus, KycStatus, prisma } from '@flt/db';
 import { ArrowRight, ArrowUpRight, ShieldCheck, Wallet } from 'lucide-react';
 import {
@@ -34,6 +35,7 @@ export const dynamic = 'force-dynamic';
  */
 export default async function DashboardPage() {
   const user = await requireUserPage();
+  const t = await getTranslations('dashboard');
   // Only free accounts are prompted, and the banner itself enforces that too —
   // one forgetful call site should not start nagging paying customers.
   const entitlements = await entitlementsFor(user.id);
@@ -60,7 +62,7 @@ export default async function DashboardPage() {
 
       <div>
         <h1 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text)]">
-          Welcome back
+          {t('welcomeBack')}
         </h1>
         <p className="mt-1 text-[13px] text-[var(--text-muted)]">{user.email}</p>
       </div>
@@ -68,24 +70,23 @@ export default async function DashboardPage() {
       {/* The most important thing on the page is whatever is currently blocking
           the user. Only one of these renders at a time. */}
       {!user.emailVerifiedAt ? (
-        <Notice tone="warning" title="Confirm your email address">
-          A confirmation link was sent when you registered. Your account is limited until it is
-          confirmed — if the link never arrived or no longer works, send a new one.
+        <Notice tone="warning" title={t('confirmEmailTitle')}>
+          {t('confirmEmailBody')}
           <ResendVerification email={user.email} />
         </Notice>
       ) : !verified ? (
-        <VerificationPrompt status={kyc?.status ?? null} reason={kyc?.rejectionReason ?? null} />
+        <VerificationPrompt status={kyc?.status ?? null} reason={kyc?.rejectionReason ?? null} t={t} />
       ) : user.tradingDisabled ? (
-        <Notice tone="negative" title="Trading is disabled on this account">
-          An administrator has disabled trading. Contact support if you believe this is a mistake.
+        <Notice tone="negative" title={t('tradingDisabledTitle')}>
+          {t('tradingDisabledBody')}
         </Notice>
       ) : wallets.length === 0 ? (
-        <Notice tone="info" title="Connect a wallet to start trading">
-          FLT does not hold assets. Link a self-custody wallet and it stays under your control.
+        <Notice tone="info" title={t('connectWalletTitle')}>
+          {t('connectWalletBody')}
           <div className="mt-3">
             <Button asChild variant="primary" size="sm">
               <Link href="/wallets">
-                Connect a wallet
+                {t('connectWallet')}
                 <ArrowRight className="size-3.5" />
               </Link>
             </Button>
@@ -97,11 +98,11 @@ export default async function DashboardPage() {
         <Card className="lg:col-span-2">
           <CardHeader>
             <div>
-              <CardTitle>Connected wallets</CardTitle>
+              <CardTitle>{t('connectedWallets')}</CardTitle>
             </div>
             <Button asChild variant="ghost" size="sm">
               <Link href="/wallets">
-                Manage
+                {t('manage')}
                 <ArrowUpRight className="size-3.5" />
               </Link>
             </Button>
@@ -110,11 +111,11 @@ export default async function DashboardPage() {
           {wallets.length === 0 ? (
             <EmptyState
               icon={<Wallet className="size-4" />}
-              title="No wallet connected"
-              description="Link a self-custody wallet to view balances and trade. Your keys never leave your device."
+              title={t('noWalletConnectedTitle')}
+              description={t('noWalletConnectedBody')}
               action={
                 <Button asChild variant="primary" size="sm">
-                  <Link href="/wallets">Connect a wallet</Link>
+                  <Link href="/wallets">{t('connectWallet')}</Link>
                 </Button>
               }
             />
@@ -133,7 +134,7 @@ export default async function DashboardPage() {
                     />
                   </div>
                   <div className="flex items-center gap-2">
-                    {wallet.isPreferred ? <Badge tone="accent">Preferred</Badge> : null}
+                    {wallet.isPreferred ? <Badge tone="accent">{t('preferred')}</Badge> : null}
                     <Badge tone="neutral">Base</Badge>
                   </div>
                 </div>
@@ -144,57 +145,57 @@ export default async function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Account</CardTitle>
+            <CardTitle>{t('account')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3.5">
             <Row
-              label="Verification"
+              label={t('verification')}
               value={
                 verified ? (
-                  <StatusPill tone="neutral">Approved</StatusPill>
+                  <StatusPill tone="neutral">{t('approved')}</StatusPill>
                 ) : kyc?.status === KycStatus.IN_REVIEW ? (
                   <StatusPill tone="warning" pulse>
-                    In review
+                    {t('inReview')}
                   </StatusPill>
                 ) : kyc?.status === KycStatus.REJECTED ? (
-                  <StatusPill tone="negative">Rejected</StatusPill>
+                  <StatusPill tone="negative">{t('rejected')}</StatusPill>
                 ) : (
-                  <StatusPill tone="neutral">Not started</StatusPill>
+                  <StatusPill tone="neutral">{t('notStarted')}</StatusPill>
                 )
               }
             />
             <Row
-              label="Email"
+              label={t('email')}
               value={
                 user.emailVerifiedAt ? (
-                  <StatusPill tone="neutral">Confirmed</StatusPill>
+                  <StatusPill tone="neutral">{t('confirmed')}</StatusPill>
                 ) : (
-                  <StatusPill tone="warning">Unconfirmed</StatusPill>
+                  <StatusPill tone="warning">{t('unconfirmed')}</StatusPill>
                 )
               }
             />
             <Row
-              label="Trading"
+              label={t('trading')}
               value={
                 canTrade ? (
-                  <StatusPill tone="neutral">Enabled</StatusPill>
+                  <StatusPill tone="neutral">{t('enabled')}</StatusPill>
                 ) : (
-                  <StatusPill tone="neutral">Unavailable</StatusPill>
+                  <StatusPill tone="neutral">{t('unavailable')}</StatusPill>
                 )
               }
             />
-            <Row label="Account type" value={<Badge tone="neutral">{user.accountType}</Badge>} />
+            <Row label={t('accountType')} value={<Badge tone="neutral">{user.accountType}</Badge>} />
           </CardContent>
         </Card>
       </div>
 
       <div>
         <SectionHeader
-          title="Recent activity"
+          title={t('recentActivityTitle')}
           action={
             <Button asChild variant="ghost" size="sm">
               <Link href="/activity">
-                View all
+                {t('viewAll')}
                 <ArrowUpRight className="size-3.5" />
               </Link>
             </Button>
@@ -204,12 +205,12 @@ export default async function DashboardPage() {
         <Card className="mt-4">
           {recentTransactions.length === 0 ? (
             <EmptyState
-              title="No transactions yet"
-              description="Trades you sign will appear here, with their on-chain status and settlement details."
+              title={t('noTransactionsTitle')}
+              description={t('noTransactionsBody')}
               action={
                 canTrade ? (
                   <Button asChild variant="secondary" size="sm">
-                    <Link href="/trade">Place a trade</Link>
+                    <Link href="/trade">{t('placeATrade')}</Link>
                   </Button>
                 ) : undefined
               }
@@ -224,13 +225,13 @@ export default async function DashboardPage() {
                 >
                   <div className="min-w-0">
                     <p className="text-[13px] font-medium text-[var(--text)]">
-                      {transaction.kind === 'SWAP' ? 'Swap' : 'Token approval'}
+                      {transaction.kind === 'SWAP' ? t('swap') : t('tokenApproval')}
                     </p>
                     <p className="num mt-0.5 truncate font-mono text-[11px] text-[var(--text-subtle)]">
                       {transaction.txHash}
                     </p>
                   </div>
-                  <TransactionStatusPill status={transaction.status} />
+                  <TransactionStatusPill status={transaction.status} t={t} />
                 </Link>
               ))}
             </CardContent>
@@ -250,14 +251,24 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function TransactionStatusPill({ status }: { status: string }) {
-  if (status === 'CONFIRMED') return <StatusPill tone="neutral">Confirmed</StatusPill>;
+function TransactionStatusPill({
+  status,
+  t,
+}: {
+  status: string;
+  t: Awaited<ReturnType<typeof getTranslations<'dashboard'>>>;
+}) {
+  if (status === 'CONFIRMED') return <StatusPill tone="neutral">{t('statusConfirmed')}</StatusPill>;
   if (status === 'REVERTED' || status === 'FAILED')
-    return <StatusPill tone="negative">{status === 'REVERTED' ? 'Reverted' : 'Failed'}</StatusPill>;
-  if (status === 'DROPPED') return <StatusPill tone="warning">Dropped</StatusPill>;
+    return (
+      <StatusPill tone="negative">
+        {status === 'REVERTED' ? t('statusReverted') : t('statusFailed')}
+      </StatusPill>
+    );
+  if (status === 'DROPPED') return <StatusPill tone="warning">{t('statusDropped')}</StatusPill>;
   return (
     <StatusPill tone="info" pulse>
-      Pending
+      {t('statusPending')}
     </StatusPill>
   );
 }
@@ -265,26 +276,27 @@ function TransactionStatusPill({ status }: { status: string }) {
 function VerificationPrompt({
   status,
   reason,
+  t,
 }: {
   status: KycStatus | null;
   reason: string | null;
+  t: Awaited<ReturnType<typeof getTranslations<'dashboard'>>>;
 }) {
   if (status === KycStatus.IN_REVIEW) {
     return (
-      <Notice tone="info" title="Your verification is being reviewed">
-        A member of our compliance team is reviewing your submission. You can connect a wallet and
-        browse markets in the meantime.
+      <Notice tone="info" title={t('reviewTitle')}>
+        {t('reviewBody')}
       </Notice>
     );
   }
 
   if (status === KycStatus.REJECTED) {
     return (
-      <Notice tone="negative" title="Verification was not approved">
-        {reason ?? 'Contact support to find out what to do next.'}
+      <Notice tone="negative" title={t('rejectedTitle')}>
+        {reason ?? t('rejectedFallback')}
         <div className="mt-3">
           <Button asChild variant="secondary" size="sm">
-            <Link href="/verify">Submit again</Link>
+            <Link href="/verify">{t('submitAgain')}</Link>
           </Button>
         </div>
       </Notice>
@@ -292,16 +304,12 @@ function VerificationPrompt({
   }
 
   return (
-    <Notice
-      tone="warning"
-      title="Verify your identity to start trading"
-      icon={<ShieldCheck className="size-4" />}
-    >
-      Verification is required before you can place a trade.
+    <Notice tone="warning" title={t('verifyTitle')} icon={<ShieldCheck className="size-4" />}>
+      {t('verifyBody')}
       <div className="mt-3">
         <Button asChild variant="primary" size="sm">
           <Link href="/verify">
-            Start verification
+            {t('startVerification')}
             <ArrowRight className="size-3.5" />
           </Link>
         </Button>

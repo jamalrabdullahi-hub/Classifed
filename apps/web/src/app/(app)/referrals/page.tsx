@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { env } from '@flt/config';
 import { SectionHeader } from '@flt/ui';
 import { referralSummary } from '@flt/core/services/referrals';
@@ -19,12 +20,13 @@ export const dynamic = 'force-dynamic';
 export default async function ReferralsPage() {
   const user = await requireUserPage();
   const summary = await referralSummary(user.id);
+  const t = await getTranslations('pages.referrals');
 
   return (
     <div className="space-y-6">
       <SectionHeader
-        title="Referrals"
-        description={`Share a code. They get a free month, you get ${summary.shareBps / 100}% of what FLT earns from them.`}
+        title={t('title')}
+        description={t('description', { pct: summary.shareBps / 100 })}
       />
 
       <ReferralPanel

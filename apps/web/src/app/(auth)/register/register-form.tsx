@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 import { Check, MailCheck } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Button, Field, Input, Notice, cn } from '@flt/ui';
 import { ApiError, post } from '@/lib/api';
 
@@ -16,6 +17,7 @@ const MIN_PASSWORD_LENGTH = 12;
  * entropy, so the only rule shown is the only rule enforced.
  */
 export function RegisterForm() {
+  const t = useTranslations('auth');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -33,9 +35,7 @@ export function RegisterForm() {
       await post('/api/auth/register', { email, password });
       setSent(true);
     } catch (caught) {
-      setError(
-        caught instanceof ApiError ? caught.message : 'Could not create the account. Try again.',
-      );
+      setError(caught instanceof ApiError ? caught.message : t('register.genericError'));
     } finally {
       setPending(false);
     }
@@ -51,14 +51,13 @@ export function RegisterForm() {
           <MailCheck className="size-5 text-[var(--accent-text)]" />
         </div>
         <h1 className="text-xl font-semibold tracking-[-0.02em] text-[var(--text)]">
-          Check your inbox
+          {t('register.checkInboxTitle')}
         </h1>
         <p className="mx-auto mt-2 max-w-[320px] text-[13px] leading-relaxed text-[var(--text-muted)]">
-          If <span className="text-[var(--text)]">{email}</span> can be registered, a confirmation
-          link is on its way. The link is valid for 24 hours.
+          {t('register.checkInboxBody', { email })}
         </p>
         <Button asChild variant="secondary" className="mt-6">
-          <Link href="/login">Go to sign in</Link>
+          <Link href="/login">{t('register.goToSignIn')}</Link>
         </Button>
       </div>
     );
@@ -68,12 +67,12 @@ export function RegisterForm() {
     <div className="animate-fade-up">
       <header className="mb-6">
         <h1 className="text-xl font-semibold tracking-[-0.02em] text-[var(--text)]">
-          Open an FLT account
+          {t('register.heading')}
         </h1>
         <p className="mt-1.5 text-[13px] text-[var(--text-muted)]">
-          Already have one?{' '}
+          {t('register.haveAccount')}{' '}
           <Link href="/login" className="link">
-            Sign in
+            {t('register.signIn')}
           </Link>
         </p>
       </header>
@@ -81,7 +80,7 @@ export function RegisterForm() {
       <form onSubmit={onSubmit} className="space-y-4">
         {error ? <Notice tone="negative">{error}</Notice> : null}
 
-        <Field label="Email">
+        <Field label={t('email')}>
           {(props) => (
             <Input
               {...props}
@@ -96,7 +95,7 @@ export function RegisterForm() {
           )}
         </Field>
 
-        <Field label="Password">
+        <Field label={t('password')}>
           {(props) => (
             <>
               <Input
@@ -117,19 +116,18 @@ export function RegisterForm() {
                   className={cn('size-3', longEnough ? 'opacity-100' : 'opacity-35')}
                   aria-hidden="true"
                 />
-                At least {MIN_PASSWORD_LENGTH} characters. Length matters more than symbols.
+                {t('register.passwordHint', { count: MIN_PASSWORD_LENGTH })}
               </p>
             </>
           )}
         </Field>
 
         <Button type="submit" variant="primary" block loading={pending} disabled={!longEnough}>
-          Create account
+          {t('register.submit')}
         </Button>
 
         <p className="text-center text-[12px] leading-relaxed text-[var(--text-subtle)]">
-          You will need to verify your identity before trading. FLT never asks for a seed phrase or
-          private key.
+          {t('register.disclaimer')}
         </p>
       </form>
     </div>

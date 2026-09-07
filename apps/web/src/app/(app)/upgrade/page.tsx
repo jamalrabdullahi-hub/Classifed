@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { prisma } from '@flt/db';
 import { SectionHeader } from '@flt/ui';
 import { listPlans, currentSubscription } from '@flt/core/services/subscriptions';
@@ -30,6 +31,7 @@ export const dynamic = 'force-dynamic';
  */
 export default async function UpgradePage() {
   const user = await requireUserPage();
+  const t = await getTranslations('pages.upgrade');
 
   const since = new Date(Date.now() - 90 * 86_400_000);
 
@@ -48,10 +50,7 @@ export default async function UpgradePage() {
 
   return (
     <div className="space-y-6">
-      <SectionHeader
-        title="Upgrade"
-        description="What a plan would be worth, as arithmetic rather than a feature list."
-      />
+      <SectionHeader title={t('title')} description={t('description')} />
 
       <UpgradePitch
         plans={plans.map((plan) => ({
@@ -72,9 +71,9 @@ export default async function UpgradePage() {
       />
 
       <p className="text-[11px] text-[var(--text-subtle)]">
-        Prefer the full comparison?{' '}
+        {t('preferFullComparison')}{' '}
         <Link href="/plans" className="underline">
-          See every plan side by side
+          {t('seeSideBySide')}
         </Link>
         .
       </p>

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { TriangleAlert, ShieldCheck, ChevronDown, ArrowRight } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Button, Notice, cn } from '@flt/ui';
 import { ApiError, get, post } from '@/lib/api';
 import {
@@ -116,6 +117,7 @@ export function ProtectedTicket({
   locked = false,
   onPriceLinesChange,
 }: Props) {
+  const t = useTranslations('protection');
   const [side, setSide] = useState<'LONG' | 'SHORT'>('LONG');
   const [amount, setAmount] = useState('');
   const [leverageText, setLeverageText] = useState('2');
@@ -277,17 +279,16 @@ export function ProtectedTicket({
       {locked ? (
         <div className="rounded-[var(--radius-md)] border border-[var(--warning)] bg-[var(--surface-raised)] p-2.5">
           <p className="text-[11.5px] font-medium text-[var(--text)]">
-            Perpetuals need a plan
+            {t('needsPlanTitle')}
           </p>
           <p className="mt-1 text-[10.5px] leading-relaxed text-[var(--text-subtle)]">
-            Look around as much as you like — prices, charts and the protection calculation are
-            all live. Placing an order needs FLT Basic or above.
+            {t('needsPlanBody')}
           </p>
           <Link
             href="/plans?from=perps"
             className="mt-2 inline-flex items-center gap-1 rounded-[var(--radius)] border border-[var(--text)] px-2.5 py-1 text-[11px] font-medium text-[var(--text)] transition-colors hover:bg-[var(--text)] hover:text-[var(--canvas)]"
           >
-            See plans <ArrowRight className="size-3" />
+            {t('seePlans')} <ArrowRight className="size-3" />
           </Link>
         </div>
       ) : null}

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { SectionHeader } from '@flt/ui';
 import { passiveCashSummary } from '@flt/core/services/passive-cash';
 import { requireUserPage } from '@/server/session';
@@ -19,13 +20,11 @@ export const dynamic = 'force-dynamic';
 export default async function PassiveCashPage() {
   const user = await requireUserPage();
   const summary = await passiveCashSummary(user.id);
+  const t = await getTranslations('pages.passiveCash');
 
   return (
     <div className="space-y-6">
-      <SectionHeader
-        title="Passive cash"
-        description="Let idle cash work in FLT's market-making, for half the profit. You bear the losses."
-      />
+      <SectionHeader title={t('title')} description={t('description')} />
 
       <PassiveCashPanel
         isEnabled={summary.isEnabled}

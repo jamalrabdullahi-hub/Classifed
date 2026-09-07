@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 import { MailCheck } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Button, Field, Input, Notice } from '@flt/ui';
 import { ApiError, post } from '@/lib/api';
 
@@ -15,6 +16,7 @@ import { ApiError, post } from '@/lib/api';
  * is to the person who mistyped their address.
  */
 export function ForgotPasswordForm() {
+  const t = useTranslations('auth');
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,16 +51,15 @@ export function ForgotPasswordForm() {
             <MailCheck className="size-4 text-[var(--text)]" />
           </div>
           <h1 className="text-xl font-semibold tracking-[-0.02em] text-[var(--text)]">
-            Check your inbox
+            {t('forgot.checkInboxTitle')}
           </h1>
           <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--text-muted)]">
-            If an account exists for {email || 'that address'}, we have sent a link to reset the
-            password. It can be used once and expires in an hour.
+            {t('forgot.checkInboxBody', { email: email || t('forgot.fallbackAddress') })}
           </p>
         </header>
 
         <Button asChild variant="secondary" block>
-          <Link href="/login">Back to sign in</Link>
+          <Link href="/login">{t('backToSignIn')}</Link>
         </Button>
       </div>
     );
@@ -68,17 +69,15 @@ export function ForgotPasswordForm() {
     <div className="animate-fade-up">
       <header className="mb-6">
         <h1 className="text-xl font-semibold tracking-[-0.02em] text-[var(--text)]">
-          Reset your password
+          {t('forgot.heading')}
         </h1>
-        <p className="mt-1.5 text-[13px] text-[var(--text-muted)]">
-          We will email you a link to choose a new one.
-        </p>
+        <p className="mt-1.5 text-[13px] text-[var(--text-muted)]">{t('forgot.body')}</p>
       </header>
 
       <form onSubmit={onSubmit} className="space-y-4">
         {error ? <Notice tone="negative">{error}</Notice> : null}
 
-        <Field label="Email">
+        <Field label={t('email')}>
           {(props) => (
             <Input
               {...props}
@@ -94,14 +93,14 @@ export function ForgotPasswordForm() {
         </Field>
 
         <Button type="submit" variant="primary" block loading={pending}>
-          Send reset link
+          {t('forgot.submit')}
         </Button>
 
         <Link
           href="/login"
           className="block w-full text-center text-[13px] text-[var(--text-muted)] hover:text-[var(--text)]"
         >
-          Back to sign in
+          {t('backToSignIn')}
         </Link>
       </form>
     </div>

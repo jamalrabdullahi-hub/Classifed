@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, Wallet } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Button, Notice, cn } from '@flt/ui';
 import { ApiError, del, post } from '@/lib/api';
 
@@ -59,6 +60,7 @@ export function PassiveCashPanel({
   entries: Entry[];
 }) {
   const router = useRouter();
+  const t = useTranslations('passiveCash');
 
   const [showDisclosure, setShowDisclosure] = useState(false);
   const [acknowledged, setAcknowledged] = useState<boolean[]>(
@@ -77,7 +79,7 @@ export function PassiveCashPanel({
       setShowDisclosure(false);
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Could not switch it on.');
+      setError(caught instanceof ApiError ? caught.message : t('enableError'));
     } finally {
       setPending(false);
     }
@@ -90,7 +92,7 @@ export function PassiveCashPanel({
       await del('/api/passive-cash');
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Could not switch it off.');
+      setError(caught instanceof ApiError ? caught.message : t('disableError'));
     } finally {
       setPending(false);
     }
@@ -101,10 +103,8 @@ export function PassiveCashPanel({
       {error ? <Notice tone="negative">{error}</Notice> : null}
 
       {!operational ? (
-        <Notice tone="warning" title="Not accepting contributions">
-          The market-making book has no execution on this deployment, so money contributed here
-          could not be put to work. Taking it anyway would be charging for a service that does not
-          run.
+        <Notice tone="warning" title={t('notOperationalTitle')}>
+          {t('notOperationalBody')}
         </Notice>
       ) : null}
 
@@ -112,14 +112,10 @@ export function PassiveCashPanel({
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="flex items-center gap-2 text-[13px] font-semibold text-[var(--text)]">
-              <Wallet className="size-4" /> Passive cash account
+              <Wallet className="size-4" /> {t('title')}
             </h2>
             <p className="mt-1 max-w-lg text-[11px] leading-relaxed text-[var(--text-subtle)]">
-              Idle cash is used in FLT&apos;s market-making. You keep{' '}
-              <strong className="text-[var(--positive)]">{profitSharePct}% of any profit</strong>{' '}
-              and bear{' '}
-              <strong className="text-[var(--negative)]">{lossSharePct}% of any loss</strong>. It is
-              withdrawable at any time.
+              {t('description', { profitPct: profitSharePct, lossPct: lossSharePct })}
             </p>
           </div>
 
@@ -131,23 +127,23 @@ export function PassiveCashPanel({
                 : 'border-[var(--border)] text-[var(--text-subtle)]',
             )}
           >
-            {isEnabled ? 'On' : 'Off'}
+            {isEnabled ? t('on') : t('off')}
           </span>
         </div>
 
         {isEnabled ? (
           <div className="mt-4 grid gap-3 border-t border-[var(--border)] pt-3 sm:grid-cols-3">
-            <Stat label="Balance" value={money(balance)} />
-            <Stat label="Earned" value={money(lifetimeEarned)} tone="positive" />
+            <Stat label={t('balance')} value={money(balance)} />
+            <Stat label={t('earned')} value={money(lifetimeEarned)} tone="positive" />
             {/* Never netted against earnings — one figure would hide which happened. */}
-            <Stat label="Lost" value={money(lifetimeLost)} tone="negative" />
+            <Stat label={t('lost')} value={money(lifetimeLost)} tone="negative" />
           </div>
         ) : null}
 
         <div className="mt-4">
           {isEnabled ? (
             <Button variant="secondary" loading={pending} onClick={() => void disable()}>
-              Switch off
+              {t('switchOff')}
             </Button>
           ) : (
             <Button
@@ -155,7 +151,7 @@ export function PassiveCashPanel({
               disabled={!operational}
               onClick={() => setShowDisclosure(true)}
             >
-              {needsReacceptance ? 'Read the updated terms' : 'Switch on'}
+              {needsReacceptance ? t('readUpdatedTerms') : t('switchOn')}
             </Button>
           )}
         </div>
@@ -163,7 +159,7 @@ export function PassiveCashPanel({
 
       {entries.length > 0 ? (
         <div className="rounded-[var(--radius-lg)] border border-[var(--border)] p-4">
-          <h3 className="text-[12px] font-semibold text-[var(--text)]">Recent activity</h3>
+          <h3 className="text-[12px] font-semibold text-[var(--text)]">{t('recentActivity')}</h3>
           <div className="mt-2 space-y-1">
             {entries.map((entry, index) => (
               <div
@@ -171,7 +167,7 @@ export function PassiveCashPanel({
                 className="flex items-baseline justify-between gap-3 text-[11px]"
               >
                 <span className="text-[var(--text-muted)]">
-                  {label(entry.kind)}
+                  {label(entry.kind, t)}
                   {entry.reason ? (
                     <span className="ml-1.5 text-[10px] text-[var(--text-subtle)]">
                       {entry.reason}
@@ -201,12 +197,11 @@ export function PassiveCashPanel({
           <div className="my-8 w-full max-w-lg space-y-3 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--canvas)] p-5">
             <h2 className="flex items-center gap-2 text-[15px] font-semibold text-[var(--text)]">
               <AlertTriangle className="size-4 text-[var(--warning)]" />
-              Before you switch this on
+              {t('dialogTitle')}
             </h2>
 
             <p className="text-[11.5px] leading-relaxed text-[var(--text-muted)]">
-              This is different from everything else on FLT. Your trading balance never leaves your
-              wallet. This does. Read each point and tick it.
+              {t('dialogIntro')}
             </p>
 
             <ul className="space-y-2">
@@ -230,13 +225,12 @@ export function PassiveCashPanel({
             </ul>
 
             <p className="text-[10px] text-[var(--text-subtle)]">
-              Terms version {disclosureVersion}. If these change you will be asked to read them
-              again.
+              {t('termsVersion', { version: disclosureVersion })}
             </p>
 
             <div className="grid grid-cols-2 gap-2 pt-1">
               <Button variant="secondary" onClick={() => setShowDisclosure(false)}>
-                Cancel
+                {t('cancel')}
               </Button>
               <Button
                 variant="primary"
@@ -244,7 +238,7 @@ export function PassiveCashPanel({
                 disabled={!allAcknowledged}
                 onClick={() => void enable()}
               >
-                {allAcknowledged ? 'I understand — switch on' : 'Tick every point'}
+                {allAcknowledged ? t('understandSwitchOn') : t('tickEvery')}
               </Button>
             </div>
           </div>
@@ -282,11 +276,11 @@ function Stat({
   );
 }
 
-function label(kind: string): string {
-  if (kind === 'CONTRIBUTION') return 'Added';
-  if (kind === 'WITHDRAWAL') return 'Withdrawn';
-  if (kind === 'PROFIT_SHARE') return 'Profit share';
-  if (kind === 'LOSS') return 'Loss';
+function label(kind: string, t: ReturnType<typeof useTranslations>): string {
+  if (kind === 'CONTRIBUTION') return t('kindContribution');
+  if (kind === 'WITHDRAWAL') return t('kindWithdrawal');
+  if (kind === 'PROFIT_SHARE') return t('kindProfitShare');
+  if (kind === 'LOSS') return t('kindLoss');
   return kind;
 }
 

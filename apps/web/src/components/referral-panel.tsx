@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAccount } from 'wagmi';
 import { Check, Copy, Gift, Users } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
 import { Button, Notice, cn } from '@flt/ui';
 import { ApiError, post, put } from '@/lib/api';
 
@@ -54,6 +55,8 @@ export function ReferralPanel({
 }) {
   const router = useRouter();
   const { isConnected } = useAccount();
+  const t = useTranslations('referrals');
+  const locale = useLocale();
 
   const [code, setCode] = useState(initialCode);
   const [issuing, setIssuing] = useState(false);
@@ -74,7 +77,7 @@ export function ReferralPanel({
       setCode(result.code);
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Could not create a code.');
+      setError(caught instanceof ApiError ? caught.message : t('genericErrorCreate'));
     } finally {
       setIssuing(false);
     }
@@ -99,12 +102,14 @@ export function ReferralPanel({
         code: redeemInput.trim(),
       });
       setRedeemed(
-        `Free month active until ${new Date(result.grantedUntil).toLocaleDateString()}.`,
+        t('freeMonthActive', {
+          date: new Date(result.grantedUntil).toLocaleDateString(locale),
+        }),
       );
       setRedeemInput('');
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Could not redeem that code.');
+      setError(caught instanceof ApiError ? caught.message : t('genericErrorRedeem'));
     } finally {
       setRedeeming(false);
     }
@@ -118,13 +123,15 @@ export function ReferralPanel({
       {/* ── Your code ────────────────────────────────────────────────────── */}
       <div className="rounded-[var(--radius-lg)] border border-[var(--border)] p-4">
         <h2 className="flex items-center gap-2 text-[13px] font-semibold text-[var(--text)]">
-          <Gift className="size-4" /> Your referral code
+          <Gift className="size-4" /> {t('yourReferralCode')}
         </h2>
 
         <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-subtle)]">
-          Anyone who uses it gets {grantDays} days of {grantTier === 'BASIC' ? 'FLT Basic' : grantTier}{' '}
-          free. You earn {shareBps / 100}% of what FLT makes from them — trading fees and
-          subscriptions — for as long as they trade.
+          {t('codeExplainer', {
+            days: grantDays,
+            tier: grantTier === 'BASIC' ? t('basic') : grantTier,
+            pct: shareBps / 100,
+          })}
         </p>
 
         {code ? (
@@ -136,11 +143,11 @@ export function ReferralPanel({
               <Button variant="secondary" onClick={() => void copy()}>
                 {copied ? (
                   <>
-                    <Check className="size-3.5" /> Copied
+                    <Check className="size-3.5" /> {t('copied')}
                   </>
                 ) : (
                   <>
-                    <Copy className="size-3.5" /> Copy link
+                    <Copy className="size-3.5" /> {t('copyLink')}
                   </>
                 )}
               </Button>
@@ -152,11 +159,7 @@ export function ReferralPanel({
           </div>
         ) : (
           <div className="mt-3 space-y-2">
-            {!isConnected ? (
-              <Notice tone="warning">
-                Connect and verify a wallet first — that is where earnings are paid.
-              </Notice>
-            ) : null}
+            {!isConnected ? <Notice tone="warning">{t('connectFirst')}</Notice> : null}
 
             <Button
               variant="primary"
@@ -164,7 +167,7 @@ export function ReferralPanel({
               disabled={!isConnected}
               onClick={() => void issue()}
             >
-              Create my code
+              {t('createMyCode')}
             </Button>
           </div>
         )}
@@ -174,20 +177,17 @@ export function ReferralPanel({
       {code ? (
         <div className="rounded-[var(--radius-lg)] border border-[var(--border)] p-4">
           <h2 className="flex items-center gap-2 text-[13px] font-semibold text-[var(--text)]">
-            <Users className="size-4" /> {referredCount} referred
+            <Users className="size-4" /> {t('referredCount', { count: referredCount })}
           </h2>
 
           {accrued.length === 0 && paid.length === 0 ? (
-            <p className="mt-2 text-[11px] text-[var(--text-subtle)]">
-              Nothing earned yet. A share is recorded whenever somebody you referred pays a trading
-              fee or buys a plan.
-            </p>
+            <p className="mt-2 text-[11px] text-[var(--text-subtle)]">{t('nothingEarnedYet')}</p>
           ) : (
             <div className="mt-3 space-y-2">
               {accrued.map((entry) => (
                 <Row
                   key={`accrued-${entry.currency}`}
-                  label={`Owed (${entry.count} event${entry.count === 1 ? '' : 's'})`}
+                  label={t(entry.count === 1 ? 'owedOne' : 'owedMany', { count: entry.count })}
                   value={`${entry.amount} ${short(entry.currency)}`}
                   tone="positive"
                 />
@@ -195,7 +195,7 @@ export function ReferralPanel({
               {paid.map((entry) => (
                 <Row
                   key={`paid-${entry.currency}`}
-                  label="Paid out"
+                  label={t('paidOut')}
                   value={`${entry.amount} ${short(entry.currency)}`}
                 />
               ))}
@@ -203,29 +203,29 @@ export function ReferralPanel({
           )}
 
           <p className="mt-3 text-[10px] leading-relaxed text-[var(--text-subtle)]">
-            Earnings are recorded per trade and per payment, so every figure can be itemised. They
-            are amounts owed rather than a balance held — FLT keeps no float — and a trading-fee
-            share is denominated in whatever token the fee was taken in, which is why these are not
-            added together.
+            {t('earningsFooter')}
           </p>
         </div>
       ) : null}
 
       {/* ── Redeeming someone else's ─────────────────────────────────────── */}
       <div className="rounded-[var(--radius-lg)] border border-[var(--border)] p-4">
-        <h2 className="text-[13px] font-semibold text-[var(--text)]">Have a code?</h2>
+        <h2 className="text-[13px] font-semibold text-[var(--text)]">{t('haveACode')}</h2>
 
         {referredBy ? (
           <p className="mt-1 text-[11px] text-[var(--text-subtle)]">
-            You joined with <span className="font-[family-name:var(--font-mono)]">{referredBy.code}</span>{' '}
-            on {new Date(referredBy.redeemedAt).toLocaleDateString()}. A code can only be used once
-            per account.
+            {t('joinedWith', {
+              code: referredBy.code,
+              date: new Date(referredBy.redeemedAt).toLocaleDateString(locale),
+            })}
           </p>
         ) : (
           <>
             <p className="mt-1 text-[11px] text-[var(--text-subtle)]">
-              Redeem it for {grantDays} days of{' '}
-              {grantTier === 'BASIC' ? 'FLT Basic' : grantTier}, free. One per account, ever.
+              {t('redeemFor', {
+                days: grantDays,
+                tier: grantTier === 'BASIC' ? t('basic') : grantTier,
+              })}
             </p>
 
             <div className="mt-3 flex gap-2">
@@ -233,7 +233,7 @@ export function ReferralPanel({
                 value={redeemInput}
                 onChange={(event) => setRedeemInput(event.target.value.toUpperCase())}
                 placeholder="ABCD2345"
-                aria-label="Referral code"
+                aria-label={t('redeemCodeAria')}
                 maxLength={16}
                 className="w-40 rounded-[var(--radius)] border border-[var(--border)] bg-transparent px-2 py-1.5 font-[family-name:var(--font-mono)] tracking-[0.1em] text-[var(--text)] outline-none focus:border-[var(--text-muted)]"
               />
@@ -243,7 +243,7 @@ export function ReferralPanel({
                 disabled={!redeemInput.trim()}
                 onClick={() => void redeem()}
               >
-                Redeem
+                {t('redeem')}
               </Button>
             </div>
           </>
@@ -251,9 +251,7 @@ export function ReferralPanel({
       </div>
 
       <p className="text-[10.5px] leading-relaxed text-[var(--text-subtle)]">
-        One level only. You earn from the people you refer and from nobody else — there is no
-        second tier, and referring somebody who refers somebody earns you nothing from the third
-        person.
+        {t('oneLevelFooter')}
       </p>
     </div>
   );

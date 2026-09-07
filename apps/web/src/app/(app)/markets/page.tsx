@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { prisma } from '@flt/db';
 import { ShieldAlert } from 'lucide-react';
 import {
@@ -46,6 +47,7 @@ export default async function MarketsPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   await requireUserPage();
+  const t = await getTranslations('pages.scanner');
 
   const { q } = await searchParams;
   const query = (q ?? '').trim();
@@ -89,8 +91,8 @@ export default async function MarketsPage({
   return (
     <div className="space-y-6">
       <SectionHeader
-        title="Scanner"
-        description={`${total.toLocaleString()} tokens on Base, plus every perpetual market. Contract addresses are always shown — check them before you trade.`}
+        title={t('title')}
+        description={t('description', { count: total.toLocaleString() })}
       />
 
       <InstrumentSearch

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { prisma } from '@flt/db';
 import { SectionHeader } from '@flt/ui';
 import { listPlans, currentSubscription } from '@flt/core/services/subscriptions';
@@ -18,6 +19,7 @@ export const dynamic = 'force-dynamic';
  */
 export default async function PlansPage() {
   const user = await requireUserPage();
+  const t = await getTranslations('plans');
 
   const [plans, current, feeRule] = await Promise.all([
     listPlans(),
@@ -32,10 +34,7 @@ export default async function PlansPage() {
 
   return (
     <div className="space-y-6">
-      <SectionHeader
-        title="Plans"
-        description="Tools, limits and cheaper trading. Protection is never gated — every account sees the calculation."
-      />
+      <SectionHeader title={t('title')} description={t('description')} />
 
       <PlanPicker
         plans={plans.map((plan) => ({

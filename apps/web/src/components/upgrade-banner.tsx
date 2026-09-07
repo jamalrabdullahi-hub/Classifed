@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { X, TrendingUp } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@flt/ui';
 
 /**
@@ -40,21 +41,6 @@ const SESSION_KEY = 'flt.upgrade.session';
 
 export type UpgradeReason = 'leverage' | 'fees' | 'general';
 
-const COPY: Record<UpgradeReason, { headline: string; detail: string }> = {
-  leverage: {
-    headline: 'Your plan is capped at 2x',
-    detail: 'A paid plan lifts the leverage ceiling and cuts your trading fees.',
-  },
-  fees: {
-    headline: 'You are paying full trading fees',
-    detail: 'FLT Pro takes 10% off every trade, Elite 25%.',
-  },
-  general: {
-    headline: 'More tools, cheaper trading',
-    detail: 'Advanced analytics, higher leverage and up to 25% off trading fees.',
-  },
-};
-
 export function UpgradeBanner({
   tier,
   reason = 'general',
@@ -67,6 +53,7 @@ export function UpgradeBanner({
   immediate?: boolean;
   className?: string;
 }) {
+  const t = useTranslations('upgrade');
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -121,7 +108,11 @@ export function UpgradeBanner({
     }
   }
 
-  const copy = COPY[reason];
+  const copy = {
+    leverage: { headline: t('leverageHeadline'), detail: t('leverageDetail') },
+    fees: { headline: t('feesHeadline'), detail: t('feesDetail') },
+    general: { headline: t('generalHeadline'), detail: t('generalDetail') },
+  }[reason];
 
   return (
     <div
@@ -141,14 +132,14 @@ export function UpgradeBanner({
         href="/upgrade"
         className="shrink-0 rounded-[var(--radius)] border border-[var(--text)] px-2.5 py-1 text-[11px] font-medium text-[var(--text)] transition-colors hover:bg-[var(--text)] hover:text-[var(--canvas)]"
       >
-        See plans
+        {t('seePlans')}
       </Link>
 
       <button
         type="button"
         onClick={dismiss}
-        aria-label="Dismiss for an hour"
-        title="Dismiss for an hour"
+        aria-label={t('dismissAria')}
+        title={t('dismissAria')}
         className="shrink-0 text-[var(--text-subtle)] transition-colors hover:text-[var(--text)]"
       >
         <X className="size-3.5" />

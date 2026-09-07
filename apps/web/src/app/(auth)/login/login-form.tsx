@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { ShieldCheck } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Button, Field, Input, Notice } from '@flt/ui';
 import { ApiError, post } from '@/lib/api';
 
@@ -22,6 +23,7 @@ interface LoginResponse {
  */
 export function LoginForm() {
   const router = useRouter();
+  const t = useTranslations('auth');
   const [stage, setStage] = useState<'credentials' | 'mfa'>('credentials');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,9 +49,7 @@ export function LoginForm() {
       router.replace('/dashboard');
       router.refresh();
     } catch (caught) {
-      setError(
-        caught instanceof ApiError ? caught.message : 'Could not sign in. Try again.',
-      );
+      setError(caught instanceof ApiError ? caught.message : t('login.genericError'));
     } finally {
       setPending(false);
     }
@@ -65,7 +65,7 @@ export function LoginForm() {
       router.replace('/dashboard');
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'That code was not accepted.');
+      setError(caught instanceof ApiError ? caught.message : t('login.mfaError'));
       setCode('');
     } finally {
       setPending(false);
@@ -80,17 +80,17 @@ export function LoginForm() {
             <ShieldCheck className="size-4 text-[var(--accent-text)]" />
           </div>
           <h1 className="text-xl font-semibold tracking-[-0.02em] text-[var(--text)]">
-            Two-factor authentication
+            {t('login.mfaTitle')}
           </h1>
           <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--text-muted)]">
-            Enter the six-digit code from your authenticator app, or one of your recovery codes.
+            {t('login.mfaBody')}
           </p>
         </header>
 
         <form onSubmit={onChallenge} className="space-y-4">
           {error ? <Notice tone="negative">{error}</Notice> : null}
 
-          <Field label="Authentication code" error={null}>
+          <Field label={t('login.authCode')} error={null}>
             {(props) => (
               <Input
                 {...props}
@@ -107,7 +107,7 @@ export function LoginForm() {
           </Field>
 
           <Button type="submit" variant="primary" block loading={pending}>
-            Verify
+            {t('login.verify')}
           </Button>
 
           <button
@@ -119,7 +119,7 @@ export function LoginForm() {
             }}
             className="w-full text-center text-[13px] text-[var(--text-muted)] hover:text-[var(--text)]"
           >
-            Back to sign in
+            {t('backToSignIn')}
           </button>
         </form>
       </div>
@@ -130,12 +130,12 @@ export function LoginForm() {
     <div className="animate-fade-up">
       <header className="mb-6">
         <h1 className="text-xl font-semibold tracking-[-0.02em] text-[var(--text)]">
-          Sign in to FLT-Exchange
+          {t('login.heading')}
         </h1>
         <p className="mt-1.5 text-[13px] text-[var(--text-muted)]">
-          Don&apos;t have an account?{' '}
+          {t('login.noAccount')}{' '}
           <Link href="/register" className="link">
-            Open one
+            {t('login.openOne')}
           </Link>
         </p>
       </header>
@@ -143,7 +143,7 @@ export function LoginForm() {
       <form onSubmit={onCredentials} className="space-y-4">
         {error ? <Notice tone="negative">{error}</Notice> : null}
 
-        <Field label="Email">
+        <Field label={t('email')}>
           {(props) => (
             <Input
               {...props}
@@ -159,13 +159,13 @@ export function LoginForm() {
         </Field>
 
         <Field
-          label="Password"
+          label={t('password')}
           action={
             <Link
               href="/forgot-password"
               className="text-[12px] text-[var(--text-muted)] hover:text-[var(--text)]"
             >
-              Forgot?
+              {t('forgotShort')}
             </Link>
           }
         >
@@ -182,7 +182,7 @@ export function LoginForm() {
         </Field>
 
         <Button type="submit" variant="primary" block loading={pending}>
-          Sign in
+          {t('login.signIn')}
         </Button>
       </form>
     </div>

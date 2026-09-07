@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { prisma } from '@flt/db';
 import { ExternalLink, Receipt, ShieldAlert } from 'lucide-react';
 import {
@@ -33,6 +34,7 @@ export const dynamic = 'force-dynamic';
  */
 export default async function ActivityPage() {
   const user = await requireUserPage();
+  const t = await getTranslations('pages.activity');
 
   const transactions = await prisma.transaction.findMany({
     where: { userId: user.id },
@@ -44,10 +46,7 @@ export default async function ActivityPage() {
 
   return (
     <div className="space-y-6">
-      <SectionHeader
-        title="Activity"
-        description="Every transaction signed with a wallet linked to this account, and what the chain did with it."
-      />
+      <SectionHeader title={t('title')} description={t('description')} />
 
       {flagged.length > 0 ? (
         <Notice

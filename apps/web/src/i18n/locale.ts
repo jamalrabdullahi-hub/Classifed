@@ -9,7 +9,10 @@
 export const LOCALE_COOKIE = 'flt_locale';
 export const LOCALES = ['en', 'so'] as const;
 export type Locale = (typeof LOCALES)[number];
-export const DEFAULT_LOCALE: Locale = 'en';
+// Somali by default. A visitor with no cookie and no `so`-tagged
+// Accept-Language still gets Somali first — English is the opt-out, not the
+// other way around.
+export const DEFAULT_LOCALE: Locale = 'so';
 
 export function isLocale(value: string | undefined | null): value is Locale {
   return value === 'en' || value === 'so';

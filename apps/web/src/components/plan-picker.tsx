@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAccount, useSendTransaction, useSwitchChain } from 'wagmi';
 import { Check, Minus } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
 import { Button, Notice, cn } from '@flt/ui';
 import { ApiError, post, put } from '@/lib/api';
 
@@ -65,6 +66,8 @@ export function PlanPicker({
   const { isConnected, chainId } = useAccount();
   const { sendTransactionAsync } = useSendTransaction();
   const { switchChainAsync } = useSwitchChain();
+  const t = useTranslations('plans');
+  const locale = useLocale();
 
   const [phase, setPhase] = useState<Phase>('idle');
   const [busyTier, setBusyTier] = useState<string | null>(null);
@@ -106,13 +109,15 @@ export function PlanPicker({
       });
 
       setDone(
-        `${plan.name} is active until ${new Date(result.endsAt).toLocaleDateString()}. ` +
-          'Nothing will renew automatically.',
+        t('activeUntil', {
+          plan: plan.name,
+          date: new Date(result.endsAt).toLocaleDateString(locale),
+        }),
       );
       setPhase('done');
     } catch (caught) {
       setPhase('idle');
-      setError(readError(caught));
+      setError(readError(caught, t));
     } finally {
       setBusyTier(null);
     }
@@ -125,9 +130,10 @@ export function PlanPicker({
 
       {currentTier !== 'FREE' && expiresAt ? (
         <Notice tone="neutral">
-          You are on {plans.find((p) => p.tier === currentTier)?.name ?? currentTier} until{' '}
-          {new Date(expiresAt).toLocaleDateString()}. Buying another plan adds the days you have
-          left to the new period.
+          {t('onPlanUntil', {
+            plan: plans.find((p) => p.tier === currentTier)?.name ?? currentTier,
+            date: new Date(expiresAt).toLocaleDateString(locale),
+          })}
         </Notice>
       ) : null}
 
@@ -150,7 +156,7 @@ export function PlanPicker({
                 <h3 className="text-[15px] font-semibold text-[var(--text)]">{plan.name}</h3>
                 {plan.isFeatured ? (
                   <span className="rounded-[3px] bg-[var(--text)] px-1.5 py-0.5 text-[9px] uppercase tracking-[0.07em] text-[var(--canvas)]">
-                    Most popular
+                    {t('mostPopular')}
                   </span>
                 ) : null}
               </div>
@@ -161,44 +167,49 @@ export function PlanPicker({
 
               <p className="mt-2 font-[family-name:var(--font-mono)] text-[22px] tabular-nums text-[var(--text)]">
                 ${plan.priceUsd}
-                <span className="ml-1 text-[11px] text-[var(--text-subtle)]">/ 30 days</span>
+                <span className="ml-1 text-[11px] text-[var(--text-subtle)]">
+                  {t('perThirtyDays')}
+                </span>
               </p>
 
               {plan.feeDiscountBps > 0 ? (
                 <div className="mt-1.5 rounded-[var(--radius)] border border-[var(--positive)] px-2 py-1">
                   <p className="text-[11px] font-medium text-[var(--positive)]">
-                    {plan.feeDiscountBps / 100}% off trading fees
+                    {t('feeDiscount', { pct: plan.feeDiscountBps / 100 })}
                   </p>
                   <p className="mt-0.5 text-[9.5px] leading-relaxed text-[var(--text-subtle)]">
-                    Pays for itself at {breakEven(plan, baseFeeBps)} of monthly volume.
+                    {t('breakEven', { amount: breakEven(plan, baseFeeBps) })}
                   </p>
                 </div>
               ) : null}
 
               <ul className="mt-2.5 flex-1 space-y-1 text-[10.5px]">
-                <Row on label={`Up to ${plan.maxLeverage}x leverage`} />
-                <Row on label={`${limit(plan.watchlistLimit)} watchlists`} />
-                <Row on label={`${limit(plan.priceAlertLimit)} price alerts`} />
-                <Row on label={`${history(plan.historyDays)} trade history`} />
-                <Row on={plan.advancedOrderTools} label="Advanced order tools" />
-                <Row on={plan.fullIndicators} label="Full indicator set" />
-                <Row on={plan.advancedRiskAnalytics} label="Advanced risk analytics" />
-                <Row on={plan.advancedProtectionAnalytics} label="Advanced protection analytics" />
-                <Row on={plan.fundingAnalytics} label="Funding-rate analytics" />
-                <Row on={plan.fullPnl || plan.advancedPnl} label={plan.fullPnl ? 'Full P&L analytics' : 'Advanced P&L analytics'} />
-                <Row on={plan.apiAccess} label="API access" />
-                <Row on={plan.priorityData} label="Priority execution and data" />
-                <Row on={plan.prioritySupport} label="Priority support" />
+                <Row on label={t('leverageUpTo', { n: plan.maxLeverage })} />
+                <Row on label={t('watchlists', { n: limit(plan.watchlistLimit, t) })} />
+                <Row on label={t('priceAlerts', { n: limit(plan.priceAlertLimit, t) })} />
+                <Row on label={t('tradeHistory', { n: history(plan.historyDays, t) })} />
+                <Row on={plan.advancedOrderTools} label={t('advancedOrderTools')} />
+                <Row on={plan.fullIndicators} label={t('fullIndicators')} />
+                <Row on={plan.advancedRiskAnalytics} label={t('advancedRiskAnalytics')} />
+                <Row on={plan.advancedProtectionAnalytics} label={t('advancedProtectionAnalytics')} />
+                <Row on={plan.fundingAnalytics} label={t('fundingAnalytics')} />
+                <Row
+                  on={plan.fullPnl || plan.advancedPnl}
+                  label={plan.fullPnl ? t('fullPnl') : t('advancedPnl')}
+                />
+                <Row on={plan.apiAccess} label={t('apiAccess')} />
+                <Row on={plan.priorityData} label={t('priorityData')} />
+                <Row on={plan.prioritySupport} label={t('prioritySupport')} />
               </ul>
 
               <div className="mt-3">
                 {isCurrent ? (
                   <p className="text-center text-[11px] text-[var(--text-subtle)]">
-                    Your current plan
+                    {t('currentPlanLabel')}
                   </p>
                 ) : isFree ? (
                   <p className="text-center text-[11px] text-[var(--text-subtle)]">
-                    What every account has
+                    {t('freeIncluded')}
                   </p>
                 ) : (
                   <Button
@@ -208,7 +219,7 @@ export function PlanPicker({
                     loading={busyTier === plan.tier}
                     onClick={() => void choose(plan)}
                   >
-                    {phaseLabel(busyTier === plan.tier ? phase : 'idle', plan.name)}
+                    {phaseLabel(busyTier === plan.tier ? phase : 'idle', plan.name, t)}
                   </Button>
                 )}
               </div>
@@ -218,17 +229,14 @@ export function PlanPicker({
       </div>
 
       {!isConnected ? (
-        <Notice tone="warning" title="Connect your wallet">
-          A plan is paid by a transfer you sign yourself.
+        <Notice tone="warning" title={t('connectWalletTitle')}>
+          {t('connectWalletBody')}
         </Notice>
       ) : null}
 
       <p className="text-[10.5px] leading-relaxed text-[var(--text-subtle)]">
-        Plans are paid one period at a time and do not renew automatically — FLT holds no key that
-        could charge you again, which is the same reason it cannot move your trading funds. When a
-        period ends the account returns to Free; positions, history and protection policies are
-        untouched.{' '}
-        {currentSubscriptionId ? 'Cancelling stops the plan but does not refund the current period.' : ''}
+        {t('footerNote')}{' '}
+        {currentSubscriptionId ? t('cancelNote') : ''}
       </p>
     </div>
   );
@@ -249,14 +257,14 @@ function Row({ on, label }: { on: boolean; label: string }) {
   );
 }
 
-function limit(value: number | null): string {
-  return value === null ? 'Unlimited' : String(value);
+function limit(value: number | null, t: ReturnType<typeof useTranslations>): string {
+  return value === null ? t('unlimited') : String(value);
 }
 
-function history(days: number | null): string {
-  if (days === null) return 'Unlimited';
-  if (days >= 365) return `${Math.round(days / 365)} year`;
-  return `${days} days`;
+function history(days: number | null, t: ReturnType<typeof useTranslations>): string {
+  if (days === null) return t('unlimited');
+  if (days >= 365) return t('year', { n: Math.round(days / 365) });
+  return t('days', { n: days });
 }
 
 /**
@@ -280,20 +288,20 @@ function breakEven(plan: Plan, baseFeeBps: number): string {
   return `$${Math.round(volume)}`;
 }
 
-function phaseLabel(phase: Phase, name: string): string {
-  if (phase === 'preparing') return 'Preparing…';
-  if (phase === 'signing') return 'Confirm in your wallet';
-  if (phase === 'confirming') return 'Verifying payment…';
-  return `Choose ${name}`;
+function phaseLabel(phase: Phase, name: string, t: ReturnType<typeof useTranslations>): string {
+  if (phase === 'preparing') return t('preparing');
+  if (phase === 'signing') return t('confirmInWallet');
+  if (phase === 'confirming') return t('verifyingPayment');
+  return t('chooseX', { name });
 }
 
-function readError(caught: unknown): string {
+function readError(caught: unknown, t: ReturnType<typeof useTranslations>): string {
   if (caught instanceof ApiError) return caught.message;
   if (caught instanceof Error) {
     if (/user rejected|denied|rejected the request/i.test(caught.message)) {
-      return 'You declined the transfer, so nothing was charged.';
+      return t('declined');
     }
     return caught.message;
   }
-  return 'Something went wrong and no plan was started.';
+  return t('genericError');
 }

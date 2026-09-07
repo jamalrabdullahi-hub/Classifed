@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, MailX } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Button, Notice } from '@flt/ui';
 import { ApiError, post } from '@/lib/api';
 
@@ -21,6 +22,7 @@ import { ApiError, post } from '@/lib/api';
 type State = 'working' | 'done' | 'failed' | 'missing';
 
 export function VerifyEmailForm({ token }: { token: string | null }) {
+  const t = useTranslations('auth.verify');
   const [state, setState] = useState<State>(token ? 'working' : 'missing');
   const [message, setMessage] = useState<string | null>(null);
   const attempted = useRef(false);
@@ -35,11 +37,7 @@ export function VerifyEmailForm({ token }: { token: string | null }) {
         setState('done');
       } catch (caught) {
         setState('failed');
-        setMessage(
-          caught instanceof ApiError
-            ? caught.message
-            : 'That link could not be confirmed. It may have expired.',
-        );
+        setMessage(caught instanceof ApiError ? caught.message : t('failedGenericError'));
       }
     })();
   }, [token]);
@@ -48,32 +46,30 @@ export function VerifyEmailForm({ token }: { token: string | null }) {
     return (
       <Shell
         icon={<MailX className="size-4 text-[var(--warning)]" />}
-        title="This link is incomplete"
-        body="The address you opened has no confirmation code in it. Open the link from your email directly rather than copying part of it."
+        title={t('incompleteTitle')}
+        body={t('incompleteBody')}
       >
         <Button asChild variant="secondary" block>
-          <Link href="/login">Back to sign in</Link>
+          <Link href="/login">{t('goToSignIn')}</Link>
         </Button>
       </Shell>
     );
   }
 
   if (state === 'working') {
-    return (
-      <Shell title="Confirming your email address" body="This will only take a moment." />
-    );
+    return <Shell title={t('workingTitle')} body={t('workingBody')} />;
   }
 
   if (state === 'failed') {
     return (
       <Shell
         icon={<MailX className="size-4 text-[var(--negative)]" />}
-        title="That link did not work"
-        body="Confirmation links can be used once and expire after 24 hours. Signing in will send you a new one."
+        title={t('failedTitle')}
+        body={t('failedBody')}
       >
         {message ? <Notice tone="negative">{message}</Notice> : null}
         <Button asChild variant="primary" block>
-          <Link href="/login">Go to sign in</Link>
+          <Link href="/login">{t('goToSignIn')}</Link>
         </Button>
       </Shell>
     );
@@ -82,11 +78,11 @@ export function VerifyEmailForm({ token }: { token: string | null }) {
   return (
     <Shell
       icon={<CheckCircle2 className="size-4 text-[var(--positive)]" />}
-      title="Email confirmed"
-      body="Your address is verified. You can sign in now."
+      title={t('doneTitle')}
+      body={t('doneBody')}
     >
       <Button asChild variant="primary" block>
-        <Link href="/login">Sign in</Link>
+        <Link href="/login">{t('signIn')}</Link>
       </Button>
     </Shell>
   );

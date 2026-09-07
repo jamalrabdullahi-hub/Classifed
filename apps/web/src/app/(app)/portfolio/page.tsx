@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { prisma } from '@flt/db';
 import { AlertTriangle, Wallet } from 'lucide-react';
 import {
@@ -42,6 +43,7 @@ export const dynamic = 'force-dynamic';
  */
 export default async function PortfolioPage() {
   const user = await requireUserPage();
+  const t = await getTranslations('pages.portfolio');
 
   const wallets = await prisma.wallet.findMany({
     where: { userId: user.id, verifiedAt: { not: null } },
@@ -51,15 +53,15 @@ export default async function PortfolioPage() {
   if (wallets.length === 0) {
     return (
       <div className="space-y-6">
-        <SectionHeader title="Portfolio" />
+        <SectionHeader title={t('title')} />
         <Card>
           <EmptyState
             icon={<Wallet className="size-4" />}
-            title="No wallet linked"
-            description="Link a self-custody wallet to see your balances. FLT reads them from the chain and never holds your assets."
+            title={t('noWalletTitle')}
+            description={t('noWalletBody')}
             action={
               <Button asChild variant="primary" size="sm">
-                <Link href="/wallets">Connect a wallet</Link>
+                <Link href="/wallets">{t('connectWallet')}</Link>
               </Button>
             }
           />
@@ -171,16 +173,13 @@ export default async function PortfolioPage() {
 
   return (
     <div className="space-y-6">
-      <SectionHeader
-        title="Portfolio"
-        description="Read directly from the chain. FLT does not hold these assets and cannot move them."
-      />
+      <SectionHeader title={t('title')} description={t('description')} />
 
       {rpcFailures.length > 0 ? (
-        <Notice tone="warning" icon={<AlertTriangle className="size-4" />} title="Some balances could not be read">
-          The network could not be reached for {rpcFailures.length} wallet
-          {rpcFailures.length === 1 ? '' : 's'}. Those holdings are missing from this view rather
-          than shown as zero.
+        <Notice tone="warning" icon={<AlertTriangle className="size-4" />} title={t('someBalancesTitle')}>
+          {t(rpcFailures.length === 1 ? 'networkUnreachableOne' : 'networkUnreachableMany', {
+            count: rpcFailures.length,
+          })}
         </Notice>
       ) : null}
 
@@ -188,45 +187,42 @@ export default async function PortfolioPage() {
         <Card>
           <CardContent>
             <Stat
-              label="Estimated value"
+              label={t('estimatedValue')}
               value={formatUsd(totalUsd)}
-              hint={anyUnreadable ? 'Incomplete — some balances unreadable' : 'Third-party prices'}
+              hint={anyUnreadable ? t('incompleteHint') : t('thirdPartyPricesHint')}
             />
           </CardContent>
         </Card>
         <Card>
           <CardContent>
-            <Stat label="Assets held" value={rows.length} hint="With a non-zero balance" />
+            <Stat label={t('assetsHeld')} value={rows.length} hint={t('nonZeroHint')} />
           </CardContent>
         </Card>
         <Card>
           <CardContent>
-            <Stat label="Wallets" value={wallets.length} hint="Linked and verified" />
+            <Stat label={t('wallets')} value={wallets.length} hint={t('linkedVerifiedHint')} />
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Holdings</CardTitle>
+          <CardTitle>{t('holdings')}</CardTitle>
           <Badge tone="neutral">Base</Badge>
         </CardHeader>
 
         {rows.length === 0 ? (
-          <EmptyState
-            title="No balances found"
-            description="This wallet holds none of the tokens in FLT's registry on Base. Balances are read from the chain, so anything you hold elsewhere is unaffected."
-          />
+          <EmptyState title={t('noBalancesTitle')} description={t('noBalancesBody')} />
         ) : (
           <Table>
             <THead>
               <TR>
-                <TH>Asset</TH>
-                <TH>Contract</TH>
-                <TH numeric>On-chain balance</TH>
-                <TH numeric>Price</TH>
-                <TH numeric>Estimated value</TH>
-                <TH>Wallet</TH>
+                <TH>{t('asset')}</TH>
+                <TH>{t('contract')}</TH>
+                <TH numeric>{t('onChainBalance')}</TH>
+                <TH numeric>{t('price')}</TH>
+                <TH numeric>{t('estimatedValue')}</TH>
+                <TH>{t('wallet')}</TH>
               </TR>
             </THead>
             <TBody>
@@ -235,7 +231,7 @@ export default async function PortfolioPage() {
                   <TD>
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{row.symbol}</span>
-                      {row.tier === 'UNVERIFIED' ? <Badge tone="warning">Unverified</Badge> : null}
+                      {row.tier === 'UNVERIFIED' ? <Badge tone="warning">{t('unverified')}</Badge> : null}
                     </div>
                     <span className="text-[11px] text-[var(--text-subtle)]">{row.name}</span>
                   </TD>
@@ -249,7 +245,7 @@ export default async function PortfolioPage() {
                     {row.readable ? (
                       formatTokenAmount(row.balance, row.decimals)
                     ) : (
-                      <span className="text-[var(--text-subtle)]" title="Could not be read">
+                      <span className="text-[var(--text-subtle)]" title={t('couldNotBeRead')}>
                         —
                       </span>
                     )}
@@ -275,11 +271,7 @@ export default async function PortfolioPage() {
         )}
       </Card>
 
-      <p className="text-[11px] leading-relaxed text-[var(--text-subtle)]">
-        On-chain balances are exact and read live from Base. Estimated values apply third-party
-        prices to those balances and will differ from what a trade actually realises. A dash means
-        the value is unknown, never that it is zero.
-      </p>
+      <p className="text-[11px] leading-relaxed text-[var(--text-subtle)]">{t('footerNote')}</p>
     </div>
   );
 }
