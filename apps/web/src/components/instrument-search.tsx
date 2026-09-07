@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@flt/ui';
 import { get } from '@/lib/api';
 
@@ -41,6 +42,7 @@ export function InstrumentSearch({
   autoFocus?: boolean;
 }) {
   const router = useRouter();
+  const t = useTranslations('instrumentSearch');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Result[]>([]);
   const [open, setOpen] = useState(false);
@@ -121,7 +123,7 @@ export function InstrumentSearch({
             }
           }}
           placeholder={placeholder}
-          aria-label="Search instruments"
+          aria-label={t('searchAria')}
           aria-expanded={open}
           role="combobox"
           aria-controls="instrument-search-results"
@@ -131,7 +133,7 @@ export function InstrumentSearch({
 
       {open && query.trim() && results.length === 0 ? (
         <div className="absolute right-0 z-40 mt-1 w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--canvas)] px-2.5 py-2 text-[10.5px] text-[var(--text-subtle)] shadow-lg">
-          Nothing matches “{query.trim()}”.
+          {t('nothingMatches', { query: query.trim() })}
         </div>
       ) : null}
 
@@ -181,7 +183,7 @@ export function InstrumentSearch({
                   */}
                   {result.tier === 'UNVERIFIED' || result.tier === 'RECOGNIZED' ? (
                     <span className="text-[9px] uppercase tracking-[0.06em] text-[var(--warning)]">
-                      {result.tier === 'UNVERIFIED' ? 'unverified' : 'unreviewed'}
+                      {result.tier === 'UNVERIFIED' ? t('unverified') : t('unreviewed')}
                     </span>
                   ) : null}
                   <span className="text-[9.5px] text-[var(--text-subtle)]">{result.detail}</span>

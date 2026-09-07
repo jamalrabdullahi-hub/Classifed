@@ -1,3 +1,4 @@
+import { getTranslations } from 'next-intl/server';
 import { prisma } from '@flt/db';
 import { env } from '@flt/config';
 import { perpVenues } from '@flt/providers';
@@ -23,6 +24,7 @@ import { handler } from '@/server/api';
  * deliberately curated, so a match there is more likely to be the thing meant.
  */
 export const GET = handler({}, async ({ request }) => {
+  const t = await getTranslations('instrumentSearch');
   const url = new URL(request.url);
   const query = (url.searchParams.get('q') ?? '').trim();
   const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? 20), 1), 50);
@@ -96,7 +98,10 @@ export const GET = handler({}, async ({ request }) => {
       symbol: market.symbol,
       name: market.name,
       href: `/perps/${market.symbol}`,
-      detail: `${market.assetClass.toLowerCase()} perp · up to ${Math.min(market.maxLeverage, config.PERP_MAX_LEVERAGE)}x`,
+      detail: t('perpDetail', {
+        assetClass: market.assetClass.toLowerCase(),
+        leverage: Math.min(market.maxLeverage, config.PERP_MAX_LEVERAGE),
+      }),
       assetClass: market.assetClass,
       tier: null as string | null,
       address: null as string | null,
@@ -108,7 +113,7 @@ export const GET = handler({}, async ({ request }) => {
       symbol: token.symbol,
       name: token.name,
       href: `/trade?token=${token.address}&chain=${token.chainId}`,
-      detail: `spot · ${token.chain.name}`,
+      detail: t('spotDetail', { chain: token.chain.name }),
       address: token.address,
       /** True when another enabled token shares this symbol. */
       ambiguous: (symbolCounts.get(token.symbol.toUpperCase()) ?? 0) > 1,

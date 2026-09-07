@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { ApiError, get } from '@/lib/api';
 import { PolicyManager } from './policy-manager';
 
@@ -109,10 +110,10 @@ const PERCENTILES = [
   { value: 0.9999, label: '99.99%' },
 ];
 
-const POLICY_LABELS: Record<string, string> = {
-  BASE_DAY: 'Base Day',
-  BASE_SMOOTH: 'Base Smooth',
-  OMNI: 'Omni',
+const POLICY_LABEL_KEYS: Record<string, string> = {
+  BASE_DAY: 'policyBaseDay',
+  BASE_SMOOTH: 'policyBaseSmooth',
+  OMNI: 'policyOmni',
 };
 
 export function ProtectionPanel({
@@ -122,6 +123,7 @@ export function ProtectionPanel({
   symbol: string;
   markPrice: string | null;
 }) {
+  const t = useTranslations('protectionPanel');
   const [percentile, setPercentile] = useState(0.95);
   const [horizonDays, setHorizonDays] = useState(10);
   const [position, setPosition] = useState<LivePosition | null>(null);
@@ -188,7 +190,7 @@ export function ProtectionPanel({
         }
       } catch (caught) {
         if (!cancelled) {
-          setError(caught instanceof ApiError ? caught.message : 'Calculation unavailable');
+          setError(caught instanceof ApiError ? caught.message : t('calculationUnavailable'));
         }
       }
     }
@@ -207,7 +209,7 @@ export function ProtectionPanel({
     return <Message>{error}</Message>;
   }
   if (!calculation) {
-    return <Message>Calculating…</Message>;
+    return <Message>{t('calculating')}</Message>;
   }
 
   const rows = ['BASE_DAY', 'BASE_SMOOTH', 'OMNI']
@@ -221,12 +223,16 @@ export function ProtectionPanel({
     <div className="space-y-2.5 p-2.5 text-[11px] leading-relaxed">
       <p className="text-[10.5px] text-[var(--text-subtle)]">
         {position
-          ? `Your ${position.side.toLowerCase()} on ${symbol}, ${fmtUsd(calculation.position.notional)} notional.`
-          : `No position — priced as a hypothetical $1,000 long at ${fmtUsd(calculation.currentPrice)}.`}
+          ? t('yourPositionNotional', {
+              side: position.side === 'LONG' ? t('long') : t('short'),
+              symbol,
+              notional: fmtUsd(calculation.position.notional),
+            })
+          : t('hypothetical', { price: fmtUsd(calculation.currentPrice) })}
       </p>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <Field label="Percentile">
+        <Field label={t('percentile')}>
           <select
             value={percentile}
             onChange={(event) => setPercentile(Number(event.target.value))}
@@ -240,7 +246,7 @@ export function ProtectionPanel({
           </select>
         </Field>
 
-        <Field label="Omni rebase">
+        <Field label={t('omniRebase')}>
           <select
             value={horizonDays}
             onChange={(event) => setHorizonDays(Number(event.target.value))}
@@ -256,27 +262,30 @@ export function ProtectionPanel({
       </div>
 
       <Line
-        label="Volatility"
-        value={`${(Number(calculation.volatility.dailySigma) * 100).toFixed(2)}% / day`}
-        hint={`${calculation.volatility.observations} × ${calculation.volatility.interval}`}
+        label={t('volatility')}
+        value={t('perDay', { pct: (Number(calculation.volatility.dailySigma) * 100).toFixed(2) })}
+        hint={t('observationsInterval', {
+          count: calculation.volatility.observations,
+          interval: calculation.volatility.interval,
+        })}
       />
 
       <div className="overflow-x-auto">
         <table className="w-full border-collapse font-[family-name:var(--font-mono)] text-[10.5px] tabular-nums">
           <thead>
             <tr className="text-[9.5px] uppercase tracking-[0.08em] text-[var(--text-subtle)]">
-              <th className="py-1 text-left font-normal">Policy</th>
-              <th className="py-1 text-right font-normal">Ref</th>
-              <th className="py-1 text-right font-normal">Move</th>
-              <th className="py-1 text-right font-normal">Boundary</th>
-              <th className="py-1 text-right font-normal">Would cost</th>
+              <th className="py-1 text-left font-normal">{t('colPolicy')}</th>
+              <th className="py-1 text-right font-normal">{t('colRef')}</th>
+              <th className="py-1 text-right font-normal">{t('colMove')}</th>
+              <th className="py-1 text-right font-normal">{t('colBoundary')}</th>
+              <th className="py-1 text-right font-normal">{t('colWouldCost')}</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
               <tr key={row.policy} className="border-t border-[var(--border)]">
                 <td className="py-1 pr-2 text-left font-[family-name:var(--font-sans)] text-[var(--text-muted)]">
-                  {POLICY_LABELS[row.policy]}
+                  {t(POLICY_LABEL_KEYS[row.policy] ?? 'policyOmni')}
                 </td>
                 <td className="py-1 text-right text-[var(--text-subtle)]">
                   {fmtUsd(row.referencePrice)}
@@ -304,38 +313,39 @@ export function ProtectionPanel({
 
       {calculation.position.liquidationPrice ? (
         <Line
-          label="Venue liquidation"
+          label={t('venueLiquidation')}
           value={fmtUsd(calculation.position.liquidationPrice)}
-          hint="the venue's own number"
+          hint={t('venuesOwnNumber')}
         />
       ) : null}
 
       {smooth ? (
         <div className="space-y-1.5 border-t border-[var(--border)] pt-2">
           <Line
-            label="Base Smooth utilisation"
+            label={t('baseSmoothUtilisation')}
             value={`${(Number(smooth.utilization) * 100).toFixed(1)}%`}
-            hint={`starts at ${(Number(smooth.startAt) * 100).toFixed(1)}% adverse`}
+            hint={t('startsAtAdverse', { pct: (Number(smooth.startAt) * 100).toFixed(1) })}
           />
           {Number(smooth.recommendedReduction) > 0 ? (
             <p className="text-[10.5px] text-[var(--warning)]">
-              Base Smooth would have you reduce {fmtUsd(smooth.recommendedReduction)} of notional,
-              down to {fmtUsd(smooth.targetNotional)}. You would place that trade yourself.
+              {t('baseSmoothReduceNote', {
+                reduction: fmtUsd(smooth.recommendedReduction),
+                target: fmtUsd(smooth.targetNotional),
+              })}
             </p>
           ) : null}
         </div>
       ) : null}
 
       {omni && Number(omni.modifiers.combined) !== 1 ? (
-        <Line label="Risk modifiers" value={`×${Number(omni.modifiers.combined).toFixed(3)}`} />
+        <Line label={t('riskModifiers')} value={`×${Number(omni.modifiers.combined).toFixed(3)}`} />
       ) : null}
 
       {rows.some((row) => row.standing === 'beyond-liquidation') ? (
         <p className="border-t border-[var(--border)] pt-2 text-[10.5px] text-[var(--warning)]">
-          Boundaries shown in amber sit past where {calculation.position.liquidationPrice ? 'the venue' : 'your venue'} would
-          liquidate this position — the position is closed before the boundary is reached, so that
-          boundary describes an event that cannot happen. Lower the leverage, shorten the horizon,
-          or drop the percentile.
+          {t('beyondLiquidationNote', {
+            venue: calculation.position.liquidationPrice ? t('theVenue') : t('yourVenue'),
+          })}
         </p>
       ) : null}
 
@@ -349,9 +359,10 @@ export function ProtectionPanel({
       </div>
 
       <p className="border-t border-[var(--border)] pt-2 text-[10.5px] text-[var(--text-subtle)]">
-        This is a calculation, not cover. Nothing is collected and no claim can be paid. FLT cannot
-        open, close or reduce your position — only the key in your browser can. z is one-tailed:{' '}
-        {omni ? Number(omni.zScore).toFixed(4) : '—'} at {omni ? pct(omni.percentile) : '—'}.
+        {t('footerNote', {
+          z: omni ? Number(omni.zScore).toFixed(4) : '—',
+          pct: omni ? pct(omni.percentile) : '—',
+        })}
       </p>
     </div>
   );
