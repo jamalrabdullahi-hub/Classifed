@@ -5,7 +5,9 @@ import { passiveCashSummary } from '@flt/core/services/passive-cash';
 import { requireUserPage } from '@/server/session';
 import { PassiveCashPanel } from '@/components/passive-cash-panel';
 
-export const metadata: Metadata = { title: 'Passive cash' };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations('meta'))('titlePassiveCash') };
+}
 export const dynamic = 'force-dynamic';
 
 /**

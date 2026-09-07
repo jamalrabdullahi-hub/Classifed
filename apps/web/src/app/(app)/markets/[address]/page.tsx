@@ -35,7 +35,8 @@ export async function generateMetadata({
     where: { chainId: BASE_CHAIN_ID, address },
     select: { symbol: true },
   });
-  return { title: token ? `${token.symbol} · Markets` : 'Markets' };
+  const t = await getTranslations('meta');
+  return { title: token ? t('titleMarketSymbol', { symbol: token.symbol }) : t('titleMarkets') };
 }
 
 /**

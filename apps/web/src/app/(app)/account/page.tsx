@@ -19,7 +19,9 @@ import { listDevices, listSessions } from '@flt/core/services/sessions';
 import { AccountSecurity } from './account-security';
 import { requireUserPage } from '@/server/session';
 
-export const metadata: Metadata = { title: 'Account' };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations('meta'))('titleAccount') };
+}
 export const dynamic = 'force-dynamic';
 
 /**

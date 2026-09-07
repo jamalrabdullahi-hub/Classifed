@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { getTranslations } from 'next-intl/server';
 
 /**
  * Web app manifest.
@@ -9,13 +10,17 @@ import type { MetadataRoute } from 'next';
  *
  * `maskable` is a separate file rather than the same PNG reused: Android crops
  * icons to a circle, and the standard icon's corners would lose the outer bar.
+ *
+ * The description follows the resolved locale like every other metadata
+ * surface — Somali by default.
  */
-export default function manifest(): MetadataRoute.Manifest {
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const t = await getTranslations('meta');
+
   return {
     name: 'FLT-Exchange',
     short_name: 'FLT',
-    description:
-      'Non-custodial trading. Connect your own wallet, trade through decentralized exchanges, and keep custody of your assets.',
+    description: t('rootDescription'),
     start_url: '/dashboard',
     display: 'standalone',
     orientation: 'portrait',

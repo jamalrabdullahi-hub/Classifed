@@ -21,7 +21,9 @@ import { explorerAddressUrl, explorerTokenUrl, explorerTxUrl } from '@flt/core/c
 import { formatTokenAmount } from '@flt/core/domain';
 import { requireUserPage } from '@/server/session';
 
-export const metadata: Metadata = { title: 'Transaction' };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations('meta'))('titleTransaction') };
+}
 export const dynamic = 'force-dynamic';
 
 /**

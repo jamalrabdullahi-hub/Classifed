@@ -8,7 +8,9 @@ import { MarketPreview } from '@/components/market-preview';
 import { TradeClient } from './trade-client';
 import { requireUserPage } from '@/server/session';
 
-export const metadata: Metadata = { title: 'Trade' };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations('meta'))('titleTrade') };
+}
 export const dynamic = 'force-dynamic';
 
 /**

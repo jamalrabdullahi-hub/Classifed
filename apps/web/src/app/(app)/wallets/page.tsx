@@ -1,9 +1,12 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { prisma } from '@flt/db';
 import { WalletsClient } from './wallets-client';
 import { requireUserPage } from '@/server/session';
 
-export const metadata: Metadata = { title: 'Wallets' };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations('meta'))('titleWallets') };
+}
 export const dynamic = 'force-dynamic';
 
 export default async function WalletsPage() {

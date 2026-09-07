@@ -23,7 +23,9 @@ import { formatUsd } from '@flt/core/domain';
 import { requireUserPage } from '@/server/session';
 import { InstrumentSearch } from '@/components/instrument-search';
 
-export const metadata: Metadata = { title: 'Scanner' };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations('meta'))('titleScanner') };
+}
 
 /** How many rows to render without a query. */
 const DEFAULT_ROWS = 100;

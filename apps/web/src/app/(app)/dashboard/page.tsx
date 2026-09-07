@@ -22,7 +22,9 @@ import { requireUserPage } from '@/server/session';
 import { entitlementsFor } from '@flt/core/services/entitlements';
 import { UpgradeBanner } from '@/components/upgrade-banner';
 
-export const metadata: Metadata = { title: 'Home' };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations('meta'))('titleHome') };
+}
 export const dynamic = 'force-dynamic';
 
 /**

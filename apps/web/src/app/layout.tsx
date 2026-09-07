@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { IBM_Plex_Mono, IBM_Plex_Sans } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
-import { getMessages, getLocale } from 'next-intl/server';
+import { getMessages, getLocale, getTranslations } from 'next-intl/server';
 import './globals.css';
 import { TooltipProvider } from '@flt/ui';
 import { ThemeScript } from '@/components/theme';
@@ -47,38 +47,52 @@ const mono = IBM_Plex_Mono({
   variable: '--font-mono-face',
 });
 
-const DESCRIPTION =
-  'Non-custodial trading. Connect your own wallet, trade through decentralized exchanges, and keep custody of your assets.';
+/**
+ * Metadata in the site's own language.
+ *
+ * `generateMetadata` rather than a static export because the description has
+ * to follow the resolved locale (`resolveLocale` in `src/i18n/request.ts`) —
+ * Somali by default, so a crawler or a bare link preview sees Somali copy
+ * unless the visitor has explicitly switched to English. No mention of
+ * perpetuals here by design: the metadata surface stays to the plain,
+ * non-leveraged description of the product.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  const t = await getTranslations('meta');
+  const description = t('rootDescription');
 
-export const metadata: Metadata = {
-  /*
-   * Absolute URLs for the social card are resolved against this. Without it
-   * Next emits a relative og:image, which every platform ignores.
-   */
-  metadataBase: new URL(process.env.WEB_APP_URL ?? 'http://localhost:3000'),
-  title: {
-    default: 'FLT-Exchange',
-    template: '%s · FLT-Exchange',
-  },
-  description: DESCRIPTION,
-  applicationName: 'FLT-Exchange',
-  // Still unlaunched. The card matters for links shared privately, indexing
-  // does not.
-  robots: { index: false, follow: false },
-  openGraph: {
-    type: 'website',
-    siteName: 'FLT-Exchange',
-    title: 'FLT-Exchange',
-    description: DESCRIPTION,
-    images: [{ url: '/og.png', width: 1200, height: 630, alt: 'FLT-Exchange' }],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'FLT-Exchange',
-    description: DESCRIPTION,
-    images: ['/og.png'],
-  },
-};
+  return {
+    /*
+     * Absolute URLs for the social card are resolved against this. Without it
+     * Next emits a relative og:image, which every platform ignores.
+     */
+    metadataBase: new URL(process.env.WEB_APP_URL ?? 'http://localhost:3000'),
+    title: {
+      default: 'FLT-Exchange',
+      template: '%s · FLT-Exchange',
+    },
+    description,
+    applicationName: 'FLT-Exchange',
+    // Still unlaunched. The card matters for links shared privately, indexing
+    // does not.
+    robots: { index: false, follow: false },
+    openGraph: {
+      type: 'website',
+      locale,
+      siteName: 'FLT-Exchange',
+      title: 'FLT-Exchange',
+      description,
+      images: [{ url: '/og.png', width: 1200, height: 630, alt: t('ogAlt') }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: 'FLT-Exchange',
+      description,
+      images: ['/og.png'],
+    },
+  };
+}
 
 export const viewport: Viewport = {
   width: 'device-width',

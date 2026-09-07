@@ -6,7 +6,9 @@ import { referralSummary } from '@flt/core/services/referrals';
 import { requireUserPage } from '@/server/session';
 import { ReferralPanel } from '@/components/referral-panel';
 
-export const metadata: Metadata = { title: 'Referrals' };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations('meta'))('titleReferrals') };
+}
 export const dynamic = 'force-dynamic';
 
 /**

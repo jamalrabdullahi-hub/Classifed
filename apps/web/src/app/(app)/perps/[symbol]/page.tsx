@@ -17,7 +17,8 @@ export async function generateMetadata({
   params: Promise<{ symbol: string }>;
 }): Promise<Metadata> {
   const { symbol } = await params;
-  return { title: `${symbol.toUpperCase()} perpetual` };
+  const t = await getTranslations('meta');
+  return { title: t('titleInstrumentSymbol', { symbol: symbol.toUpperCase() }) };
 }
 
 /**

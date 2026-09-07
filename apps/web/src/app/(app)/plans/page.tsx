@@ -6,7 +6,9 @@ import { listPlans, currentSubscription } from '@flt/core/services/subscriptions
 import { requireUserPage } from '@/server/session';
 import { PlanPicker } from '@/components/plan-picker';
 
-export const metadata: Metadata = { title: 'Plans' };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations('meta'))('titlePlans') };
+}
 export const dynamic = 'force-dynamic';
 
 /**

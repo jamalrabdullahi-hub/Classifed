@@ -26,7 +26,9 @@ import { BASE_CHAIN_ID, explorerAddressUrl, explorerTokenUrl, readBalances } fro
 import { Decimal, formatTokenAmount, formatUsd, isNativeToken } from '@flt/core/domain';
 import { requireUserPage } from '@/server/session';
 
-export const metadata: Metadata = { title: 'Portfolio' };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations('meta'))('titlePortfolio') };
+}
 export const dynamic = 'force-dynamic';
 
 /**

@@ -21,7 +21,9 @@ import { explorerTxUrl } from '@flt/core/chains';
 import { truncateMiddle } from '@flt/ui';
 import { requireUserPage } from '@/server/session';
 
-export const metadata: Metadata = { title: 'Activity' };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations('meta'))('titleActivity') };
+}
 export const dynamic = 'force-dynamic';
 
 /**

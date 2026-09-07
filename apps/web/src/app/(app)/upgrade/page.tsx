@@ -8,7 +8,9 @@ import { entitlementsFor } from '@flt/core/services/entitlements';
 import { requireUserPage } from '@/server/session';
 import { UpgradePitch } from '@/components/upgrade-pitch';
 
-export const metadata: Metadata = { title: 'Upgrade' };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations('meta'))('titleUpgrade') };
+}
 export const dynamic = 'force-dynamic';
 
 /**
