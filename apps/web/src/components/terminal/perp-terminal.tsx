@@ -29,12 +29,15 @@ export function PerpTerminal({
   markets,
   venueName,
   venueIsMock,
+  canTrade = true,
   requiresBridgedCollateral,
 }: {
   market: TickerMarket;
   markets: Array<{ symbol: string; name?: string }>;
   venueName: string;
   venueIsMock: boolean;
+  /** False on a plan without perpetuals: everything renders, nothing submits. */
+  canTrade?: boolean;
   requiresBridgedCollateral: boolean;
 }) {
   // Clicking a book level is currently read by nothing: the protected ticket
@@ -108,6 +111,7 @@ export function PerpTerminal({
           bodyClassName="p-0"
         >
           <ProtectedTicket
+            locked={!canTrade}
             onPriceLinesChange={setProtectionLines}
             symbol={market.symbol}
             markPrice={market.markPrice}

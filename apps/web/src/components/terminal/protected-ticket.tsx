@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { TriangleAlert, ShieldCheck, ChevronDown } from 'lucide-react';
+import Link from 'next/link';
+import { TriangleAlert, ShieldCheck, ChevronDown, ArrowRight } from 'lucide-react';
 import { Button, Notice, cn } from '@flt/ui';
 import { ApiError, get, post } from '@/lib/api';
 import {
@@ -54,6 +55,14 @@ interface Props {
   operatorFeeBps?: number;
   protectionRequired?: boolean;
   /**
+   * Renders the ticket dimmed and inert.
+   *
+   * Everything stays on screen and readable. A plan gate should show what is
+   * being withheld, not hide it — somebody cannot want what they have not been
+   * allowed to look at.
+   */
+  locked?: boolean;
+  /**
    * Reports the boundary and liquidation price up so the chart can draw them.
    *
    * The only useful question about those two numbers is spatial — how far is
@@ -104,6 +113,7 @@ export function ProtectedTicket({
   quoteAsset = 'USDC',
   operatorFeeBps = 1_000,
   protectionRequired = true,
+  locked = false,
   onPriceLinesChange,
 }: Props) {
   const [side, setSide] = useState<'LONG' | 'SHORT'>('LONG');
@@ -263,10 +273,32 @@ export function ProtectedTicket({
   }
 
   return (
-    <div className="space-y-2.5 p-2.5 text-[11px]">
+    <div className="relative space-y-2.5 p-2.5 text-[11px]">
+      {locked ? (
+        <div className="rounded-[var(--radius-md)] border border-[var(--warning)] bg-[var(--surface-raised)] p-2.5">
+          <p className="text-[11.5px] font-medium text-[var(--text)]">
+            Perpetuals need a plan
+          </p>
+          <p className="mt-1 text-[10.5px] leading-relaxed text-[var(--text-subtle)]">
+            Look around as much as you like — prices, charts and the protection calculation are
+            all live. Placing an order needs FLT Basic or above.
+          </p>
+          <Link
+            href="/plans?from=perps"
+            className="mt-2 inline-flex items-center gap-1 rounded-[var(--radius)] border border-[var(--text)] px-2.5 py-1 text-[11px] font-medium text-[var(--text)] transition-colors hover:bg-[var(--text)] hover:text-[var(--canvas)]"
+          >
+            See plans <ArrowRight className="size-3" />
+          </Link>
+        </div>
+      ) : null}
+
       {error ? <Notice tone="negative">{error}</Notice> : null}
       {done ? <Notice tone="positive">{done}</Notice> : null}
 
+      <fieldset
+        disabled={locked}
+        className={cn('space-y-2.5', locked && 'pointer-events-none opacity-45')}
+      >
       <div className="grid grid-cols-2 gap-1.5">
         {(['LONG', 'SHORT'] as const).map((option) => (
           <button
@@ -588,9 +620,15 @@ export function ProtectedTicket({
         </Notice>
       ) : null}
 
-      <Button variant="primary" block disabled={!ready} onClick={() => setConfirming(true)}>
+      <Button
+        variant="primary"
+        block
+        disabled={!ready || locked}
+        onClick={() => setConfirming(true)}
+      >
         Execute
       </Button>
+      </fieldset>
 
       {confirming && pricing ? (
         <ConfirmDialog

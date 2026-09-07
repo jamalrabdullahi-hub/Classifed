@@ -2,7 +2,6 @@ import { notFound, redirect } from 'next/navigation';
 import { env } from '@flt/config';
 import { listAllOfferedMarkets } from '@flt/core/services/perps';
 import { perpVenues } from '@flt/providers';
-import { entitlementsFor } from '@flt/core/services/entitlements';
 import { requireUserPage } from '@/server/session';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +20,7 @@ export const dynamic = 'force-dynamic';
  * redirects rather than duplicating them.
  */
 export default async function PerpsPage() {
-  const user = await requireUserPage();
+  await requireUserPage();
   if (!env().PERPS_ENABLED) notFound();
 
   /**
@@ -31,9 +30,6 @@ export default async function PerpsPage() {
    * with every control disabled tells somebody what they cannot do, and the
    * plans page tells them what it costs to.
    */
-  const entitlements = await entitlementsFor(user.id);
-  if (!entitlements.perpsAccess) redirect('/plans?from=perps');
-
   const markets = await listAllOfferedMarkets(perpVenues());
   const first = markets[0];
 

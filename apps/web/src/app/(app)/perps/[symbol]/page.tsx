@@ -4,7 +4,6 @@ import { env } from '@flt/config';
 import { annualisedFundingRate } from '@flt/core/domain';
 import { listAllOfferedMarkets, resolveOfferedMarket } from '@flt/core/services/perps';
 import { perpVenues } from '@flt/providers';
-import { redirect } from 'next/navigation';
 import { entitlementsFor } from '@flt/core/services/entitlements';
 import { requireUserPage } from '@/server/session';
 import { PerpTerminal } from '@/components/terminal/perp-terminal';
@@ -38,14 +37,15 @@ export default async function PerpMarketPage({
   if (!env().PERPS_ENABLED) notFound();
 
   /**
-   * Perpetuals are a paid destination.
+   * Perpetuals are a paid destination, but looking is free.
    *
-   * Redirected rather than shown as a locked screen: a terminal full of prices
-   * with every control disabled tells somebody what they cannot do, and the
-   * plans page tells them what it costs to.
+   * The terminal renders in full — prices, book, chart, the ticket — and the
+   * order controls are inert with a banner saying why. Redirecting somebody
+   * away from the thing they came to evaluate is a poor way to sell it to
+   * them: they cannot want what they have not seen.
    */
   const entitlements = await entitlementsFor(user.id);
-  if (!entitlements.perpsAccess) redirect('/plans?from=perps');
+  const canTrade = entitlements.perpsAccess;
 
   const { symbol } = await params;
   const venues = perpVenues();
@@ -82,6 +82,7 @@ export default async function PerpMarketPage({
         markets={all.map((entry) => ({ symbol: entry.symbol, name: entry.name }))}
         venueName={venue.meta.name}
         venueIsMock={venue.meta.isMock}
+        canTrade={canTrade}
         requiresBridgedCollateral={venue.requiresBridgedCollateral}
       />
 

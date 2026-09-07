@@ -131,7 +131,7 @@ export function PlanPicker({
         </Notice>
       ) : null}
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
         {plans.map((plan) => {
           const isCurrent = plan.tier === currentTier;
           const isFree = plan.tier === 'FREE';
@@ -140,7 +140,7 @@ export function PlanPicker({
             <div
               key={plan.tier}
               className={cn(
-                'flex flex-col rounded-[var(--radius-lg)] border p-4',
+                'flex flex-col rounded-[var(--radius-lg)] border p-3',
                 plan.isFeatured
                   ? 'border-[var(--text)] bg-[var(--surface-raised)]'
                   : 'border-[var(--border)]',
@@ -155,17 +155,17 @@ export function PlanPicker({
                 ) : null}
               </div>
 
-              <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-subtle)]">
+              <p className="mt-0.5 text-[10.5px] leading-snug text-[var(--text-subtle)]">
                 {plan.tagline}
               </p>
 
-              <p className="mt-3 font-[family-name:var(--font-mono)] text-[24px] tabular-nums text-[var(--text)]">
+              <p className="mt-2 font-[family-name:var(--font-mono)] text-[22px] tabular-nums text-[var(--text)]">
                 ${plan.priceUsd}
                 <span className="ml-1 text-[11px] text-[var(--text-subtle)]">/ 30 days</span>
               </p>
 
               {plan.feeDiscountBps > 0 ? (
-                <div className="mt-2 rounded-[var(--radius)] border border-[var(--positive)] px-2 py-1.5">
+                <div className="mt-1.5 rounded-[var(--radius)] border border-[var(--positive)] px-2 py-1">
                   <p className="text-[11px] font-medium text-[var(--positive)]">
                     {plan.feeDiscountBps / 100}% off trading fees
                   </p>
@@ -175,7 +175,7 @@ export function PlanPicker({
                 </div>
               ) : null}
 
-              <ul className="mt-3 flex-1 space-y-1.5 text-[11px]">
+              <ul className="mt-2.5 flex-1 space-y-1 text-[10.5px]">
                 <Row on label={`Up to ${plan.maxLeverage}x leverage`} />
                 <Row on label={`${limit(plan.watchlistLimit)} watchlists`} />
                 <Row on label={`${limit(plan.priceAlertLimit)} price alerts`} />
@@ -191,7 +191,7 @@ export function PlanPicker({
                 <Row on={plan.prioritySupport} label="Priority support" />
               </ul>
 
-              <div className="mt-4">
+              <div className="mt-3">
                 {isCurrent ? (
                   <p className="text-center text-[11px] text-[var(--text-subtle)]">
                     Your current plan
@@ -236,13 +236,13 @@ export function PlanPicker({
 
 function Row({ on, label }: { on: boolean; label: string }) {
   return (
-    <li className="flex items-center gap-1.5">
+    <li className="flex items-center gap-1.5 leading-tight">
       {on ? (
         <Check className="size-3 shrink-0 text-[var(--positive)]" />
       ) : (
         <Minus className="size-3 shrink-0 text-[var(--text-subtle)]" />
       )}
-      <span className={on ? 'text-[var(--text-muted)]' : 'text-[var(--text-subtle)] line-through'}>
+      <span className={on ? 'text-[var(--text-muted)]' : 'text-[var(--text-subtle)] opacity-60'}>
         {label}
       </span>
     </li>
