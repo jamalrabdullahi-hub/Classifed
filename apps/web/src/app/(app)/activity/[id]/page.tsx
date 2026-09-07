@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { getTranslations, getLocale } from 'next-intl/server';
 import { prisma } from '@flt/db';
 import { ArrowLeft, ExternalLink, ShieldAlert } from 'lucide-react';
 import {
@@ -37,6 +38,8 @@ export default async function TransactionDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const user = await requireUserPage();
+  const t = await getTranslations('activityDetail');
+  const locale = await getLocale();
   const { id } = await params;
 
   // Scoped by user id: a transaction id alone must never be enough to read
@@ -72,66 +75,62 @@ export default async function TransactionDetailPage({
       <Button asChild variant="ghost" size="sm" className="-ml-2">
         <Link href="/activity">
           <ArrowLeft className="size-3.5" />
-          Back to activity
+          {t('backToActivity')}
         </Link>
       </Button>
 
       <SectionHeader
-        title={isSwap ? 'Swap' : 'Token approval'}
-        description={`Submitted ${transaction.submittedAt.toLocaleString()}`}
-        action={<StatusBadge status={transaction.status} tampered={transaction.tamperDetected} />}
+        title={isSwap ? t('swap') : t('tokenApproval')}
+        description={t('submitted', { when: transaction.submittedAt.toLocaleString(locale) })}
+        action={
+          <StatusBadge status={transaction.status} tampered={transaction.tamperDetected} t={t} />
+        }
       />
 
       {transaction.tamperDetected ? (
-        <Notice
-          tone="negative"
-          icon={<ShieldAlert className="size-4" />}
-          title="This transaction did not match its quote"
-        >
-          The calldata mined on-chain differs from what FLT quoted. This has been recorded. If you
-          did not use a modified client, contact support.
+        <Notice tone="negative" icon={<ShieldAlert className="size-4" />} title={t('mismatchTitle')}>
+          {t('mismatchBody')}
         </Notice>
       ) : null}
 
       {transaction.status === 'REVERTED' ? (
-        <Notice tone="warning" title="The transaction reverted">
-          No assets moved. The network fee was still paid, because the network did the work of
-          attempting it. This usually means the price moved beyond the minimum you accepted.
+        <Notice tone="warning" title={t('revertedTitle')}>
+          {t('revertedBody')}
         </Notice>
       ) : null}
 
       <Card>
         <CardHeader>
-          <CardTitle>On-chain</CardTitle>
+          <CardTitle>{t('onChain')}</CardTitle>
           <a
             href={explorerTxUrl(transaction.chainId, transaction.txHash)}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1 text-[13px] link"
           >
-            View on Basescan
+            {t('viewOnExplorer')}
             <ExternalLink className="size-3.5" />
           </a>
         </CardHeader>
         <CardContent className="divide-y divide-[var(--border)]">
           <DetailRow
-            label="Transaction hash"
+            label={t('txHash')}
             value={
               <span className="num break-all font-mono text-[11px]">{transaction.txHash}</span>
             }
           />
-          <DetailRow label="Block" value={transaction.blockNumber?.toString() ?? '—'} />
+          <DetailRow label={t('block')} value={transaction.blockNumber?.toString() ?? '—'} />
           <DetailRow
-            label="Network fee paid"
+            label={t('networkFeePaid')}
             value={
               transaction.networkFeePaid
                 ? `${formatTokenAmount(transaction.networkFeePaid, 18)} ETH`
                 : '—'
             }
-            hint="Paid by you to the network, not to FLT"
+            hint={t('networkFeeHint')}
           />
           <DetailRow
-            label="Signed by"
+            label={t('signedBy')}
             value={
               <AddressChip
                 address={transaction.wallet.address}
@@ -145,11 +144,11 @@ export default async function TransactionDetailPage({
       {isSwap && transaction.quote ? (
         <Card>
           <CardHeader>
-            <CardTitle>Quoted against settled</CardTitle>
+            <CardTitle>{t('quotedAgainstSettled')}</CardTitle>
           </CardHeader>
           <CardContent className="divide-y divide-[var(--border)]">
             <DetailRow
-              label="Sold"
+              label={t('sold')}
               value={
                 sellToken
                   ? `${formatTokenAmount(transaction.quote.sellAmount, sellToken.decimals)} ${sellToken.symbol}`
@@ -157,25 +156,25 @@ export default async function TransactionDetailPage({
               }
             />
             <DetailRow
-              label="Expected to receive"
+              label={t('expectedToReceive')}
               value={
                 buyToken
                   ? `${formatTokenAmount(transaction.quote.buyAmount, buyToken.decimals)} ${buyToken.symbol}`
                   : transaction.quote.buyAmount
               }
-              hint="What the quote predicted"
+              hint={t('expectedHint')}
             />
             <DetailRow
-              label="Minimum accepted"
+              label={t('minimumAccepted')}
               value={
                 buyToken
                   ? `${formatTokenAmount(transaction.quote.minBuyAmount, buyToken.decimals)} ${buyToken.symbol}`
                   : transaction.quote.minBuyAmount
               }
-              hint="Enforced on-chain by the router contract"
+              hint={t('minimumHint')}
             />
             <DetailRow
-              label="Actually received"
+              label={t('actuallyReceived')}
               value={
                 transaction.amountOutActual && buyToken ? (
                   `${formatTokenAmount(transaction.amountOutActual, buyToken.decimals)} ${buyToken.symbol}`
@@ -185,10 +184,10 @@ export default async function TransactionDetailPage({
               }
               hint={
                 transaction.amountOutActual
-                  ? 'Read from the transaction logs'
+                  ? t('readFromLogs')
                   : transaction.status === 'CONFIRMED'
-                    ? 'Could not be read from the logs'
-                    : 'Not settled yet'
+                    ? t('couldNotReadLogs')
+                    : t('notSettledYet')
               }
               emphasis
             />
@@ -199,13 +198,13 @@ export default async function TransactionDetailPage({
       {sellToken || buyToken ? (
         <Card>
           <CardHeader>
-            <CardTitle>Tokens</CardTitle>
+            <CardTitle>{t('tokens')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {sellToken ? (
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-[13px] text-[var(--text-muted)]">
-                  {isSwap ? 'Sold' : 'Approved'} · {sellToken.symbol}
+                  {isSwap ? t('sold') : t('approved')} · {sellToken.symbol}
                 </span>
                 <AddressChip
                   address={sellToken.address}
@@ -216,7 +215,7 @@ export default async function TransactionDetailPage({
             {buyToken ? (
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-[13px] text-[var(--text-muted)]">
-                  Bought · {buyToken.symbol}
+                  {t('bought')} · {buyToken.symbol}
                 </span>
                 <AddressChip
                   address={buyToken.address}
@@ -230,8 +229,8 @@ export default async function TransactionDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Timeline</CardTitle>
-          <Badge tone="neutral">{transaction.events.length} events</Badge>
+          <CardTitle>{t('timeline')}</CardTitle>
+          <Badge tone="neutral">{t('eventsCount', { count: transaction.events.length })}</Badge>
         </CardHeader>
         <CardContent>
           <ol className="space-y-4">
@@ -256,7 +255,7 @@ export default async function TransactionDetailPage({
                     </p>
                   ) : null}
                   <p className="num mt-0.5 text-[11px] text-[var(--text-subtle)]">
-                    {event.occurredAt.toLocaleString()}
+                    {event.occurredAt.toLocaleString(locale)}
                   </p>
                 </div>
               </li>
@@ -268,15 +267,23 @@ export default async function TransactionDetailPage({
   );
 }
 
-function StatusBadge({ status, tampered }: { status: string; tampered: boolean }) {
-  if (tampered) return <StatusPill tone="negative">Mismatch</StatusPill>;
-  if (status === 'CONFIRMED') return <StatusPill tone="positive">Confirmed</StatusPill>;
-  if (status === 'REVERTED') return <StatusPill tone="negative">Reverted</StatusPill>;
-  if (status === 'FAILED') return <StatusPill tone="negative">Failed</StatusPill>;
-  if (status === 'DROPPED') return <StatusPill tone="warning">Dropped</StatusPill>;
+function StatusBadge({
+  status,
+  tampered,
+  t,
+}: {
+  status: string;
+  tampered: boolean;
+  t: Awaited<ReturnType<typeof getTranslations<'activityDetail'>>>;
+}) {
+  if (tampered) return <StatusPill tone="negative">{t('mismatch')}</StatusPill>;
+  if (status === 'CONFIRMED') return <StatusPill tone="positive">{t('confirmed')}</StatusPill>;
+  if (status === 'REVERTED') return <StatusPill tone="negative">{t('reverted')}</StatusPill>;
+  if (status === 'FAILED') return <StatusPill tone="negative">{t('failed')}</StatusPill>;
+  if (status === 'DROPPED') return <StatusPill tone="warning">{t('dropped')}</StatusPill>;
   return (
     <StatusPill tone="info" pulse>
-      Pending
+      {t('pending')}
     </StatusPill>
   );
 }

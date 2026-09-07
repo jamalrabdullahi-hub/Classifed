@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { getTranslations } from 'next-intl/server';
+import { getTranslations, getLocale } from 'next-intl/server';
 import { prisma } from '@flt/db';
 import { ExternalLink, Receipt, ShieldAlert } from 'lucide-react';
 import {
@@ -35,6 +35,8 @@ export const dynamic = 'force-dynamic';
 export default async function ActivityPage() {
   const user = await requireUserPage();
   const t = await getTranslations('pages.activity');
+  const ts = await getTranslations('activityDetail');
+  const locale = await getLocale();
 
   const transactions = await prisma.transaction.findMany({
     where: { userId: user.id },
@@ -49,14 +51,13 @@ export default async function ActivityPage() {
       <SectionHeader title={t('title')} description={t('description')} />
 
       {flagged.length > 0 ? (
-        <Notice
-          tone="negative"
-          icon={<ShieldAlert className="size-4" />}
-          title="A transaction did not match its quote"
-        >
-          The calldata mined on-chain differs from what FLT quoted for{' '}
-          {flagged.length === 1 ? 'one transaction' : `${flagged.length} transactions`}. This has
-          been recorded. If you did not use a modified client, contact support.
+        <Notice tone="negative" icon={<ShieldAlert className="size-4" />} title={t('flaggedTitle')}>
+          {t('flaggedBody', {
+            which:
+              flagged.length === 1
+                ? t('oneTransaction')
+                : t('manyTransactions', { count: flagged.length }),
+          })}
         </Notice>
       ) : null}
 
@@ -64,18 +65,18 @@ export default async function ActivityPage() {
         {transactions.length === 0 ? (
           <EmptyState
             icon={<Receipt className="size-4" />}
-            title="No activity yet"
-            description="Trades and token approvals you sign will appear here with their on-chain status."
+            title={t('noActivityTitle')}
+            description={t('noActivityBody')}
           />
         ) : (
           <Table>
             <THead>
               <TR>
-                <TH>Type</TH>
-                <TH>Transaction</TH>
-                <TH>Status</TH>
-                <TH numeric>Received</TH>
-                <TH numeric>Submitted</TH>
+                <TH>{t('colType')}</TH>
+                <TH>{t('colTransaction')}</TH>
+                <TH>{t('colStatus')}</TH>
+                <TH numeric>{t('colReceived')}</TH>
+                <TH numeric>{t('colSubmitted')}</TH>
                 <TH />
               </TR>
             </THead>
@@ -84,7 +85,7 @@ export default async function ActivityPage() {
                 <TR key={transaction.id}>
                   <TD>
                     <Badge tone={transaction.kind === 'SWAP' ? 'accent' : 'neutral'}>
-                      {transaction.kind === 'SWAP' ? 'Swap' : 'Approval'}
+                      {transaction.kind === 'SWAP' ? t('swap') : t('approval')}
                     </Badge>
                   </TD>
                   <TD>
@@ -96,18 +97,22 @@ export default async function ActivityPage() {
                     </Link>
                   </TD>
                   <TD>
-                    <StatusBadge status={transaction.status} tampered={transaction.tamperDetected} />
+                    <StatusBadge
+                      status={transaction.status}
+                      tampered={transaction.tamperDetected}
+                      t={ts}
+                    />
                   </TD>
                   <TD numeric>
                     {transaction.amountOutActual ? (
-                      <span className="text-[12px]">on-chain</span>
+                      <span className="text-[12px]">{t('onChainLabel')}</span>
                     ) : (
                       <span className="text-[var(--text-subtle)]">—</span>
                     )}
                   </TD>
                   <TD numeric>
                     <span className="text-[12px] text-[var(--text-muted)]">
-                      {transaction.submittedAt.toLocaleString()}
+                      {transaction.submittedAt.toLocaleString(locale)}
                     </span>
                   </TD>
                   <TD>
@@ -116,7 +121,7 @@ export default async function ActivityPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-[var(--text-subtle)] hover:text-[var(--text)]"
-                      aria-label="View on block explorer"
+                      aria-label={t('viewOnExplorerAria')}
                     >
                       <ExternalLink className="size-3.5" />
                     </a>
@@ -131,15 +136,23 @@ export default async function ActivityPage() {
   );
 }
 
-function StatusBadge({ status, tampered }: { status: string; tampered: boolean }) {
-  if (tampered) return <StatusPill tone="negative">Mismatch</StatusPill>;
-  if (status === 'CONFIRMED') return <StatusPill tone="positive">Confirmed</StatusPill>;
-  if (status === 'REVERTED') return <StatusPill tone="negative">Reverted</StatusPill>;
-  if (status === 'FAILED') return <StatusPill tone="negative">Failed</StatusPill>;
-  if (status === 'DROPPED') return <StatusPill tone="warning">Dropped</StatusPill>;
+function StatusBadge({
+  status,
+  tampered,
+  t,
+}: {
+  status: string;
+  tampered: boolean;
+  t: Awaited<ReturnType<typeof getTranslations<'activityDetail'>>>;
+}) {
+  if (tampered) return <StatusPill tone="negative">{t('mismatch')}</StatusPill>;
+  if (status === 'CONFIRMED') return <StatusPill tone="positive">{t('confirmed')}</StatusPill>;
+  if (status === 'REVERTED') return <StatusPill tone="negative">{t('reverted')}</StatusPill>;
+  if (status === 'FAILED') return <StatusPill tone="negative">{t('failed')}</StatusPill>;
+  if (status === 'DROPPED') return <StatusPill tone="warning">{t('dropped')}</StatusPill>;
   return (
     <StatusPill tone="info" pulse>
-      Pending
+      {t('pending')}
     </StatusPill>
   );
 }

@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Plus, Star, Unlink, Wallet } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   AddressChip,
   Badge,
@@ -39,6 +40,8 @@ const EXPLORER = 'https://basescan.org';
  */
 export function WalletsClient({ wallets }: { wallets: WalletSummary[] }) {
   const router = useRouter();
+  const t = useTranslations('walletsPage');
+  const locale = useLocale();
   const [connectOpen, setConnectOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -53,7 +56,7 @@ export function WalletsClient({ wallets }: { wallets: WalletSummary[] }) {
       });
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Could not update the wallet.');
+      setError(caught instanceof ApiError ? caught.message : t('updateError'));
     } finally {
       setBusyId(null);
     }
@@ -66,7 +69,7 @@ export function WalletsClient({ wallets }: { wallets: WalletSummary[] }) {
       await del(`/api/wallets/${id}`);
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Could not unlink the wallet.');
+      setError(caught instanceof ApiError ? caught.message : t('unlinkError'));
     } finally {
       setBusyId(null);
     }
@@ -78,12 +81,12 @@ export function WalletsClient({ wallets }: { wallets: WalletSummary[] }) {
   return (
     <div className="space-y-6">
       <SectionHeader
-        title="Wallets"
-        description="Self-custody wallets linked to your account. Your keys never leave your device, and FLT cannot move your funds."
+        title={t('title')}
+        description={t('description')}
         action={
           <Button variant="primary" size="sm" onClick={() => setConnectOpen(true)}>
             <Plus className="size-3.5" />
-            Connect a wallet
+            {t('connectWallet')}
           </Button>
         }
       />
@@ -94,11 +97,11 @@ export function WalletsClient({ wallets }: { wallets: WalletSummary[] }) {
         <Card>
           <EmptyState
             icon={<Wallet className="size-4" />}
-            title="No wallet linked"
-            description="Link a self-custody wallet by signing a message. It costs no gas and does not authorise any spending."
+            title={t('noWalletTitle')}
+            description={t('noWalletBody')}
             action={
               <Button variant="primary" size="sm" onClick={() => setConnectOpen(true)}>
-                Connect a wallet
+                {t('connectWallet')}
               </Button>
             }
           />
@@ -121,19 +124,19 @@ export function WalletsClient({ wallets }: { wallets: WalletSummary[] }) {
                       {wallet.isPreferred ? (
                         <Badge tone="accent">
                           <Star className="size-2.5" />
-                          Preferred
+                          {t('preferred')}
                         </Badge>
                       ) : null}
                     </div>
                     <p className="mt-1.5 text-[11px] text-[var(--text-subtle)]">
-                      Base · linked {new Date(wallet.linkedAt).toLocaleDateString()}
+                      {t('linkedOn', { date: new Date(wallet.linkedAt).toLocaleDateString(locale) })}
                       {wallet.connector ? ` · ${wallet.connector}` : ''}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <StatusPill tone="positive">Verified</StatusPill>
+                  <StatusPill tone="positive">{t('verified')}</StatusPill>
                   {!wallet.isPreferred ? (
                     <Button
                       variant="ghost"
@@ -141,7 +144,7 @@ export function WalletsClient({ wallets }: { wallets: WalletSummary[] }) {
                       onClick={() => makePreferred(wallet.id)}
                       loading={busyId === wallet.id}
                     >
-                      Make preferred
+                      {t('makePreferred')}
                     </Button>
                   ) : null}
                   <Button
@@ -151,7 +154,7 @@ export function WalletsClient({ wallets }: { wallets: WalletSummary[] }) {
                     loading={busyId === wallet.id}
                   >
                     <Unlink className="size-3.5" />
-                    Unlink
+                    {t('unlink')}
                   </Button>
                 </div>
               </CardContent>
@@ -163,8 +166,8 @@ export function WalletsClient({ wallets }: { wallets: WalletSummary[] }) {
       {unlinked.length > 0 ? (
         <div className="space-y-3">
           <SectionHeader
-            title="Previously linked"
-            description="These addresses are no longer linked. Their transaction history is retained — unlinking a wallet does not unmake the trades signed with it."
+            title={t('previouslyLinkedTitle')}
+            description={t('previouslyLinkedBody')}
           />
           {unlinked.map((wallet) => (
             <Card key={wallet.id}>
@@ -173,18 +176,15 @@ export function WalletsClient({ wallets }: { wallets: WalletSummary[] }) {
                   address={wallet.address}
                   explorerUrl={`${EXPLORER}/address/${wallet.address}`}
                 />
-                <StatusPill tone="neutral">Unlinked</StatusPill>
+                <StatusPill tone="neutral">{t('unlinked')}</StatusPill>
               </CardContent>
             </Card>
           ))}
         </div>
       ) : null}
 
-      <Notice tone="neutral" title="How linking works">
-        Connecting a wallet lets your browser talk to it. Linking goes one step further: you sign a
-        short message proving you control the address, which is what lets FLT show your balances and
-        attribute your transactions. The signature is not a transaction, costs no gas, and grants no
-        spending permission.
+      <Notice tone="neutral" title={t('howLinkingWorksTitle')}>
+        {t('howLinkingWorksBody')}
       </Notice>
 
       <WalletConnectDialog open={connectOpen} onOpenChange={setConnectOpen} />

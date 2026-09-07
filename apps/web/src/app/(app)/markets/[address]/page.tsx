@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
 import { prisma } from '@flt/db';
 import { ArrowLeft, ArrowUpRight, ShieldAlert } from 'lucide-react';
 import {
@@ -52,6 +53,7 @@ export default async function MarketDetailPage({
   params: Promise<{ address: string }>;
 }) {
   await requireUserPage();
+  const t = await getTranslations('marketDetail');
   const { address } = await params;
 
   const token = await prisma.token.findFirst({
@@ -68,7 +70,7 @@ export default async function MarketDetailPage({
       <Button asChild variant="ghost" size="sm" className="-ml-2">
         <Link href="/markets">
           <ArrowLeft className="size-3.5" />
-          Back to markets
+          {t('backToMarkets')}
         </Link>
       </Button>
 
@@ -76,8 +78,8 @@ export default async function MarketDetailPage({
         title={
           <span className="flex flex-wrap items-center gap-2">
             {token.symbol}
-            <TierBadge tier={token.verificationTier} />
-            {!token.isEnabled ? <Badge tone="neutral">Disabled</Badge> : null}
+            <TierBadge tier={token.verificationTier} t={t} />
+            {!token.isEnabled ? <Badge tone="neutral">{t('disabled')}</Badge> : null}
           </span>
         }
         description={token.name}
@@ -85,7 +87,7 @@ export default async function MarketDetailPage({
           token.isEnabled ? (
             <Button asChild size="sm">
               <Link href={`/trade?buy=${token.address}`}>
-                Trade {token.symbol}
+                {t('trade', { symbol: token.symbol })}
                 <ArrowUpRight className="size-3.5" />
               </Link>
             </Button>
@@ -94,35 +96,30 @@ export default async function MarketDetailPage({
       />
 
       {token.verificationTier === 'UNVERIFIED' ? (
-        <Notice
-          tone="warning"
-          icon={<ShieldAlert className="size-4" />}
-          title="FLT has not reviewed this token"
-        >
-          Anyone can deploy a token and name it anything. Check the contract address below against a
-          source you trust before trading.
+        <Notice tone="warning" icon={<ShieldAlert className="size-4" />} title={t('unreviewedTitle')}>
+          {t('unreviewedBody')}
         </Notice>
       ) : null}
 
       {!token.isEnabled ? (
-        <Notice tone="warning" title="Trading is disabled for this token">
-          {token.disabledReason ?? 'An administrator has disabled it.'}
+        <Notice tone="warning" title={t('disabledTitle')}>
+          {token.disabledReason ?? t('disabledFallback')}
         </Notice>
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Price" value={formatUsd(market?.priceUsd?.toString() ?? null)} />
+        <Stat label={t('price')} value={formatUsd(market?.priceUsd?.toString() ?? null)} />
         <Stat
-          label="24h change"
+          label={t('change24h')}
           value={<ValueDelta value={market?.change24hPct?.toString() ?? null} />}
         />
-        <Stat label="24h volume" value={formatUsd(market?.volume24hUsd?.toString() ?? null)} />
-        <Stat label="Liquidity" value={formatUsd(market?.liquidityUsd?.toString() ?? null)} />
+        <Stat label={t('volume24h')} value={formatUsd(market?.volume24hUsd?.toString() ?? null)} />
+        <Stat label={t('liquidity')} value={formatUsd(market?.liquidityUsd?.toString() ?? null)} />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Price history</CardTitle>
+          <CardTitle>{t('priceHistory')}</CardTitle>
         </CardHeader>
         <CardContent>
           <MarketChart address={token.address} symbol={token.symbol} />
@@ -131,30 +128,30 @@ export default async function MarketDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Contract</CardTitle>
+          <CardTitle>{t('contract')}</CardTitle>
         </CardHeader>
         <CardContent className="divide-y divide-[var(--border)]">
           <DetailRow
-            label="Address"
+            label={t('address')}
             value={
               <AddressChip
                 address={token.address}
                 explorerUrl={explorerTokenUrl(token.chainId, token.address)}
               />
             }
-            hint="Always check this before you trade"
+            hint={t('addressHint')}
           />
-          <DetailRow label="Chain" value="Base" />
-          <DetailRow label="Decimals" value={String(token.decimals)} />
+          <DetailRow label={t('chain')} value="Base" />
+          <DetailRow label={t('decimals')} value={String(token.decimals)} />
           <DetailRow
-            label="Verification"
-            value={<TierBadge tier={token.verificationTier} />}
+            label={t('verification')}
+            value={<TierBadge tier={token.verificationTier} t={t} />}
             hint={
               token.verificationTier === 'VERIFIED'
-                ? 'FLT has reviewed this contract'
+                ? t('verifiedHint')
                 : token.verificationTier === 'RECOGNIZED'
-                  ? 'Widely used, but not reviewed by FLT'
-                  : 'Not reviewed by FLT'
+                  ? t('recognizedHint')
+                  : t('unverifiedHint')
             }
           />
         </CardContent>
@@ -164,8 +161,14 @@ export default async function MarketDetailPage({
 }
 
 /** Only the unreviewed case carries colour. See the note in the markets list. */
-function TierBadge({ tier }: { tier: string }) {
-  if (tier === 'VERIFIED') return <Badge tone="neutral">Verified</Badge>;
-  if (tier === 'RECOGNIZED') return <Badge tone="neutral">Recognized</Badge>;
-  return <Badge tone="warning">Unverified</Badge>;
+function TierBadge({
+  tier,
+  t,
+}: {
+  tier: string;
+  t: Awaited<ReturnType<typeof getTranslations<'marketDetail'>>>;
+}) {
+  if (tier === 'VERIFIED') return <Badge tone="neutral">{t('verified')}</Badge>;
+  if (tier === 'RECOGNIZED') return <Badge tone="neutral">{t('recognized')}</Badge>;
+  return <Badge tone="warning">{t('unverified')}</Badge>;
 }

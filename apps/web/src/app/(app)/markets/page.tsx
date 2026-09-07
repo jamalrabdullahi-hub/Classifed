@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { getTranslations } from 'next-intl/server';
+import { getTranslations, getLocale } from 'next-intl/server';
 import { prisma } from '@flt/db';
 import { ShieldAlert } from 'lucide-react';
 import {
@@ -48,6 +48,8 @@ export default async function MarketsPage({
 }) {
   await requireUserPage();
   const t = await getTranslations('pages.scanner');
+  const tierT = await getTranslations('marketDetail');
+  const locale = await getLocale();
 
   const { q } = await searchParams;
   const query = (q ?? '').trim();
@@ -95,49 +97,44 @@ export default async function MarketsPage({
         description={t('description', { count: total.toLocaleString() })}
       />
 
-      <InstrumentSearch
-        className="max-w-md"
-        placeholder="Search spot and perpetual markets"
-      />
+      <InstrumentSearch className="max-w-md" placeholder={t('searchPlaceholder')} />
 
       {query ? (
         <p className="text-[12px] text-[var(--text-subtle)]">
-          Showing {tokens.length} match{tokens.length === 1 ? '' : 'es'} for “{query}”.{' '}
+          {t(tokens.length === 1 ? 'showingMatchesOne' : 'showingMatchesMany', {
+            count: tokens.length,
+            query,
+          })}{' '}
           <Link href="/markets" className="underline">
-            Clear
+            {t('clear')}
           </Link>
         </p>
       ) : (
         <p className="text-[12px] text-[var(--text-subtle)]">
-          Showing the first {tokens.length} of {total.toLocaleString()}. Use the search to find
-          anything else.
+          {t('showingFirst', { shown: tokens.length, total: total.toLocaleString() })}
         </p>
       )}
 
       {unverified > 0 ? (
         <Notice tone="warning" icon={<ShieldAlert className="size-4" />}>
-          {unverified} token{unverified === 1 ? ' has' : 's have'} not been reviewed by FLT. A token
-          appearing here is not an endorsement.
+          {t(unverified === 1 ? 'unreviewedOne' : 'unreviewedMany', { count: unverified })}
         </Notice>
       ) : null}
 
       <Card>
         {tokens.length === 0 ? (
-          <EmptyState
-            title="No tokens available"
-            description="An administrator has not enabled any tokens for trading yet."
-          />
+          <EmptyState title={t('noTokensTitle')} description={t('noTokensBody')} />
         ) : (
           <Table>
             <THead>
               <TR>
-                <TH>Token</TH>
-                <TH>Contract</TH>
-                <TH numeric>Price</TH>
-                <TH numeric>24h</TH>
-                <TH numeric>24h volume</TH>
-                <TH numeric>Liquidity</TH>
-                <TH>Status</TH>
+                <TH>{t('colToken')}</TH>
+                <TH>{t('colContract')}</TH>
+                <TH numeric>{t('colPrice')}</TH>
+                <TH numeric>{t('col24h')}</TH>
+                <TH numeric>{t('col24hVolume')}</TH>
+                <TH numeric>{t('colLiquidity')}</TH>
+                <TH>{t('colStatus')}</TH>
               </TR>
             </THead>
             <TBody>
@@ -151,7 +148,7 @@ export default async function MarketsPage({
                       >
                         {token.symbol}
                       </Link>
-                      <TierBadge tier={token.verificationTier} />
+                      <TierBadge tier={token.verificationTier} t={tierT} />
                     </div>
                     <span className="text-[11px] text-[var(--text-subtle)]">{token.name}</span>
                   </TD>
@@ -173,10 +170,10 @@ export default async function MarketsPage({
                         href={`/trade?sell=${token.address}`}
                         className="text-[13px] link"
                       >
-                        Trade
+                        {t('trade')}
                       </Link>
                     ) : (
-                      <Badge tone="neutral">Disabled</Badge>
+                      <Badge tone="neutral">{t('disabled')}</Badge>
                     )}
                   </TD>
                 </TR>
@@ -187,10 +184,8 @@ export default async function MarketsPage({
       </Card>
 
       <p className="text-[11px] leading-relaxed text-[var(--text-subtle)]">
-        Prices, volume and liquidity are estimates supplied by a third-party market data provider,
-        not by FLT, and are not the price your trade will execute at. Execution pricing comes from
-        on-chain liquidity at the moment you request a quote.
-        {lastFetched ? ` Last updated ${lastFetched.toLocaleTimeString()}.` : ''}
+        {t('footerNote')}
+        {lastFetched ? t('lastUpdated', { when: lastFetched.toLocaleTimeString(locale) }) : ''}
       </p>
     </div>
   );
@@ -204,8 +199,14 @@ export default async function MarketsPage({
  * row a user needs to look at twice — in a column of seven tokens, six green
  * badges say nothing and the amber one stops being visible.
  */
-function TierBadge({ tier }: { tier: string }) {
-  if (tier === 'VERIFIED') return <Badge tone="neutral">Verified</Badge>;
-  if (tier === 'RECOGNIZED') return <Badge tone="neutral">Recognized</Badge>;
-  return <Badge tone="warning">Unverified</Badge>;
+function TierBadge({
+  tier,
+  t,
+}: {
+  tier: string;
+  t: Awaited<ReturnType<typeof getTranslations<'marketDetail'>>>;
+}) {
+  if (tier === 'VERIFIED') return <Badge tone="neutral">{t('verified')}</Badge>;
+  if (tier === 'RECOGNIZED') return <Badge tone="neutral">{t('recognized')}</Badge>;
+  return <Badge tone="warning">{t('unverified')}</Badge>;
 }

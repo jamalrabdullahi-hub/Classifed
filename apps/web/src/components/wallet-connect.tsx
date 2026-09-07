@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { useAccount, useConnect, useDisconnect, useSignMessage, useSwitchChain } from 'wagmi';
 import { AlertTriangle, Check, ShieldCheck, Wallet } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import {
   Button,
   Dialog,
@@ -48,6 +49,7 @@ export function WalletConnectDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const router = useRouter();
+  const t = useTranslations('walletConnect');
   const { address, isConnected, chainId, connector } = useAccount();
   const { connectors, connectAsync, isPending: connecting } = useConnect();
   const { disconnectAsync } = useDisconnect();
@@ -86,7 +88,7 @@ export function WalletConnectDialog({
       await connectAsync({ connector: target, chainId: SUPPORTED_CHAIN.id });
     } catch (caught) {
       setStep('choose');
-      setError(describeWalletError(caught));
+      setError(describeWalletError(caught, t));
     }
   }
 
@@ -96,7 +98,7 @@ export function WalletConnectDialog({
     try {
       await switchChainAsync({ chainId: SUPPORTED_CHAIN.id });
     } catch (caught) {
-      setError(describeWalletError(caught));
+      setError(describeWalletError(caught, t));
     } finally {
       setBusy(false);
     }
@@ -130,7 +132,7 @@ export function WalletConnectDialog({
       if (caught instanceof ApiError) {
         setError(caught.message);
       } else {
-        setError(describeWalletError(caught));
+        setError(describeWalletError(caught, t));
       }
     } finally {
       setBusy(false);
@@ -149,12 +151,10 @@ export function WalletConnectDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {step === 'done' ? 'Wallet linked' : 'Connect a wallet'}
+            {step === 'done' ? t('titleLinked') : t('titleConnect')}
           </DialogTitle>
           <DialogDescription>
-            {step === 'done'
-              ? 'This address is now linked to your FLT account.'
-              : 'FLT never holds your assets and never asks for a seed phrase or private key.'}
+            {step === 'done' ? t('descLinked') : t('descConnect')}
           </DialogDescription>
         </DialogHeader>
 
@@ -168,10 +168,7 @@ export function WalletConnectDialog({
           {step === 'choose' || step === 'connecting' ? (
             <div className="space-y-2">
               {connectors.length === 0 ? (
-                <Notice tone="warning">
-                  No wallet was detected in this browser. Install MetaMask or another
-                  self-custody wallet extension to continue.
-                </Notice>
+                <Notice tone="warning">{t('noWalletDetected')}</Notice>
               ) : (
                 connectors.map((entry) => (
                   <button
@@ -194,7 +191,7 @@ export function WalletConnectDialog({
                         {entry.name}
                       </span>
                       <span className="block text-[11px] text-[var(--text-subtle)]">
-                        {entry.type === 'injected' ? 'Browser extension' : 'Scan with your wallet'}
+                        {entry.type === 'injected' ? t('browserExtension') : t('scanWithWallet')}
                       </span>
                     </span>
                   </button>
@@ -205,12 +202,11 @@ export function WalletConnectDialog({
 
           {step === 'wrong-chain' ? (
             <>
-              <Notice tone="warning" title={`Switch to ${SUPPORTED_CHAIN.name}`}>
-                Your wallet is on a different network. FLT trades on {SUPPORTED_CHAIN.name} in this
-                release.
+              <Notice tone="warning" title={t('switchTo', { chain: SUPPORTED_CHAIN.name })}>
+                {t('wrongChainBody', { chain: SUPPORTED_CHAIN.name })}
               </Notice>
               <Button variant="primary" block onClick={onSwitchChain} loading={busy}>
-                Switch to {SUPPORTED_CHAIN.name}
+                {t('switchTo', { chain: SUPPORTED_CHAIN.name })}
               </Button>
             </>
           ) : null}
@@ -219,7 +215,7 @@ export function WalletConnectDialog({
             <>
               <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-sunken)] p-3.5">
                 <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-subtle)]">
-                  Address
+                  {t('address')}
                 </p>
                 <p className="num mt-1 break-all font-mono text-[12px] text-[var(--text)]">
                   {address}
@@ -231,20 +227,20 @@ export function WalletConnectDialog({
               <div className="space-y-2 rounded-[var(--radius-md)] border border-[var(--accent-border)] bg-[var(--accent-subtle)] p-3.5">
                 <p className="flex items-center gap-2 text-[13px] font-medium text-[var(--accent-text)]">
                   <ShieldCheck className="size-4" />
-                  What this signature does
+                  {t('whatSignatureDoes')}
                 </p>
                 <ul className="space-y-1 text-[12px] leading-relaxed text-[var(--accent-text)] opacity-90">
-                  <li>Proves you control this address.</li>
-                  <li>Costs no gas and is not a transaction.</li>
-                  <li>Does not let FLT move, spend or access your funds.</li>
+                  <li>{t('provesControl')}</li>
+                  <li>{t('noGas')}</li>
+                  <li>{t('noSpending')}</li>
                 </ul>
               </div>
 
               <Button variant="primary" block onClick={onSign} loading={busy}>
-                Sign to link this wallet
+                {t('signToLink')}
               </Button>
               <Button variant="ghost" block onClick={onCancel} disabled={busy}>
-                Cancel and disconnect
+                {t('cancelDisconnect')}
               </Button>
             </>
           ) : null}
@@ -260,7 +256,7 @@ export function WalletConnectDialog({
                 </p>
               </div>
               <Button variant="primary" block onClick={() => onOpenChange(false)}>
-                Done
+                {t('done')}
               </Button>
             </>
           ) : null}
@@ -276,20 +272,20 @@ export function WalletConnectDialog({
  * A user who declines a prompt has not hit an error, and telling them
  * "something went wrong" for a deliberate choice is both wrong and alarming.
  */
-function describeWalletError(error: unknown): string {
+function describeWalletError(error: unknown, t: ReturnType<typeof useTranslations>): string {
   const message = error instanceof Error ? error.message : String(error);
 
   if (/user rejected|user denied|rejected the request/i.test(message)) {
-    return 'You declined the request in your wallet. Nothing was signed.';
+    return t('userRejected');
   }
   if (/already pending|request of type/i.test(message)) {
-    return 'Your wallet already has a pending request. Open it and respond there first.';
+    return t('pendingRequest');
   }
   if (/chain|network/i.test(message) && /unsupported|mismatch/i.test(message)) {
-    return `Switch your wallet to ${SUPPORTED_CHAIN.name} and try again.`;
+    return t('switchAndRetry', { chain: SUPPORTED_CHAIN.name });
   }
   if (/connector not found|no provider/i.test(message)) {
-    return 'That wallet is no longer available in this browser.';
+    return t('connectorUnavailable');
   }
-  return 'Your wallet could not complete the request. Try again.';
+  return t('genericWalletError');
 }

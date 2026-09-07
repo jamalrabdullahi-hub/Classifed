@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { getTranslations } from 'next-intl/server';
+import { getTranslations, getLocale } from 'next-intl/server';
 import { prisma } from '@flt/db';
 import { KeyRound, Monitor, ShieldCheck } from 'lucide-react';
 import {
@@ -32,6 +32,8 @@ export const dynamic = 'force-dynamic';
 export default async function AccountPage() {
   const user = await requireUserPage();
   const t = await getTranslations('pages.account');
+  const ta = await getTranslations('accountPage');
+  const locale = await getLocale();
 
   const [mfa, sessions, devices, kyc] = await Promise.all([
     mfaStatus(prisma, user.id),
@@ -46,26 +48,26 @@ export default async function AccountPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Profile</CardTitle>
+          <CardTitle>{ta('profile')}</CardTitle>
         </CardHeader>
         <CardContent className="divide-y divide-[var(--border)]">
-          <DetailRow label="Email" value={user.email} />
+          <DetailRow label={ta('email')} value={user.email} />
           <DetailRow
-            label="Email confirmed"
+            label={ta('emailConfirmed')}
             value={
               user.emailVerifiedAt ? (
-                <StatusPill tone="positive">Confirmed</StatusPill>
+                <StatusPill tone="positive">{ta('confirmed')}</StatusPill>
               ) : (
-                <StatusPill tone="warning">Unconfirmed</StatusPill>
+                <StatusPill tone="warning">{ta('unconfirmed')}</StatusPill>
               )
             }
           />
           <DetailRow
-            label="Identity verification"
-            value={<Badge tone="neutral">{kyc?.status ?? 'NOT_STARTED'}</Badge>}
+            label={ta('identityVerification')}
+            value={<Badge tone="neutral">{kyc?.status ?? ta('notStarted')}</Badge>}
           />
-          <DetailRow label="Account type" value={<Badge tone="neutral">{user.accountType}</Badge>} />
-          <DetailRow label="Member since" value={user.createdAt.toLocaleDateString()} />
+          <DetailRow label={ta('accountType')} value={<Badge tone="neutral">{user.accountType}</Badge>} />
+          <DetailRow label={ta('memberSince')} value={user.createdAt.toLocaleDateString(locale)} />
         </CardContent>
       </Card>
 
@@ -77,17 +79,14 @@ export default async function AccountPage() {
       <Card>
         <CardHeader>
           <div>
-            <CardTitle>Active sessions</CardTitle>
-            <CardDescription>
-              Where your account is currently signed in. If you do not recognise one, change your
-              password — that revokes every session.
-            </CardDescription>
+            <CardTitle>{ta('activeSessions')}</CardTitle>
+            <CardDescription>{ta('activeSessionsDesc')}</CardDescription>
           </div>
           <Badge tone="neutral">{sessions.length}</Badge>
         </CardHeader>
 
         {sessions.length === 0 ? (
-          <EmptyState icon={<Monitor className="size-4" />} title="No active sessions" />
+          <EmptyState icon={<Monitor className="size-4" />} title={ta('noActiveSessions')} />
         ) : (
           <CardContent className="space-y-2">
             {sessions.map((session) => (
@@ -97,15 +96,15 @@ export default async function AccountPage() {
               >
                 <div className="min-w-0">
                   <p className="truncate text-[13px] text-[var(--text)]">
-                    {describeUserAgent(session.userAgent)}
+                    {describeUserAgent(session.userAgent, ta)}
                   </p>
                   <p className="num mt-0.5 text-[11px] text-[var(--text-subtle)]">
-                    {session.ip ?? 'unknown IP'} · last seen{' '}
-                    {session.lastSeenAt.toLocaleString()}
+                    {session.ip ?? ta('unknownIp')} ·{' '}
+                    {ta('lastSeen', { when: session.lastSeenAt.toLocaleString(locale) })}
                   </p>
                 </div>
                 <Badge tone="neutral">
-                  expires {session.expiresAt.toLocaleTimeString()}
+                  {ta('expires', { when: session.expiresAt.toLocaleTimeString(locale) })}
                 </Badge>
               </div>
             ))}
@@ -116,16 +115,14 @@ export default async function AccountPage() {
       <Card>
         <CardHeader>
           <div>
-            <CardTitle>Known devices</CardTitle>
-            <CardDescription>
-              Devices that have signed in to this account, whether or not a session is active.
-            </CardDescription>
+            <CardTitle>{ta('knownDevices')}</CardTitle>
+            <CardDescription>{ta('knownDevicesDesc')}</CardDescription>
           </div>
           <Badge tone="neutral">{devices.length}</Badge>
         </CardHeader>
 
         {devices.length === 0 ? (
-          <EmptyState icon={<Monitor className="size-4" />} title="No devices recorded" />
+          <EmptyState icon={<Monitor className="size-4" />} title={ta('noDevicesRecorded')} />
         ) : (
           <CardContent className="space-y-2">
             {devices.map((device) => (
@@ -135,11 +132,13 @@ export default async function AccountPage() {
               >
                 <div className="min-w-0">
                   <p className="truncate text-[13px] text-[var(--text)]">
-                    {describeUserAgent(device.userAgent)}
+                    {describeUserAgent(device.userAgent, ta)}
                   </p>
                   <p className="num mt-0.5 text-[11px] text-[var(--text-subtle)]">
-                    first seen {device.createdAt.toLocaleDateString()} · last seen{' '}
-                    {device.lastSeenAt.toLocaleString()}
+                    {ta('firstSeenLastSeen', {
+                      first: device.createdAt.toLocaleDateString(locale),
+                      last: device.lastSeenAt.toLocaleString(locale),
+                    })}
                   </p>
                 </div>
               </div>
@@ -151,26 +150,21 @@ export default async function AccountPage() {
       <Card>
         <CardHeader>
           <div>
-            <CardTitle>What FLT never asks for</CardTitle>
-            <CardDescription>
-              Nobody legitimate will ever ask you for these — not FLT, not support, not anyone.
-            </CardDescription>
+            <CardTitle>{ta('neverAsksTitle')}</CardTitle>
+            <CardDescription>{ta('neverAsksDesc')}</CardDescription>
           </div>
           <ShieldCheck className="size-4 text-[var(--text-subtle)]" />
         </CardHeader>
         <CardContent>
           <ul className="space-y-1.5 text-[13px] leading-relaxed text-[var(--text-muted)]">
-            {[
-              'Your seed phrase or recovery phrase',
-              'Your private key',
-              'Your wallet password',
-              'A signature you did not initiate from this site',
-            ].map((item) => (
-              <li key={item} className="flex gap-2.5">
-                <KeyRound className="mt-0.5 size-3.5 shrink-0 text-[var(--text-subtle)]" />
-                {item}
-              </li>
-            ))}
+            {[ta('seedPhrase'), ta('privateKey'), ta('walletPassword'), ta('unsolicitedSignature')].map(
+              (item) => (
+                <li key={item} className="flex gap-2.5">
+                  <KeyRound className="mt-0.5 size-3.5 shrink-0 text-[var(--text-subtle)]" />
+                  {item}
+                </li>
+              ),
+            )}
           </ul>
         </CardContent>
       </Card>
@@ -183,8 +177,11 @@ export default async function AccountPage() {
  *
  * A raw user agent string is noise to a user trying to answer "is that me?".
  */
-function describeUserAgent(userAgent: string | null): string {
-  if (!userAgent) return 'Unknown device';
+function describeUserAgent(
+  userAgent: string | null,
+  ta: Awaited<ReturnType<typeof getTranslations<'accountPage'>>>,
+): string {
+  if (!userAgent) return ta('unknownDevice');
 
   const browser = /Firefox\//.test(userAgent)
     ? 'Firefox'
@@ -194,7 +191,7 @@ function describeUserAgent(userAgent: string | null): string {
         ? 'Chrome'
         : /Safari\//.test(userAgent)
           ? 'Safari'
-          : 'Browser';
+          : ta('browserGeneric');
 
   const platform = /Windows/.test(userAgent)
     ? 'Windows'
@@ -206,7 +203,7 @@ function describeUserAgent(userAgent: string | null): string {
           ? 'iOS'
           : /Linux/.test(userAgent)
             ? 'Linux'
-            : 'Unknown platform';
+            : ta('unknownPlatform');
 
-  return `${browser} on ${platform}`;
+  return ta('browserOnPlatform', { browser, platform });
 }

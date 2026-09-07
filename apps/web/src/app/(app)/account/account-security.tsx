@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Copy, ShieldCheck } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import {
   Badge,
   Button,
@@ -44,6 +45,7 @@ export function AccountSecurity({
   recoveryCodesRemaining: number;
 }) {
   const router = useRouter();
+  const t = useTranslations('accountPage');
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
   const [code, setCode] = useState('');
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
@@ -56,7 +58,7 @@ export function AccountSecurity({
     try {
       setEnrollment(await post<Enrollment>('/api/account/mfa/enroll', {}));
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Could not start enrolment.');
+      setError(caught instanceof ApiError ? caught.message : t('beginError'));
     } finally {
       setBusy(false);
     }
@@ -72,7 +74,7 @@ export function AccountSecurity({
       setCode('');
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'That code was not accepted.');
+      setError(caught instanceof ApiError ? caught.message : t('confirmError'));
     } finally {
       setBusy(false);
     }
@@ -83,13 +85,10 @@ export function AccountSecurity({
       <Card>
         <CardHeader>
           <div>
-            <CardTitle>Save your recovery codes</CardTitle>
-            <CardDescription>
-              Each code works once, if you lose access to your authenticator. They are stored only
-              as hashes, so this is the only time they can be shown.
-            </CardDescription>
+            <CardTitle>{t('saveRecoveryCodesTitle')}</CardTitle>
+            <CardDescription>{t('saveRecoveryCodesDesc')}</CardDescription>
           </div>
-          <StatusPill tone="positive">MFA enabled</StatusPill>
+          <StatusPill tone="positive">{t('mfaEnabledPill')}</StatusPill>
         </CardHeader>
 
         <CardContent className="space-y-4">
@@ -108,10 +107,10 @@ export function AccountSecurity({
               onClick={() => void navigator.clipboard.writeText(recoveryCodes.join('\n'))}
             >
               <Copy className="size-3.5" />
-              Copy all
+              {t('copyAll')}
             </Button>
             <Button variant="primary" size="sm" onClick={() => setRecoveryCodes(null)}>
-              I have saved them
+              {t('savedThem')}
             </Button>
           </div>
         </CardContent>
@@ -123,15 +122,13 @@ export function AccountSecurity({
     <Card>
       <CardHeader>
         <div>
-          <CardTitle>Two-factor authentication</CardTitle>
-          <CardDescription>
-            A second factor protects your account even if your password is stolen.
-          </CardDescription>
+          <CardTitle>{t('twoFactorTitle')}</CardTitle>
+          <CardDescription>{t('twoFactorDesc')}</CardDescription>
         </div>
         {mfaEnabled ? (
-          <StatusPill tone="positive">Enabled</StatusPill>
+          <StatusPill tone="positive">{t('enabled')}</StatusPill>
         ) : (
-          <StatusPill tone="warning">Not enabled</StatusPill>
+          <StatusPill tone="warning">{t('notEnabled')}</StatusPill>
         )}
       </CardHeader>
 
@@ -141,28 +138,22 @@ export function AccountSecurity({
         {mfaEnabled ? (
           <>
             <DetailRow
-              label="Recovery codes remaining"
+              label={t('recoveryCodesRemaining')}
               value={
                 <Badge tone={recoveryCodesRemaining <= 2 ? 'warning' : 'neutral'}>
                   {recoveryCodesRemaining}
                 </Badge>
               }
-              hint={
-                recoveryCodesRemaining <= 2
-                  ? 'Running low. Disable and re-enable MFA to generate a new set.'
-                  : undefined
-              }
+              hint={recoveryCodesRemaining <= 2 ? t('runningLowHint') : undefined}
             />
             <Notice tone="neutral" icon={<ShieldCheck className="size-4" />}>
-              You will be asked for a code from your authenticator each time you sign in.
+              {t('askedEachSignIn')}
             </Notice>
           </>
         ) : enrollment ? (
           <>
             <div className="space-y-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-sunken)] p-4">
-              <p className="text-[13px] text-[var(--text-muted)]">
-                Add this secret to your authenticator app, then enter the six-digit code it shows.
-              </p>
+              <p className="text-[13px] text-[var(--text-muted)]">{t('addSecretBody')}</p>
               <code className="num block break-all font-mono text-[13px] text-[var(--text)]">
                 {enrollment.secret}
               </code>
@@ -172,11 +163,11 @@ export function AccountSecurity({
                 onClick={() => void navigator.clipboard.writeText(enrollment.secret)}
               >
                 <Copy className="size-3.5" />
-                Copy secret
+                {t('copySecret')}
               </Button>
             </div>
 
-            <Field label="Six-digit code">
+            <Field label={t('sixDigitCode')}>
               {(props) => (
                 <Input
                   {...props}
@@ -193,7 +184,7 @@ export function AccountSecurity({
 
             <div className="flex gap-2">
               <Button variant="ghost" onClick={() => setEnrollment(null)} disabled={busy}>
-                Cancel
+                {t('cancel')}
               </Button>
               <Button
                 variant="primary"
@@ -201,13 +192,13 @@ export function AccountSecurity({
                 loading={busy}
                 disabled={code.length !== 6}
               >
-                Confirm and enable
+                {t('confirmAndEnable')}
               </Button>
             </div>
           </>
         ) : (
           <Button variant="primary" onClick={begin} loading={busy}>
-            Enable two-factor authentication
+            {t('enableMfa')}
           </Button>
         )}
       </CardContent>

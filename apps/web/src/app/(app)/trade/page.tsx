@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { AccountStatus, prisma } from '@flt/db';
 import { BASE_CHAIN_ID } from '@flt/core/chains';
 import { Button, Notice } from '@flt/ui';
@@ -19,6 +20,7 @@ export const dynamic = 'force-dynamic';
  */
 export default async function TradePage() {
   const user = await requireUserPage();
+  const t = await getTranslations('tradePage');
 
   const [tokens, wallets] = await Promise.all([
     prisma.token.findMany({
@@ -48,25 +50,24 @@ export default async function TradePage() {
 
   const gate =
     user.accountStatus !== AccountStatus.KYC_APPROVED ? (
-      <Notice tone="warning" title="Verification required">
-        Your identity must be verified before you can trade. You can still follow prices here in
-        the meantime.
+      <Notice tone="warning" title={t('verificationRequiredTitle')}>
+        {t('verificationRequiredBody')}
         <div className="mt-3">
           <Button asChild variant="primary" size="sm">
-            <Link href="/verify">Start verification</Link>
+            <Link href="/verify">{t('startVerification')}</Link>
           </Button>
         </div>
       </Notice>
     ) : user.tradingDisabled ? (
-      <Notice tone="negative" title="Trading is disabled on this account">
-        An administrator has disabled trading. Contact support if you believe this is a mistake.
+      <Notice tone="negative" title={t('tradingDisabledTitle')}>
+        {t('tradingDisabledBody')}
       </Notice>
     ) : wallets.length === 0 ? (
-      <Notice tone="info" title="Connect a wallet to trade">
-        FLT does not hold assets. Link a self-custody wallet and it stays under your control.
+      <Notice tone="info" title={t('connectWalletTitle')}>
+        {t('connectWalletBody')}
         <div className="mt-3">
           <Button asChild variant="primary" size="sm">
-            <Link href="/wallets">Connect a wallet</Link>
+            <Link href="/wallets">{t('connectWallet')}</Link>
           </Button>
         </div>
       </Notice>
