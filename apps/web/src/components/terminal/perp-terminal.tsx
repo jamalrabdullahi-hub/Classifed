@@ -32,7 +32,7 @@ export function PerpTerminal({
   requiresBridgedCollateral,
 }: {
   market: TickerMarket;
-  markets: Array<{ symbol: string }>;
+  markets: Array<{ symbol: string; name?: string }>;
   venueName: string;
   venueIsMock: boolean;
   requiresBridgedCollateral: boolean;

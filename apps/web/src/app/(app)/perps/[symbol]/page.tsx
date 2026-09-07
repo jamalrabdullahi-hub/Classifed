@@ -64,7 +64,7 @@ export default async function PerpMarketPage({
           venueMaxLeverage: market.maxLeverage,
           minSize: market.minSize,
         }}
-        markets={all.map((entry) => ({ symbol: entry.symbol }))}
+        markets={all.map((entry) => ({ symbol: entry.symbol, name: entry.name }))}
         venueName={venue.meta.name}
         venueIsMock={venue.meta.isMock}
         requiresBridgedCollateral={venue.requiresBridgedCollateral}

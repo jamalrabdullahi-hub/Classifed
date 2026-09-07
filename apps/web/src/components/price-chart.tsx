@@ -70,6 +70,10 @@ export interface PriceLineSpec {
   dashed?: boolean;
 }
 
+type PriceRange = { minValue: number; maxValue: number };
+type AutoscaleInfo = { priceRange: PriceRange | null };
+type AutoscaleProvider = (original: () => AutoscaleInfo | null) => AutoscaleInfo | null;
+
 interface Palette {
   text: string;
   subtle: string;
@@ -112,6 +116,12 @@ export function PriceChart({
   const priceSeries = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeSeries = useRef<ISeriesApi<'Histogram'> | null>(null);
   const drawnLines = useRef<Map<string, IPriceLine>>(new Map());
+  /**
+   * Read by the series' autoscale provider, which runs on every redraw and
+   * cannot close over React state without going stale.
+   */
+  const lineValues = useRef<number[]>([]);
+  const autoscaleProvider = useRef<AutoscaleProvider | null>(null);
   const [palette, setPalette] = useState<Palette | null>(null);
 
   // Re-read the palette whenever the theme attribute flips.
@@ -169,6 +179,55 @@ export function PriceChart({
     });
 
     const price = instance.addSeries(CandlestickSeries, {
+      /**
+       * Widen the price scale to include the reference lines.
+       *
+       * Lightweight Charts autoscales to the series data alone, so a
+       * protection boundary or liquidation price outside the candles' range is
+       * drawn off-screen — invisible in exactly the case it is worth seeing,
+       * because a boundary far from the current price is a *safe* one and a
+       * liquidation far away is the reassuring answer.
+       *
+       * The lines are clamped to a sensible distance rather than included
+       * unconditionally: a 1x liquidation near zero would compress the candles
+       * into a flat line at the top of the pane and destroy the chart to show
+       * one label.
+       */
+      autoscaleInfoProvider: (autoscaleProvider.current = (original) => {
+        const base = original();
+        if (!base?.priceRange || lineValues.current.length === 0) return base;
+
+        const { minValue, maxValue } = base.priceRange;
+        const span = maxValue - minValue;
+        /**
+         * How far beyond the candles a line may pull the scale.
+         *
+         * Three chart-heights. One was too tight to be useful: on a 15-minute
+         * BTC view the candles span about 2.5% while a 2-sigma one-day boundary
+         * sits 3.8% below the mark, so the line the panel exists to show fell
+         * just outside and was drawn off-screen.
+         *
+         * Still bounded, because it has to be: a 1x liquidation near zero would
+         * otherwise compress every candle into a flat line to make room for one
+         * label.
+         */
+        const reach = span * 3;
+        const floor = minValue - reach;
+        const ceiling = maxValue + reach;
+
+        let low = minValue;
+        let high = maxValue;
+        for (const value of lineValues.current) {
+          if (value >= floor && value < low) low = value;
+          if (value <= ceiling && value > high) high = value;
+        }
+
+        if (low === minValue && high === maxValue) return base;
+
+        // A little headroom so a line never sits flush against the edge.
+        const pad = (high - low) * 0.04;
+        return { priceRange: { minValue: low - pad, maxValue: high + pad } };
+      }),
       upColor: palette.positive,
       downColor: palette.negative,
       borderUpColor: palette.positive,
@@ -258,6 +317,10 @@ export function PriceChart({
     // drawn before then would be coloured from a theme that is not in effect.
     if (!series || !palette) return;
 
+    lineValues.current = priceLines
+      .map((line) => line.price)
+      .filter((price) => Number.isFinite(price) && price > 0);
+
     const wanted = new Set(priceLines.map((line) => line.id));
 
     for (const [id, drawn] of drawnLines.current) {
@@ -287,6 +350,14 @@ export function PriceChart({
       const existing = drawnLines.current.get(line.id);
       if (existing) existing.applyOptions(options);
       else drawnLines.current.set(line.id, series.createPriceLine(options));
+    }
+
+    // The provider reads a ref, so the scale has to be invalidated for the new
+    // values to be picked up. Re-applying the provider is what actually forces
+    // that; applyOptions with an empty object is a no-op and leaves the line
+    // drawn outside the visible range.
+    if (autoscaleProvider.current) {
+      series.applyOptions({ autoscaleInfoProvider: autoscaleProvider.current });
     }
   }, [priceLines, palette]);
 

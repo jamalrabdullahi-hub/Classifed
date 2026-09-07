@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { cn } from '@flt/ui';
+import { MarketSearch, type SearchableMarket } from './market-search';
 
 /**
  * The instrument header.
@@ -35,7 +35,7 @@ export function TickerStrip({
   venueName,
 }: {
   market: TickerMarket;
-  markets: Array<{ symbol: string }>;
+  markets: SearchableMarket[];
   venueName: string;
 }) {
   const funding = market.fundingRate ? Number(market.fundingRate) : null;
@@ -75,23 +75,7 @@ export function TickerStrip({
         }
       />
 
-      <div className="ml-auto flex items-center gap-1">
-        {markets.map((entry) => (
-          <Link
-            key={entry.symbol}
-            href={`/perps/${entry.symbol}`}
-            aria-current={entry.symbol === market.symbol ? 'page' : undefined}
-            className={cn(
-              'rounded-[3px] px-2 py-1 font-[family-name:var(--font-mono)] text-[10.5px] transition-colors',
-              entry.symbol === market.symbol
-                ? 'bg-[var(--surface-raised)] text-[var(--text)]'
-                : 'text-[var(--text-subtle)] hover:text-[var(--text-muted)]',
-            )}
-          >
-            {entry.symbol}
-          </Link>
-        ))}
-      </div>
+      <MarketSearch markets={markets} current={market.symbol} />
     </div>
   );
 }

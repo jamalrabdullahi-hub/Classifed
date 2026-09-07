@@ -30,20 +30,20 @@ import { ThemeToggle } from './theme';
  */
 const PRIMARY = [
   { href: '/dashboard', label: 'Home', icon: LayoutGrid },
-  { href: '/markets', label: 'Markets', icon: LineChart },
-  { href: '/trade', label: 'Trade', icon: ArrowLeftRight },
+  { href: '/markets', label: 'Scanner', icon: LineChart },
   { href: '/portfolio', label: 'Portfolio', icon: PieChart },
   { href: '/activity', label: 'Activity', icon: Receipt },
 ] as const;
 
 /**
- * Perpetuals sit apart from the spot destinations rather than beside them.
+ * The terminal is where trading happens, so it carries the name.
  *
- * Spot and leveraged trading are different products with different ways of
- * losing money, and a user should have to move deliberately between them
- * rather than find a 10x position one tab over from a swap.
+ * The spot swap page still exists at /trade and is reachable from a token's
+ * page in the scanner; it is no longer a top-level destination, because two
+ * tabs both called some variant of "trade" made the user choose between them
+ * before knowing what the difference was.
  */
-const PERPS = { href: '/perps', label: 'Perpetuals', icon: Gauge } as const;
+const TRADE = { href: '/perps', label: 'Trade', icon: Gauge } as const;
 
 const ACCOUNT = [
   { href: '/wallets', label: 'Wallets', icon: Wallet },
@@ -57,7 +57,11 @@ function isActive(pathname: string, href: string): boolean {
 export function TopNav({ email, perpsEnabled = false }: { email: string; perpsEnabled?: boolean }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const primary = perpsEnabled ? [...PRIMARY, PERPS] : PRIMARY;
+  // Without perpetuals the spot swap page takes the Trade slot, so the
+  // destination exists either way.
+  const primary = perpsEnabled
+    ? [...PRIMARY, TRADE]
+    : [...PRIMARY, { href: '/trade', label: 'Trade', icon: ArrowLeftRight } as const];
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--canvas)]/85 backdrop-blur-md">
