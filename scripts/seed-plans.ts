@@ -59,19 +59,32 @@ const PLANS = [
      * about that.
      */
     maxLeverage: 2,
+    /**
+     * Ten new positions a day, and closing is never counted.
+     *
+     * The limit exists to make heavy use a paid activity, not to trap anybody:
+     * a cap that could stop somebody exiting a position would be a hazard
+     * wearing a pricing tier's clothes.
+     */
+    dailyTradeLimit: 10,
+    /** Spot only. Leverage is where an ordinary day's move ends a position. */
+    perpsAccess: false,
   },
   {
     tier: SubscriptionTier.BASIC,
     name: 'FLT Basic',
     tagline: 'For the occasional trader.',
     priceUsd: '4.99',
-    isFeatured: false,
+    // The default choice on the pricing page: the step from free to paid is
+    // the one most people make, and featuring the cheapest paid tier makes it
+    // the obvious one rather than a compromise below the highlighted plan.
+    isFeatured: true,
     // No discount: Basic buys access and tools, not cheaper trading. The
     // discount is what makes Pro and Elite worth stepping up to.
     feeDiscountBps: 0,
     watchlistLimit: 5,
     priceAlertLimit: 10,
-    historyDays: 30,
+    historyDays: 90,
     advancedOrderTools: false,
     fullIndicators: false,
     advancedRiskAnalytics: false,
@@ -92,14 +105,15 @@ const PLANS = [
      * differ by leverage.
      */
     maxLeverage: 10,
+    dailyTradeLimit: null,
+    perpsAccess: true,
   },
   {
     tier: SubscriptionTier.PRO,
     name: 'FLT Pro',
     tagline: 'For traders who are in the market every day.',
     priceUsd: '9.99',
-    // The default choice on the pricing page.
-    isFeatured: true,
+    isFeatured: false,
     feeDiscountBps: 1_000,
     watchlistLimit: 25,
     priceAlertLimit: 50,
@@ -115,6 +129,8 @@ const PLANS = [
     priorityData: true,
     prioritySupport: false,
     maxLeverage: 20,
+    dailyTradeLimit: null,
+    perpsAccess: true,
   },
   {
     tier: SubscriptionTier.ELITE,
@@ -138,6 +154,8 @@ const PLANS = [
     priorityData: true,
     prioritySupport: true,
     maxLeverage: 50,
+    dailyTradeLimit: null,
+    perpsAccess: true,
   },
 ];
 

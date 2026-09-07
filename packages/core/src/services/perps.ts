@@ -28,7 +28,13 @@ import {
   type PerpSide,
 } from '../domain/perps';
 import { assertMayTrade } from './kyc';
-import { assertLeverageAllowed, entitlementsFor } from './entitlements';
+import {
+  assertDailyTradesRemaining,
+  assertLeverageAllowed,
+  assertPerpsAllowed,
+  entitlementsFor,
+  startOfUtcDay,
+} from './entitlements';
 import { protectionRequired, quoteProtection } from './protection-quote';
 import { AuditAction, audit } from './audit';
 import type {
@@ -267,7 +273,26 @@ export async function prepareOpen(
    * leveraged position by forgetting it.
    */
   const entitlements = await entitlementsFor(user.id);
+  assertPerpsAllowed(entitlements);
   assertLeverageAllowed(entitlements, intent.leverage);
+
+  /**
+   * The daily allowance, counted against openings only.
+   *
+   * A reduce-only order is an exit and is never counted or refused: a limit
+   * that could stop somebody closing a leveraged position would be a hazard
+   * dressed as a pricing tier.
+   */
+  if (!intent.reduceOnly) {
+    const openedToday = await prisma.perpOrder.count({
+      where: {
+        userId: user.id,
+        kind: PerpOrderKind.OPEN,
+        preparedAt: { gte: startOfUtcDay() },
+      },
+    });
+    assertDailyTradesRemaining(entitlements, openedToday);
+  }
 
   if (new Decimal(intent.size).lessThan(market.minSize)) {
     throw new ValidationError(`The minimum size on this market is ${market.minSize}`, {

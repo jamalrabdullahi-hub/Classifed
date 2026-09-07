@@ -16,6 +16,7 @@ import {
   Settings,
   Wallet,
   Sparkles,
+  PiggyBank,
   Gift,
   X,
 } from 'lucide-react';
@@ -59,6 +60,7 @@ const REFERRALS = { href: '/referrals', label: 'Referrals', icon: Gift } as cons
 
 const ACCOUNT = [
   { href: '/plans', label: 'Plans', icon: Sparkles },
+  { href: '/passive-cash', label: 'Passive cash', icon: PiggyBank },
   { href: '/wallets', label: 'Wallets', icon: Wallet },
   { href: '/account', label: 'Account', icon: Settings },
 ] as const;

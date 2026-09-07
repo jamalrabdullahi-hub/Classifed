@@ -75,11 +75,11 @@ export function PerpTerminal({
         </p>
       ) : null}
 
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_200px_264px]">
+      <div className="grid lg:grid-cols-[minmax(0,1fr)_180px_300px]">
         <Panel label={`${market.symbol} chart`} className="order-2 lg:order-1 min-h-[380px]">
           <PerpChart
             symbol={market.symbol}
-            height={360}
+            height={520}
             priceLines={protectionLines}
             historyNote={historyNote}
           />
@@ -118,7 +118,7 @@ export function PerpTerminal({
         </Panel>
       </div>
 
-      <div className="grid border-t border-[var(--border)] lg:grid-cols-[minmax(0,1fr)_200px_264px]">
+      <div className="grid border-t border-[var(--border)] lg:grid-cols-[minmax(0,1fr)_180px_300px]">
         <Panel label="Your position" className="min-h-[120px]">
           <PerpPositionsPanel compact symbol={market.symbol} />
         </Panel>

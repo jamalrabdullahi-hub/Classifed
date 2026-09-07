@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { env } from '@flt/config';
 import { listAllOfferedMarkets } from '@flt/core/services/perps';
 import { perpVenues } from '@flt/providers';
+import { entitlementsFor } from '@flt/core/services/entitlements';
 import { requireUserPage } from '@/server/session';
 
 export const dynamic = 'force-dynamic';
@@ -20,8 +21,18 @@ export const dynamic = 'force-dynamic';
  * redirects rather than duplicating them.
  */
 export default async function PerpsPage() {
-  await requireUserPage();
+  const user = await requireUserPage();
   if (!env().PERPS_ENABLED) notFound();
+
+  /**
+   * Perpetuals are a paid destination.
+   *
+   * Redirected rather than shown as a locked screen: a terminal full of prices
+   * with every control disabled tells somebody what they cannot do, and the
+   * plans page tells them what it costs to.
+   */
+  const entitlements = await entitlementsFor(user.id);
+  if (!entitlements.perpsAccess) redirect('/plans?from=perps');
 
   const markets = await listAllOfferedMarkets(perpVenues());
   const first = markets[0];

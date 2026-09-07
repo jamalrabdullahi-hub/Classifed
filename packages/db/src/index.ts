@@ -47,6 +47,8 @@ export type {
   ReferralCode,
   Referral,
   ReferralEarning,
+  PassiveCashAccount,
+  PassiveCashEntry,
 } from '@prisma/client';
 
 export {
@@ -75,6 +77,7 @@ export {
   CreditDestination,
   SubscriptionTier,
   ReferralEarningKind,
+  PassiveCashEntryKind,
   ReferralEarningStatus,
   SubscriptionStatus,
 } from '@prisma/client';

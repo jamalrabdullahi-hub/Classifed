@@ -184,6 +184,10 @@ export const AuditAction = {
   REFERRAL_REDEEMED: 'referral.redeemed',
   REFERRAL_EARNING_PAID: 'referral.earning.paid',
 
+  // Passive cash — custody, and audited as such.
+  PASSIVE_CASH_ENABLED: 'passive_cash.enabled',
+  PASSIVE_CASH_DISABLED: 'passive_cash.disabled',
+
   // Security
   RATE_LIMITED: 'security.rate_limited',
   QUOTE_TAMPERED: 'security.quote_tampered',

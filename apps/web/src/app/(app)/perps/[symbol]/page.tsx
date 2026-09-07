@@ -4,6 +4,8 @@ import { env } from '@flt/config';
 import { annualisedFundingRate } from '@flt/core/domain';
 import { listAllOfferedMarkets, resolveOfferedMarket } from '@flt/core/services/perps';
 import { perpVenues } from '@flt/providers';
+import { redirect } from 'next/navigation';
+import { entitlementsFor } from '@flt/core/services/entitlements';
 import { requireUserPage } from '@/server/session';
 import { PerpTerminal } from '@/components/terminal/perp-terminal';
 
@@ -32,8 +34,18 @@ export default async function PerpMarketPage({
 }: {
   params: Promise<{ symbol: string }>;
 }) {
-  await requireUserPage();
+  const user = await requireUserPage();
   if (!env().PERPS_ENABLED) notFound();
+
+  /**
+   * Perpetuals are a paid destination.
+   *
+   * Redirected rather than shown as a locked screen: a terminal full of prices
+   * with every control disabled tells somebody what they cannot do, and the
+   * plans page tells them what it costs to.
+   */
+  const entitlements = await entitlementsFor(user.id);
+  if (!entitlements.perpsAccess) redirect('/plans?from=perps');
 
   const { symbol } = await params;
   const venues = perpVenues();

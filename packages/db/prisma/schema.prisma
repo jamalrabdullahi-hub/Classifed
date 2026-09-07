@@ -236,6 +236,7 @@ model User {
   referralsMade      Referral[]             @relation("ReferralsMade")
   referredBy         Referral?              @relation("ReferredBy")
   referralEarnings   ReferralEarning[]      @relation("ReferralEarnings")
+  passiveCash        PassiveCashAccount?
 
   @@index([accountStatus])
   @@index([createdAt])
@@ -1410,6 +1411,16 @@ model SubscriptionPlan {
   priorityData                Boolean @default(false)
   prioritySupport             Boolean @default(false)
 
+  /// Opening trades allowed per day. Null is unlimited.
+  ///
+  /// Counts openings only. Closing a position is never limited: a limit that
+  /// can trap somebody in a leveraged position is not a pricing lever, it is a
+  /// hazard, and no commercial reason justifies it.
+  dailyTradeLimit Int?
+
+  /// Whether this tier may trade perpetuals at all.
+  perpsAccess Boolean @default(true)
+
   /// The highest leverage this tier may use.
   ///
   /// Free accounts are capped at 2x: leverage past that is the point at which a
@@ -1574,4 +1585,97 @@ model ReferralEarning {
   @@index([referrerUserId, status])
   @@index([status])
   @@map("referral_earnings")
+}
+
+enum PassiveCashEntryKind {
+  CONTRIBUTION
+  WITHDRAWAL
+  /// The participant's share of trading profit.
+  PROFIT_SHARE
+  /// A loss against contributed capital.
+  LOSS
+}
+
+/// A participant's opt-in to having idle cash used in market-making.
+///
+/// ## What this is, stated plainly
+///
+/// Money the participant hands over for FLT to trade with, in exchange for half
+/// the profit. That is custody and it is a managed investment — a different
+/// relationship from everything else on this platform, where FLT never holds
+/// anything. It is modelled separately for that reason: nothing here shares a
+/// table with a trading balance, and no code path treats it as the same kind of
+/// thing.
+///
+/// ## Losses
+///
+/// The upside is split. The downside is not: a participant bears losses against
+/// their own contributed capital, because the alternative is FLT guaranteeing a
+/// principal it has no mechanism to guarantee. `lossShareBps` records the term
+/// that was actually agreed rather than leaving it to be assumed.
+model PassiveCashAccount {
+  id     String @id
+  userId String @unique
+
+  /// Off until the participant switches it on, and switchable off at any time.
+  isEnabled Boolean @default(false)
+
+  /// Contributed capital, in the account's denomination.
+  balance        String @default("0")
+  /// Cumulative profit paid to the participant, for display.
+  lifetimeEarned String @default("0")
+  /// Cumulative losses borne, for display. Never netted against earnings —
+  /// a single figure would hide which is which.
+  lifetimeLost   String @default("0")
+
+  tokenAddress String?
+  chainId      Int?
+
+  /// The participant's share of profit. 5000 = half.
+  profitShareBps Int @default(5000)
+  /// The participant's share of losses. 10000 = they bear all of it.
+  lossShareBps   Int @default(10000)
+
+  /// The disclosure that was actually shown, and when it was accepted.
+  /// A term nobody can prove was displayed is a term that was not agreed.
+  disclosureVersion    String?
+  disclosureAcceptedAt DateTime?
+
+  enabledAt  DateTime?
+  disabledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries PassiveCashEntry[]
+
+  @@map("passive_cash_accounts")
+}
+
+/// One movement. The balance is the sum of these and is never written alone.
+model PassiveCashEntry {
+  id        String @id
+  accountId String
+
+  kind         PassiveCashEntryKind
+  /// Always positive; `kind` carries the direction.
+  amount       String
+  /// The balance after this entry, so a statement reconciles line by line.
+  balanceAfter String
+
+  /// For a profit share: the gross result this is a share of, and the share
+  /// taken, so the arithmetic is reproducible from the row.
+  grossAmount String?
+  shareBps    Int?
+
+  reason String?
+  txHash String?
+
+  createdAt DateTime @default(now())
+
+  account PassiveCashAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt])
+  @@map("passive_cash_entries")
 }

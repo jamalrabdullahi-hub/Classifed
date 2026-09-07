@@ -66,6 +66,16 @@ export interface Entitlements {
 
   /** The highest leverage this account may use, after every cap is applied. */
   maxLeverage: number;
+
+  /**
+   * Opening trades allowed per day. Null is unlimited.
+   *
+   * Openings only. Closing is never limited — a cap that could trap somebody in
+   * a leveraged position is a hazard, not a pricing lever.
+   */
+  dailyTradeLimit: number | null;
+  /** Whether this account may trade perpetuals at all. */
+  perpsAccess: boolean;
 }
 
 /**
@@ -91,6 +101,8 @@ const FREE_FALLBACK: Omit<Entitlements, 'tier' | 'planName' | 'expiresAt'> = {
   priorityData: false,
   prioritySupport: false,
   maxLeverage: 2,
+  dailyTradeLimit: 10,
+  perpsAccess: false,
 };
 
 /** The tier a user is currently entitled to, ignoring what they have bought before. */
@@ -157,6 +169,8 @@ export function fromPlan(
     apiAccess: plan.apiAccess,
     priorityData: plan.priorityData,
     prioritySupport: plan.prioritySupport,
+    dailyTradeLimit: plan.dailyTradeLimit,
+    perpsAccess: plan.perpsAccess,
     // The plan is one ceiling among several; the platform's own cap and the
     // venue's still apply, and the lowest always wins.
     maxLeverage: Math.min(plan.maxLeverage, config.PERP_MAX_LEVERAGE),
@@ -272,4 +286,49 @@ export function applyFeeDiscount(bps: number, discountBps: number): number {
   if (discountBps <= 0) return bps;
   const capped = Math.min(discountBps, 10_000);
   return Math.floor((bps * (10_000 - capped)) / 10_000);
+}
+
+
+// ── Perpetuals and trade frequency ──────────────────────────────────────────
+
+/**
+ * Refuses perpetuals to a tier that does not include them.
+ *
+ * Free accounts get spot. Leverage is where an ordinary day's move can end a
+ * position, and gating it is where the commercial line and a real risk boundary
+ * happen to fall together.
+ */
+export function assertPerpsAllowed(entitlements: Entitlements): void {
+  if (entitlements.perpsAccess) return;
+
+  throw new ForbiddenError(
+    `Perpetuals are not included in your ${entitlements.planName} plan. ` +
+      'Spot trading is available on every account.',
+  );
+}
+
+/**
+ * Refuses an opening trade once the daily allowance is spent.
+ *
+ * Only openings count, and the message says so — somebody who has hit the limit
+ * needs to know immediately that they can still close what they hold, because
+ * the alternative is a person who believes they are locked into a position.
+ */
+export function assertDailyTradesRemaining(
+  entitlements: Entitlements,
+  openedToday: number,
+): void {
+  if (entitlements.dailyTradeLimit === null) return;
+  if (openedToday < entitlements.dailyTradeLimit) return;
+
+  throw new ForbiddenError(
+    `Your ${entitlements.planName} plan allows ${entitlements.dailyTradeLimit} new positions a ` +
+      'day and you have used them. You can still close or reduce anything you hold — that is ' +
+      'never limited. The allowance resets at midnight UTC.',
+  );
+}
+
+/** Opening trades since midnight UTC. Closes are excluded by the caller. */
+export function startOfUtcDay(now: Date = new Date()): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { TriangleAlert, ShieldCheck } from 'lucide-react';
+import { TriangleAlert, ShieldCheck, ChevronDown } from 'lucide-react';
 import { Button, Notice, cn } from '@flt/ui';
 import { ApiError, get, post } from '@/lib/api';
 import {
@@ -121,6 +121,16 @@ export function ProtectedTicket({
   const [z, setZ] = useState(2);
 
   const [candles, setCandles] = useState<Candle[]>([]);
+  /**
+   * Coverage and the bracket collapse by default.
+   *
+   * The ticket had grown to eleven controls and the Execute button sat below
+   * the fold — the primary action on a trading screen required scrolling past
+   * settings most orders never change. Both sections keep a one-line summary
+   * when closed, so nothing is hidden, only folded.
+   */
+  const [showCoverage, setShowCoverage] = useState(false);
+  const [showBracket, setShowBracket] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -332,9 +342,24 @@ export function ProtectedTicket({
       ) : null}
 
       {/* ── Bracket ──────────────────────────────────────────────────────── */}
-      <div className="space-y-2 rounded-[var(--radius-md)] border border-[var(--border)] p-2">
+      <div className="rounded-[var(--radius-md)] border border-[var(--border)]">
+        <Disclosure
+          label="Bracket (OCO)"
+          summary={
+            bracket && (takeProfit || stopLoss)
+              ? [takeProfit ? `TP ${takeProfit}` : null, stopLoss ? `SL ${stopLoss}` : null]
+                  .filter(Boolean)
+                  .join(' · ')
+              : 'Off'
+          }
+          open={showBracket}
+          onToggle={() => setShowBracket((v) => !v)}
+        />
+
+        {showBracket ? (
+        <div className="space-y-2 border-t border-[var(--border)] p-2">
         <label className="flex items-center justify-between gap-2">
-          <span className="font-medium text-[var(--text)]">Bracket (OCO)</span>
+          <span className="font-medium text-[var(--text)]">Attach protective legs</span>
           <input
             type="checkbox"
             checked={bracket}
@@ -363,12 +388,27 @@ export function ProtectedTicket({
             </p>
           </>
         ) : null}
+        </div>
+        ) : null}
       </div>
 
       {/* ── Coverage ─────────────────────────────────────────────────────── */}
-      <div className="space-y-2 rounded-[var(--radius-md)] border border-[var(--border)] p-2">
+      <div className="rounded-[var(--radius-md)] border border-[var(--border)]">
+        <Disclosure
+          label="Coverage"
+          summary={
+            insured
+              ? `${POLICY_LABELS[policy]} · ${formatHorizon(effectiveHorizon)} · ${z}σ`
+              : 'Off'
+          }
+          open={showCoverage}
+          onToggle={() => setShowCoverage((v) => !v)}
+        />
+
+        {showCoverage ? (
+        <div className="space-y-2 border-t border-[var(--border)] p-2">
         <label className="flex items-center justify-between gap-2">
-          <span className="font-medium text-[var(--text)]">Coverage</span>
+          <span className="font-medium text-[var(--text)]">Buy cover</span>
           <input
             type="checkbox"
             checked={insured}
@@ -495,6 +535,8 @@ export function ProtectedTicket({
               </div>
             </div>
           </>
+        ) : null}
+        </div>
         ) : null}
       </div>
 
@@ -685,6 +727,46 @@ function ConfirmDialog({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * A folded section with its state on the header.
+ *
+ * The summary is the point: a closed section that says "Based · 1 day · 2σ"
+ * costs no height and still answers what it is set to. A closed section that
+ * says only its name forces the reader to open it to find out, which is worse
+ * than leaving it open.
+ */
+function Disclosure({
+  label,
+  summary,
+  open,
+  onToggle,
+}: {
+  label: string;
+  summary: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      className="flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left transition-colors hover:bg-[var(--surface-raised)]"
+    >
+      <span className="font-medium text-[var(--text)]">{label}</span>
+      <span className="flex items-center gap-1.5">
+        <span className="truncate text-[10px] text-[var(--text-subtle)]">{summary}</span>
+        <ChevronDown
+          className={cn(
+            'size-3 shrink-0 text-[var(--text-subtle)] transition-transform',
+            open && 'rotate-180',
+          )}
+        />
+      </span>
+    </button>
   );
 }
 

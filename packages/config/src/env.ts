@@ -113,6 +113,20 @@ const schema = z.object({
     .string()
     .default('0xaf88d065e77c8cC2239327C5EDb3A432268e5831'),
 
+  /**
+   * Passive cash: participant money used in FLT's market-making.
+   *
+   * Off, and it must stay off until two things are true. The market-making book
+   * has no execution path, so contributed money could not be put to work — and
+   * holding participant funds for a managed trading strategy is custody plus,
+   * in most jurisdictions, a collective investment scheme with its own
+   * authorisation regime. Neither is a switch this file should flip quietly.
+   */
+  PASSIVE_CASH_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+
   // ── Position protection ──────────────────────────────────────────────────
 
   /**
