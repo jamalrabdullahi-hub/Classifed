@@ -16,7 +16,8 @@
     "./protection/*": "./src/protection/*.ts",
     "./risk": "./src/risk/index.ts",
     "./domain/*": "./src/domain/*.ts",
-    "./ports/*": "./src/ports/*.ts"
+    "./ports/*": "./src/ports/*.ts",
+    "./marketmaking/*": "./src/marketmaking/*.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
