@@ -2,6 +2,7 @@
 
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@flt/ui';
 
 /**
@@ -86,13 +87,14 @@ export function useTheme() {
 export function ThemeToggle({ className }: { className?: string }) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const t = useTranslations('themeToggle');
 
   useEffect(() => setMounted(true), []);
 
   const options: { value: Theme; icon: typeof Sun; label: string }[] = [
-    { value: 'light', icon: Sun, label: 'Light' },
-    { value: 'dark', icon: Moon, label: 'Dark' },
-    { value: 'system', icon: Monitor, label: 'System' },
+    { value: 'light', icon: Sun, label: t('light') },
+    { value: 'dark', icon: Moon, label: t('dark') },
+    { value: 'system', icon: Monitor, label: t('system') },
   ];
 
   return (
@@ -103,7 +105,7 @@ export function ThemeToggle({ className }: { className?: string }) {
         className,
       )}
       role="group"
-      aria-label="Colour theme"
+      aria-label={t('colourTheme')}
     >
       {options.map(({ value, icon: Icon, label }) => (
         <button

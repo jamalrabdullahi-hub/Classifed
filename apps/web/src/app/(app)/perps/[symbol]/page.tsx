@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
 import { env } from '@flt/config';
 import { annualisedFundingRate } from '@flt/core/domain';
 import { listAllOfferedMarkets, resolveOfferedMarket } from '@flt/core/services/perps';
@@ -34,6 +35,7 @@ export default async function PerpMarketPage({
   params: Promise<{ symbol: string }>;
 }) {
   const user = await requireUserPage();
+  const t = await getTranslations('perpMarketPage');
   if (!env().PERPS_ENABLED) notFound();
 
   /**
@@ -87,11 +89,7 @@ export default async function PerpMarketPage({
       />
 
       <p className="text-[11px] leading-relaxed text-[var(--text-subtle)]">
-        Prices, book depth and trades are reported by {venue.meta.name}, not by FLT, and are not
-        quotes. A perpetual has no expiry: it stays open until you close it or until the market
-        moves far enough against you that the venue closes it and the margin behind it is gone.
-        There is no margin call. FLT caps leverage at {env().PERP_MAX_LEVERAGE}× whatever the venue
-        permits, prepares orders, and never holds your collateral or signs on your behalf.
+        {t('footerNote', { venue: venue.meta.name, maxLeverage: env().PERP_MAX_LEVERAGE })}
       </p>
     </div>
   );

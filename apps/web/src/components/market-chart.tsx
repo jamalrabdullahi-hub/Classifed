@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertCircle, LineChart } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
 import { Badge, EmptyState, Skeleton, Tabs, TabsList, TabsTrigger, cn } from '@flt/ui';
 import { CANDLE_INTERVALS, type Candle, type CandleInterval } from '@flt/core/ports';
 import { PriceChart } from './price-chart';
@@ -44,6 +45,8 @@ const REFRESH_MS: Record<CandleInterval, number> = {
 };
 
 export function MarketChart({ address, symbol }: { address: string; symbol: string }) {
+  const t = useTranslations('marketChart');
+  const locale = useLocale();
   const [interval, setInterval] = useState<CandleInterval>('1h');
   const [data, setData] = useState<Response | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -68,18 +71,18 @@ export function MarketChart({ address, symbol }: { address: string; symbol: stri
         if (seq !== requestSeq.current) return;
 
         if (!response.ok) {
-          setError(payload?.error?.message ?? 'Could not load price history.');
+          setError(payload?.error?.message ?? t('couldNotLoad'));
         } else {
           setData(payload.data as Response);
           setError(null);
         }
       } catch {
-        if (seq === requestSeq.current) setError('Could not reach the price history service.');
+        if (seq === requestSeq.current) setError(t('couldNotReach'));
       } finally {
         if (seq === requestSeq.current) setLoading(false);
       }
     },
-    [address],
+    [address, t],
   );
 
   useEffect(() => {
@@ -107,7 +110,7 @@ export function MarketChart({ address, symbol }: { address: string; symbol: stri
         </Tabs>
 
         {data?.stale ? (
-          <Badge tone="warning">Showing cached prices</Badge>
+          <Badge tone="warning">{t('cachedPrices')}</Badge>
         ) : data?.pool ? (
           <span className="text-[11px] text-[var(--text-subtle)]">
             {data.pool.dex.replace(/-/g, ' ')}
@@ -121,20 +124,20 @@ export function MarketChart({ address, symbol }: { address: string; symbol: stri
       ) : error && candles.length === 0 ? (
         <EmptyState
           icon={<AlertCircle className="size-5" />}
-          title="Price history unavailable"
+          title={t('unavailableTitle')}
           description={error}
         />
       ) : data && !data.available ? (
         <EmptyState
           icon={<LineChart className="size-5" />}
-          title="No chart for this token"
-          description={`No indexed liquidity pool was found for ${symbol}, so there is no price history to draw. It may still be tradeable.`}
+          title={t('noChartTitle')}
+          description={t('noChartBody', { symbol })}
         />
       ) : candles.length === 0 ? (
         <EmptyState
           icon={<LineChart className="size-5" />}
-          title="No price history yet"
-          description="This pool has not traded in the selected window."
+          title={t('noHistoryTitle')}
+          description={t('noHistoryBody')}
         />
       ) : (
         <PriceChart
@@ -146,9 +149,11 @@ export function MarketChart({ address, symbol }: { address: string; symbol: stri
 
       {data?.source && candles.length > 0 ? (
         <p className={cn('text-[11px] leading-relaxed text-[var(--text-subtle)]')}>
-          Candles from {data.source} for the pool above, not from FLT.
-          {data.fetchedAt ? ` Retrieved ${new Date(data.fetchedAt).toLocaleTimeString()}.` : ''} This
-          is historic pool activity, not a prediction and not the price your trade will execute at.
+          {t('sourceNote', { source: data.source })}
+          {data.fetchedAt
+            ? t('retrievedAt', { when: new Date(data.fetchedAt).toLocaleTimeString(locale) })
+            : ''}
+          {t('historicNote')}
         </p>
       ) : null}
     </div>

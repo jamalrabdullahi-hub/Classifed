@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { TriangleAlert } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import {
   Badge,
   Button,
@@ -79,6 +80,7 @@ export function PerpPositionsPanel({
   compact?: boolean;
   symbol?: string;
 } = {}) {
+  const t = useTranslations('perpPositions');
   const [data, setData] = useState<PositionsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [needsWallet, setNeedsWallet] = useState(false);
@@ -98,7 +100,7 @@ export function PerpPositionsPanel({
         setError(null);
         return;
       }
-      setError(caught instanceof ApiError ? caught.message : 'Could not load positions.');
+      setError(caught instanceof ApiError ? caught.message : t('couldNotLoad'));
     }
   }, []);
 
@@ -116,7 +118,7 @@ export function PerpPositionsPanel({
       await post('/api/perps/orders', { action: 'close', symbol, slippageBps: 50 });
       await load();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Could not close the position.');
+      setError(caught instanceof ApiError ? caught.message : t('couldNotClose'));
     } finally {
       setClosing(null);
     }
@@ -125,7 +127,7 @@ export function PerpPositionsPanel({
   if (needsWallet && compact) {
     return (
       <p className="p-3 text-[11px] text-[var(--text-subtle)]">
-        Link a verified wallet to trade perpetuals.
+        {t('linkWalletCompact')}
       </p>
     );
   }
@@ -134,11 +136,11 @@ export function PerpPositionsPanel({
     return (
       <Card>
         <EmptyState
-          title="Link a wallet to trade perpetuals"
-          description="Perpetual positions are opened and signed by your own wallet. Link and verify one to get started."
+          title={t('linkWalletTitle')}
+          description={t('linkWalletBody')}
           action={
             <Button asChild variant="primary" size="sm">
-              <Link href="/wallets">Link a wallet</Link>
+              <Link href="/wallets">{t('linkWallet')}</Link>
             </Button>
           }
         />
@@ -151,7 +153,7 @@ export function PerpPositionsPanel({
   }
 
   if (!data && compact) {
-    return <p className="p-3 text-[11px] text-[var(--text-subtle)]">Loading…</p>;
+    return <p className="p-3 text-[11px] text-[var(--text-subtle)]">{t('loading')}</p>;
   }
 
   if (!data) {
@@ -168,7 +170,7 @@ export function PerpPositionsPanel({
   if (!data.summary.hasCollateral && compact) {
     return (
       <p className="p-3 text-[11px] text-[var(--text-subtle)]">
-        No margin posted on the venue yet.
+        {t('noMarginCompact')}
       </p>
     );
   }
@@ -177,11 +179,9 @@ export function PerpPositionsPanel({
     return (
       <Card>
         <EmptyState
-          title="No margin on the venue yet"
+          title={t('noMarginTitle')}
           description={
-            data.requiresBridgedCollateral
-              ? 'Perpetual positions are backed by collateral held on the venue. You will need to move USDC there before you can open one.'
-              : 'You have no collateral available for perpetual positions yet.'
+            data.requiresBridgedCollateral ? t('noMarginBridgedBody') : t('noMarginBody')
           }
         />
       </Card>
@@ -195,7 +195,7 @@ export function PerpPositionsPanel({
   if (compact) {
     return positions.length === 0 ? (
       <p className="p-3 text-[11px] text-[var(--text-subtle)]">
-        No open position{symbol ? ` on ${symbol}` : ''}.
+        {symbol ? t('noOpenPositionOn', { symbol }) : t('noOpenPosition')}
       </p>
     ) : (
       <ul className="divide-y divide-[var(--border)]">
@@ -205,6 +205,7 @@ export function PerpPositionsPanel({
             position={position}
             busy={closing === position.symbol}
             onClose={() => void close(position.symbol)}
+            t={t}
           />
         ))}
       </ul>
@@ -214,25 +215,22 @@ export function PerpPositionsPanel({
   return (
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Account value" value={usd(data.summary.accountValue)} />
-        <Stat label="Margin in use" value={usd(data.summary.totalMarginUsed)} />
-        <Stat label="Available" value={usd(data.summary.withdrawable)} />
+        <Stat label={t('accountValue')} value={usd(data.summary.accountValue)} />
+        <Stat label={t('marginInUse')} value={usd(data.summary.totalMarginUsed)} />
+        <Stat label={t('available')} value={usd(data.summary.withdrawable)} />
         <Stat
-          label="Unrealized P/L"
+          label={t('unrealizedPnl')}
           value={<ValueDelta value={data.summary.totalUnrealizedPnl} />}
         />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Open positions</CardTitle>
+          <CardTitle>{t('openPositions')}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {positions.length === 0 ? (
-            <EmptyState
-              title="No open positions"
-              description="Positions you open will appear here with their liquidation price."
-            />
+            <EmptyState title={t('noOpenPositionsTitle')} description={t('noOpenPositionsBody')} />
           ) : (
             <ul className="divide-y divide-[var(--border)]">
               {positions.map((position) => (
@@ -241,6 +239,7 @@ export function PerpPositionsPanel({
                   position={position}
                   busy={closing === position.symbol}
                   onClose={() => void close(position.symbol)}
+                  t={t}
                 />
               ))}
             </ul>
@@ -255,10 +254,12 @@ function PositionRow({
   position,
   busy,
   onClose,
+  t,
 }: {
   position: Position;
   busy: boolean;
   onClose: () => void;
+  t: ReturnType<typeof useTranslations<'perpPositions'>>;
 }) {
   const proximity = position.proximity ? Number(position.proximity) : null;
   const danger = proximity !== null && proximity >= DANGER_PROXIMITY;
@@ -274,24 +275,24 @@ function PositionRow({
           {/* Direction is information, not decoration, so it carries a tone.
               Everything else about a healthy position stays neutral. */}
           <Badge tone={position.side === 'LONG' ? 'positive' : 'negative'}>
-            {position.side}
+            {position.side === 'LONG' ? t('long') : t('short')}
           </Badge>
           <span className="num text-[12px] text-[var(--text-muted)]">
-            {position.leverage}x · {position.marginMode.toLowerCase()}
+            {position.leverage}x · {position.marginMode === 'ISOLATED' ? t('isolated') : t('cross')}
           </span>
         </div>
 
         <Button variant="secondary" size="sm" onClick={onClose} loading={busy}>
-          Close
+          {t('close')}
         </Button>
       </div>
 
       <div className="grid gap-x-6 gap-y-2 text-[13px] sm:grid-cols-2 lg:grid-cols-4">
-        <Field label="Size" value={`${position.size} ${position.symbol}`} />
-        <Field label="Entry" value={usd(position.entryPrice)} />
-        <Field label="Mark" value={usd(position.markPrice)} />
+        <Field label={t('size')} value={`${position.size} ${position.symbol}`} />
+        <Field label={t('entry')} value={usd(position.entryPrice)} />
+        <Field label={t('mark')} value={usd(position.markPrice)} />
         <Field
-          label="Unrealized P/L"
+          label={t('unrealizedPnl')}
           value={<ValueDelta value={position.unrealizedPnl} />}
         />
       </div>
@@ -300,12 +301,12 @@ function PositionRow({
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-[12px]">
             <span className="text-[var(--text-muted)]">
-              Liquidation at <span className="num">{usd(position.liquidationPrice)}</span>
+              {t('liquidationAt', { price: usd(position.liquidationPrice) })}
             </span>
             {danger ? (
               <span className="flex items-center gap-1 text-[var(--negative)]">
                 <TriangleAlert className="size-3.5" />
-                Close to liquidation
+                {t('closeToLiquidation')}
               </span>
             ) : null}
           </div>
@@ -317,7 +318,7 @@ function PositionRow({
               aria-valuenow={Math.round(proximity * 100)}
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-label={`Distance travelled from entry toward liquidation for ${position.symbol}`}
+              aria-label={t('proximityAria', { symbol: position.symbol })}
             >
               <div
                 className={cn(
@@ -335,7 +336,7 @@ function PositionRow({
         </div>
       ) : (
         <p className="text-[12px] text-[var(--text-muted)]">
-          The venue does not report a liquidation price for this position.
+          {t('noLiquidationPrice')}
         </p>
       )}
     </li>
