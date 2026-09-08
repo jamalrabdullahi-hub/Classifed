@@ -14,7 +14,8 @@ import { routeHandler } from '@/server/api';
  * position is being marked against.
  */
 export const GET = routeHandler<unknown, { symbol: string }, unknown>(
-  {},
+  // Public market data — the chart renders for a signed-out visitor too.
+  { auth: false },
   async ({ params, request }) => {
     // Resolved across venues: an equity or FX symbol lives on Ostium and a
     // crypto one on Hyperliquid, and asking the wrong venue returns nothing.

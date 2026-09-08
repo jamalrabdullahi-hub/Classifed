@@ -11,7 +11,9 @@ import { routeHandler } from '@/server/api';
  * the port's `PerpTrade` has no field for them.
  */
 export const GET = routeHandler<unknown, { symbol: string }, unknown>(
-  {},
+  // Public trade tape — no counterparty data, and the terminal renders it
+  // for a signed-out visitor too.
+  { auth: false },
   async ({ params, request }) => {
     // Resolved across venues: an equity or FX symbol lives on Ostium and a
     // crypto one on Hyperliquid, and asking the wrong venue returns nothing.

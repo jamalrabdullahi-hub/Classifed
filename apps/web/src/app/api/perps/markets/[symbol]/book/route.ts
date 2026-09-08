@@ -15,7 +15,10 @@ import { routeHandler } from '@/server/api';
  * side look as deep as a heavy one.
  */
 export const GET = routeHandler<unknown, { symbol: string }, unknown>(
-  {},
+  // Public market data, nothing account-specific — the terminal now renders
+  // for a signed-out visitor too, and a locked order book would defeat the
+  // point of letting them look before they sign in.
+  { auth: false },
   async ({ params, request }) => {
     // Resolved across venues: an equity or FX symbol lives on Ostium and a
     // crypto one on Hyperliquid, and asking the wrong venue returns nothing.

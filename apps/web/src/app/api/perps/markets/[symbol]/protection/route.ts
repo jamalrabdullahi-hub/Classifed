@@ -24,7 +24,10 @@ import { routeHandler } from '@/server/api';
  * the JSON with no access to this code.
  */
 export const GET = routeHandler<unknown, { symbol: string }, unknown>(
-  {},
+  // A pure function of its query string, per the note above — nothing
+  // account-specific to protect, and the ticket prices cover for a
+  // signed-out visitor too.
+  { auth: false },
   async ({ params, request }) => {
     // Resolved across venues: an equity or FX symbol lives on Ostium and a
     // crypto one on Hyperliquid, and asking the wrong venue returns nothing.
