@@ -49,6 +49,9 @@ export type {
   ReferralEarning,
   PassiveCashAccount,
   PassiveCashEntry,
+  TradingAgent,
+  AgentSigningKey,
+  AgentDecision,
 } from '@prisma/client';
 
 export {
@@ -80,4 +83,6 @@ export {
   PassiveCashEntryKind,
   ReferralEarningStatus,
   SubscriptionStatus,
+  TradingAgentStatus,
+  AgentDecisionAction,
 } from '@prisma/client';

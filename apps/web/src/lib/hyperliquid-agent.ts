@@ -159,6 +159,32 @@ export async function authorizeAgent(params: {
   return { agentAddress: agent.address };
 }
 
+/**
+ * Approves an agent address this browser did not generate — the AI trading
+ * agent's, which FLT holds server-side. See `@flt/core/security/agent-keys`
+ * for why that is a deliberate, isolated exception rather than a precedent.
+ *
+ * The signature this asks for is identical in kind to `authorizeAgent`'s: it
+ * comes from the participant's own wallet, and it grants the named address
+ * permission to trade — never to withdraw, which Hyperliquid enforces, not
+ * FLT. The difference is only that this browser stores nothing afterward,
+ * because the key it just approved was never here.
+ */
+export async function approveExistingAgent(params: {
+  wallet: WalletClient;
+  agentAddress: Address;
+}): Promise<void> {
+  const client = new hl.ExchangeClient({
+    transport: transport(),
+    wallet: asSigner(params.wallet),
+  });
+
+  await client.approveAgent({
+    agentAddress: params.agentAddress,
+    agentName: AGENT_NAME,
+  });
+}
+
 export interface SubmittableTrigger {
   triggerPrice: string;
   kind: 'tp' | 'sl';

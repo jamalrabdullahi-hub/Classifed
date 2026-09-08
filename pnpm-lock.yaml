@@ -379,6 +379,9 @@ importers:
       '@flt/db':
         specifier: workspace:*
         version: link:../db
+      '@nktkas/hyperliquid':
+        specifier: 0.33.3
+        version: 0.33.3(typescript@5.9.3)
       decimal.js:
         specifier: ^10.4.3
         version: 10.6.0

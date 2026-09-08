@@ -237,6 +237,7 @@ model User {
   referredBy         Referral?              @relation("ReferredBy")
   referralEarnings   ReferralEarning[]      @relation("ReferralEarnings")
   passiveCash        PassiveCashAccount?
+  tradingAgent       TradingAgent?
 
   @@index([accountStatus])
   @@index([createdAt])
@@ -1421,6 +1422,14 @@ model SubscriptionPlan {
   /// Whether this tier may trade perpetuals at all.
   perpsAccess Boolean @default(true)
 
+  /// Whether this tier may enable the AI trading agent.
+  ///
+  /// Separate from `perpsAccess` deliberately: perpetuals access controls
+  /// what a human may trade manually, and agentic trading is a different,
+  /// higher-trust grant — FLT holds a signing key for it. A tier can permit
+  /// one without the other.
+  agenticTradingAccess Boolean @default(false)
+
   /// The highest leverage this tier may use.
   ///
   /// Free accounts are capped at 2x: leverage past that is the point at which a
@@ -1678,4 +1687,176 @@ model PassiveCashEntry {
 
   @@index([accountId, createdAt])
   @@map("passive_cash_entries")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Agentic trading
+//
+// The one part of the platform that deliberately breaks ADR 0001's rule that
+// FLT never holds a signing key. An AI model decides trades and something has
+// to be able to sign them without the participant present, which is not
+// possible without a key living somewhere other than the participant's own
+// browser. That is custody, stated plainly rather than described around.
+//
+// What bounds it: the Hyperliquid key is the venue's own "agent" primitive —
+// it can trade but the venue itself refuses to let it withdraw, so a leaked
+// key costs bad trades, not stolen funds. Ostium has no such scoping; that
+// key is a full wallet, and the only bound on it is the allocation the
+// participant funds it with. Neither key ever signs anything the risk
+// service has not first validated against the participant's own configured
+// limits — see @flt/core/services/agent-risk.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum TradingAgentStatus {
+  /// No key exists yet, or the participant switched the agent off. Existing
+  /// keys are left in place (a decision the participant may want to reverse)
+  /// but nothing trades.
+  DISABLED
+  /// Keys generated; waiting on the participant's own signature (Hyperliquid)
+  /// or funding transfer (Ostium) before either can be used.
+  PENDING_AUTHORIZATION
+  /// Authorised on every enabled venue and trading.
+  ACTIVE
+  /// Tripped by a risk limit or an operator, not by the participant. Requires
+  /// an explicit re-arm — never resumes on its own.
+  KILL_SWITCHED
+}
+
+/// One participant's agent configuration. At most one per user: running two
+/// independent risk profiles against the same account is a way to lose track
+/// of what the combined exposure actually is.
+model TradingAgent {
+  id     String             @id
+  userId String             @unique
+  status TradingAgentStatus @default(DISABLED)
+
+  /// The disclosure actually shown, and when it was accepted — the same
+  /// discipline PassiveCashAccount uses, for the same reason: a term nobody
+  /// can prove was displayed was not agreed.
+  disclosureVersion    String
+  disclosureAcceptedAt DateTime
+
+  /// Per-venue capital ceilings. Null means that venue is not enabled for
+  /// this agent. The executor refuses to size a position past this figure
+  /// regardless of what the model requested.
+  allocatedUsdHyperliquid String?
+  allocatedUsdOstium      String?
+
+  /// This participant's configured cap, clamped to AGENT_MAX_LEVERAGE_CAP at
+  /// read time — the same pattern SubscriptionPlan.maxLeverage uses against
+  /// PERP_MAX_LEVERAGE. Whichever is lower always wins.
+  maxLeverage Int
+
+  /// Comma-separated symbols the agent may trade, e.g. "BTC,ETH". A bound the
+  /// model cannot talk its way past: the executor refuses any decision naming
+  /// a symbol outside this list before it ever reaches the risk service,
+  /// because a bad decision on a thin, unfamiliar market is a worse failure
+  /// mode than a bad decision on BTC.
+  symbols String @default("BTC,ETH")
+
+  /// Every position the agent opens is required to carry protection —
+  /// enforced by the executor, not merely by this flag being true. Recorded
+  /// so the setting itself is auditable.
+  protectionRequired Boolean @default(true)
+
+  killSwitchedAt DateTime?
+  killSwitchReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  keys      AgentSigningKey[]
+  decisions AgentDecision[]
+
+  @@map("trading_agents")
+}
+
+/// A signing key held for one agent on one venue, encrypted at rest.
+///
+/// AES-256-GCM under AGENT_KEY_ENCRYPTION_KEY. The ciphertext, the iv and the
+/// auth tag are three columns rather than one concatenated blob so a
+/// corrupted row fails to decrypt loudly instead of silently producing
+/// garbage that gets signed.
+model AgentSigningKey {
+  id         String @id
+  agentId    String
+  venueSlug  String
+
+  /// The public half. Readable without decrypting anything, which is what
+  /// lets the UI show it and what lets the Hyperliquid approval flow name it
+  /// before the participant signs.
+  address String
+
+  ciphertext String
+  iv         String
+  authTag    String
+  /// Bumped on re-encryption (a key rotation of AGENT_KEY_ENCRYPTION_KEY
+  /// itself). Lets old and new ciphertexts coexist during a rotation instead
+  /// of requiring one atomic cutover across every row.
+  keyVersion Int @default(1)
+
+  /// Set once the venue-side authorisation is confirmed: the participant's
+  /// signed ApproveAgent for Hyperliquid, or a funding transfer observed for
+  /// Ostium. Null means this key cannot sign anything yet no matter what
+  /// TradingAgent.status says.
+  authorizedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  agent TradingAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, venueSlug])
+  @@map("agent_signing_keys")
+}
+
+enum AgentDecisionAction {
+  OPEN
+  CLOSE
+  HOLD
+  /// The model proposed something the risk service would not accept.
+  /// Logged, never executed.
+  REJECTED
+}
+
+/// Every decision the model produced, whether or not it was acted on.
+///
+/// This is the audit trail a participant, a support ticket, or eventually a
+/// regulator reads to answer "why did the bot do that" — so it carries the
+/// full context sent to the model and the full raw response, not a summary
+/// of either.
+model AgentDecision {
+  id        String   @id
+  agentId   String
+  venueSlug String
+  symbol    String
+
+  requestedAt DateTime @default(now())
+
+  /// The market snapshot and risk limits actually sent to the model, as
+  /// JSON. Reproducible from this row alone.
+  contextJson String
+  /// The model's response, verbatim, before any parsing or validation.
+  rawResponse String
+
+  action      AgentDecisionAction
+  side        PerpSide?
+  leverage    Int?
+  usdNotional String?
+  reasoning   String?
+
+  /// True only if the risk service accepted it AND it was actually
+  /// submitted to the venue. A decision can fail validation (rejectionReason
+  /// set) or pass validation and still fail at the venue (orderId null).
+  accepted        Boolean @default(false)
+  rejectionReason String?
+  /// PerpOrder.id, once submitted. No foreign key: an order can be pruned or
+  /// live in a different lifecycle than the decision that produced it, and
+  /// this row should never disappear because that one did.
+  orderId String?
+
+  agent TradingAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, requestedAt])
+  @@map("agent_decisions")
 }

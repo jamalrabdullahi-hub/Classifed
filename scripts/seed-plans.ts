@@ -69,6 +69,7 @@ const PLANS = [
     dailyTradeLimit: 10,
     /** Spot only. Leverage is where an ordinary day's move ends a position. */
     perpsAccess: false,
+    agenticTradingAccess: false,
   },
   {
     tier: SubscriptionTier.BASIC,
@@ -107,6 +108,9 @@ const PLANS = [
     maxLeverage: 10,
     dailyTradeLimit: null,
     perpsAccess: true,
+    // The feature this ladder exists to sell as the reason to upgrade from
+    // Free: the AI trading agent, from the cheapest paid tier up.
+    agenticTradingAccess: true,
   },
   {
     tier: SubscriptionTier.PRO,
@@ -131,6 +135,7 @@ const PLANS = [
     maxLeverage: 20,
     dailyTradeLimit: null,
     perpsAccess: true,
+    agenticTradingAccess: true,
   },
   {
     tier: SubscriptionTier.ELITE,
@@ -156,6 +161,7 @@ const PLANS = [
     maxLeverage: 50,
     dailyTradeLimit: null,
     perpsAccess: true,
+    agenticTradingAccess: true,
   },
 ];
 

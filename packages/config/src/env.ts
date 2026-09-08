@@ -51,6 +51,13 @@ const schema = z.object({
   // ── Chain ────────────────────────────────────────────────────────────────
   BASE_RPC_URL: z.string().url().default('https://mainnet.base.org'),
   BASE_RPC_FALLBACK_URL: z.union([z.string().url(), z.literal('')]).optional(),
+  /**
+   * Arbitrum RPC, used only by the agent-trading executor to broadcast an
+   * Ostium order transaction and wait for its receipt. Nothing else on the
+   * platform reads Arbitrum directly — the Ostium adapter builds calldata
+   * without ever needing an RPC client of its own.
+   */
+  ARBITRUM_RPC_URL: z.string().url().default('https://arb1.arbitrum.io/rpc'),
 
   // ── DEX routing ──────────────────────────────────────────────────────────
   DEX_ROUTER: z.enum(['mock', 'zeroex']).default('mock'),
@@ -172,6 +179,55 @@ const schema = z.object({
   PROTECTION_PREMIUM_TOKEN_ADDRESS: optionalAddress,
   PROTECTION_PREMIUM_CHAIN_ID: z.coerce.number().int().positive().default(8453),
 
+  // ── Agentic trading ──────────────────────────────────────────────────────
+
+  /**
+   * Whether the AI trading agent can run at all.
+   *
+   * This is the one feature on the platform where that sentence is not true
+   * for anything else: FLT holds a signing key on the participant's behalf.
+   * The agent's Hyperliquid key is scoped by the venue itself — it can trade
+   * but never withdraw, the same "agent" mechanism a manual trader's own
+   * browser holds — but its Ostium key is a full EOA with no such scoping,
+   * bounded only by capping what gets sent to it. Both are custody. Off by
+   * default in every environment; turning it on is a deliberate act, not a
+   * default.
+   */
+  AGENTIC_TRADING_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+
+  /**
+   * The key that encrypts every agent signing key at rest (AES-256-GCM).
+   *
+   * 32 bytes, hex-encoded (64 characters). Generate with
+   * `openssl rand -hex 32`. Rotating this without a migration of existing
+   * ciphertexts orphans every key encrypted under the old one — there is no
+   * automatic re-encryption on rotation, so treat a change as "every existing
+   * agent needs to re-authorise", not a routine credential swap.
+   */
+  AGENT_KEY_ENCRYPTION_KEY: z
+    .union([z.string().regex(/^[0-9a-fA-F]{64}$/, 'Must be 32 bytes, hex-encoded'), z.literal('')])
+    .optional(),
+
+  /**
+   * The hard ceiling on leverage the agent may use, independent of whatever
+   * the participant's plan otherwise allows for manual trading.
+   *
+   * Unattended and leveraged is the single riskiest combination the platform
+   * offers, so it gets its own — lower — cap rather than inheriting the plan
+   * cap. A participant's individually configured cap (stored per agent) is
+   * clamped to this at read time, the same way PERP_MAX_LEVERAGE clamps a
+   * plan's.
+   */
+  AGENT_MAX_LEVERAGE_CAP: z.coerce.number().int().min(1).max(20).default(5),
+
+  /** DeepSeek's OpenAI-compatible chat completions endpoint. */
+  DEEPSEEK_API_KEY: z.string().optional(),
+  DEEPSEEK_BASE_URL: z.string().url().default('https://api.deepseek.com'),
+  DEEPSEEK_MODEL: z.string().default('deepseek-chat'),
+
   // ── Fees ─────────────────────────────────────────────────────────────────
   FLT_FEE_RECIPIENT_ADDRESS: optionalAddress,
 
@@ -280,6 +336,15 @@ function load(): Env {
     }
     if (value.MAIL_PROVIDER === 'resend' && !value.RESEND_API_KEY) {
       problems.push('MAIL_PROVIDER=resend requires RESEND_API_KEY');
+    }
+    // Turning this on without an encryption key would mean generating agent
+    // signing keys and either storing them in plaintext or failing every
+    // request — neither is acceptable for something this consequential.
+    if (value.AGENTIC_TRADING_ENABLED && !value.AGENT_KEY_ENCRYPTION_KEY) {
+      problems.push('AGENTIC_TRADING_ENABLED requires AGENT_KEY_ENCRYPTION_KEY');
+    }
+    if (value.AGENTIC_TRADING_ENABLED && !value.DEEPSEEK_API_KEY) {
+      problems.push('AGENTIC_TRADING_ENABLED requires DEEPSEEK_API_KEY');
     }
     if (value.WEB_APP_URL.startsWith('http://')) {
       problems.push('WEB_APP_URL must use https in production (cookies are set Secure)');

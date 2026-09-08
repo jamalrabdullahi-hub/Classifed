@@ -188,6 +188,13 @@ export const AuditAction = {
   PASSIVE_CASH_ENABLED: 'passive_cash.enabled',
   PASSIVE_CASH_DISABLED: 'passive_cash.disabled',
 
+  // Agentic trading — custody of a signing key, audited as such.
+  AGENT_TRADING_ENABLED: 'agent_trading.enabled',
+  AGENT_TRADING_DISABLED: 'agent_trading.disabled',
+  AGENT_TRADING_AUTHORIZED: 'agent_trading.authorized',
+  AGENT_TRADING_KILL_SWITCHED: 'agent_trading.kill_switched',
+  AGENT_TRADING_ORDER_SUBMITTED: 'agent_trading.order_submitted',
+
   // Security
   RATE_LIMITED: 'security.rate_limited',
   QUOTE_TAMPERED: 'security.quote_tampered',

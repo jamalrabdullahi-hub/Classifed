@@ -22,6 +22,7 @@
     "@flt/config": "workspace:*",
     "@flt/core": "workspace:*",
     "@flt/db": "workspace:*",
+    "@nktkas/hyperliquid": "0.33.3",
     "decimal.js": "^10.4.3",
     "viem": "^2.21.60",
     "zod": "^3.24.1"

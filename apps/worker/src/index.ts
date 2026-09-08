@@ -5,6 +5,7 @@ import { runHousekeeping } from './housekeeping';
 import { refreshMarketData } from './market';
 import { syncPerpetuals } from './perps';
 import { sweepProtectionPolicies } from './protection';
+import { runAgentTradingPass } from './agent-trading';
 
 /**
  * The FLT worker.
@@ -35,6 +36,15 @@ const PERP_SYNC_INTERVAL_MS = 20_000;
  * and each pass costs a candle request per policy.
  */
 const PROTECTION_SWEEP_INTERVAL_MS = 120_000;
+/**
+ * Agentic trading, on its own slow interval.
+ *
+ * This is the one pass in the worker that spends real money if it goes
+ * wrong. There is no throughput reason to run it any faster than a human
+ * trader reasonably would check a position, and running it slowly costs
+ * nothing but a slightly staler market snapshot.
+ */
+const AGENT_TRADING_INTERVAL_MS = 300_000;
 
 let shuttingDown = false;
 
@@ -103,6 +113,11 @@ async function main(): Promise<void> {
     // Slower than the position sync: a policy's state follows volatility over
     // hours, not the tick-by-tick mark, and every pass costs candle requests.
     loop('protection', PROTECTION_SWEEP_INTERVAL_MS, sweepProtectionPolicies);
+  }
+
+  if (config.AGENTIC_TRADING_ENABLED) {
+    console.info(`  agent trading every ${AGENT_TRADING_INTERVAL_MS}ms`);
+    loop('agent-trading', AGENT_TRADING_INTERVAL_MS, runAgentTradingPass);
   }
 }
 

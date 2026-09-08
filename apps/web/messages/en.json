@@ -16,7 +16,8 @@
     "closeMenu": "Close menu",
     "language": "Language",
     "signIn": "Sign in",
-    "openAccount": "Open an account"
+    "openAccount": "Open an account",
+    "agent": "AI agent"
   },
   "home": {
     "eyebrow": "Non-custodial trading",
@@ -810,7 +811,50 @@
     "titleSignIn": "Sign in",
     "titleOpenAccount": "Open an account",
     "titleNewPassword": "Choose a new password",
-    "titleConfirmEmail": "Confirm your email"
+    "titleConfirmEmail": "Confirm your email",
+    "titleAgent": "AI trading agent"
+  },
+  "agentPage": {
+    "title": "AI trading agent",
+    "description": "An AI model trades a fixed allocation for you, within the limits you set. FLT holds a signing key to do it — read what that means below.",
+    "notOperational": "The AI trading agent is not available on this deployment yet.",
+    "notEligibleTitle": "Not included in your plan",
+    "notEligibleBody": "The AI trading agent is available on FLT Basic and above.",
+    "seePlans": "See plans",
+    "configTitle": "Agent configuration",
+    "configBody": "Choose which venues the agent may trade on and how much it may risk on each. It will never open a position larger than the allocation, or use more leverage than the cap.",
+    "hyperliquidLabel": "Trade on Hyperliquid",
+    "ostiumLabel": "Trade on Ostium",
+    "allocationPlaceholder": "Allocation in USD",
+    "maxLeverageLabel": "Maximum leverage",
+    "symbolsLabel": "Symbols it may trade (comma separated)",
+    "enable": "Enable",
+    "reconfigure": "Save changes",
+    "disable": "Switch off",
+    "authorizeTitle": "Authorise each venue",
+    "authorized": "Authorised",
+    "signApproval": "Sign approval",
+    "checkFunding": "Check funding",
+    "connectFirst": "Connect your wallet first.",
+    "noKeyYet": "No key generated for this venue yet.",
+    "ostiumFundingNote": "Send at least ${amount} USDC on Arbitrum to the address above, then check funding. This wallet is fully controlled by FLT's server — never send more than you are willing to have it control.",
+    "killSwitchedTitle": "The agent has stopped itself",
+    "killSwitchedGeneric": "It hit a risk limit or an execution error and needs to be reconfigured before it will trade again.",
+    "dialogTitle": "Before you enable this",
+    "cancel": "Cancel",
+    "tickEvery": "Tick every point",
+    "confirmEnable": "I understand — enable it",
+    "configError": "Could not save this.",
+    "disclosureVersion": "2026-09-08.1",
+    "disclosurePoints": [
+      "FLT generates and holds a signing key on your behalf for each venue you enable. This is different from the rest of the platform, which never touches a key of yours.",
+      "On Hyperliquid, that key can open, adjust and close positions but the venue itself refuses to let it withdraw funds — the worst a compromised key can do there is trade badly, not take your money.",
+      "On Ostium, that key is a full wallet with no such restriction. The only bound on it is the amount you choose to fund it with — never send more than you are willing to have that key control.",
+      "An AI model decides what to trade, when, and at what size, within the leverage cap and allocation you set. It can be wrong. It can lose the allocation you gave it.",
+      "Every position it opens is required to carry the protection product, at your configured cover level, at your expense in addition to the allocation.",
+      "You can disable the agent and its trading at any time. Disabling stops new trades; it does not itself withdraw funds already committed to open positions.",
+      "This is not investment advice, and the model's reasoning is not a recommendation you are meant to evaluate — it is logged so you can audit what it did after the fact, not so you approve it beforehand."
+    ]
   },
   "common": {
     "loading": "Loading…",

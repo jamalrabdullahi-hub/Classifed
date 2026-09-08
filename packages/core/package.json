@@ -17,7 +17,8 @@
     "./risk": "./src/risk/index.ts",
     "./domain/*": "./src/domain/*.ts",
     "./ports/*": "./src/ports/*.ts",
-    "./marketmaking/*": "./src/marketmaking/*.ts"
+    "./marketmaking/*": "./src/marketmaking/*.ts",
+    "./security/*": "./src/security/*.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

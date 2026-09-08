@@ -19,6 +19,7 @@ import {
   Sparkles,
   PiggyBank,
   Gift,
+  Bot,
   X,
 } from 'lucide-react';
 import { cn } from '@flt/ui';
@@ -62,6 +63,7 @@ const REFERRALS = { href: '/jeedin', key: 'referrals', icon: Gift } as const;
 
 const ACCOUNT = [
   { href: '/qorshayaal', key: 'plans', icon: Sparkles },
+  { href: '/wakiil', key: 'agent', icon: Bot },
   { href: '/lacag-fadhiya', key: 'passiveCash', icon: PiggyBank },
   { href: '/boorso', key: 'wallets', icon: Wallet },
   { href: '/akoon', key: 'account', icon: Settings },
