@@ -41,6 +41,45 @@ const nextConfig = {
     return config;
   },
 
+  /**
+   * The old English route names, permanently redirected to their Somali
+   * replacements.
+   *
+   * Two things depend on the old paths staying reachable: `/reset-password`
+   * and `/verify-email` are mailed to users with a token in the query string,
+   * and any of these may be bookmarked or already indexed. A redirect costs
+   * nothing and means neither breaks — new navigation uses the Somali paths
+   * (see `nav.tsx` and every internal `Link`), this list only catches what
+   * was already out in the world before the rename.
+   */
+  async redirects() {
+    const renamed = [
+      ['/account', '/akoon'],
+      ['/activity', '/dhaqdhaqaaq'],
+      ['/dashboard', '/guriga'],
+      ['/markets', '/suuqyada'],
+      ['/passive-cash', '/lacag-fadhiya'],
+      ['/perps', '/ganacsi'],
+      ['/plans', '/qorshayaal'],
+      ['/portfolio', '/hantida'],
+      ['/referrals', '/jeedin'],
+      ['/trade', '/iibso'],
+      ['/upgrade', '/kordhi'],
+      ['/verify', '/xaqiijin'],
+      ['/wallets', '/boorso'],
+      ['/login', '/gal'],
+      ['/register', '/is-diiwaan-geli'],
+      ['/forgot-password', '/dib-u-deji'],
+      ['/reset-password', '/beddel-furaha'],
+      ['/verify-email', '/xaqiiji-iimaylka'],
+    ];
+
+    return renamed.flatMap(([from, to]) => [
+      { source: from, destination: to, permanent: true },
+      { source: `${from}/:path*`, destination: `${to}/:path*`, permanent: true },
+    ]);
+  },
+
   async headers() {
     return [
       {

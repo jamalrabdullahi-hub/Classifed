@@ -64,6 +64,15 @@ interface Props {
    */
   locked?: boolean;
   /**
+   * Why it's locked — changes the banner and its call to action.
+   *
+   * A signed-out visitor and a signed-in account without a plan are both
+   * "locked", but they need different next steps: one signs in, the other
+   * picks a plan. Defaults to 'plan' so every existing call site keeps its
+   * current banner without change.
+   */
+  lockReason?: 'plan' | 'guest';
+  /**
    * Reports the boundary and liquidation price up so the chart can draw them.
    *
    * The only useful question about those two numbers is spatial — how far is
@@ -124,6 +133,7 @@ export function ProtectedTicket({
   operatorFeeBps = 1_000,
   protectionRequired = true,
   locked = false,
+  lockReason = 'plan',
   onPriceLinesChange,
 }: Props) {
   const t = useTranslations('protection');
@@ -297,16 +307,16 @@ export function ProtectedTicket({
       {locked ? (
         <div className="rounded-[var(--radius-md)] border border-[var(--warning)] bg-[var(--surface-raised)] p-2.5">
           <p className="text-[11.5px] font-medium text-[var(--text)]">
-            {t('needsPlanTitle')}
+            {t(lockReason === 'guest' ? 'needsLoginTitle' : 'needsPlanTitle')}
           </p>
           <p className="mt-1 text-[10.5px] leading-relaxed text-[var(--text-subtle)]">
-            {t('needsPlanBody')}
+            {t(lockReason === 'guest' ? 'needsLoginBody' : 'needsPlanBody')}
           </p>
           <Link
-            href="/plans?from=perps"
+            href={lockReason === 'guest' ? '/gal' : '/qorshayaal?from=ganacsi'}
             className="mt-2 inline-flex items-center gap-1 rounded-[var(--radius)] border border-[var(--text)] px-2.5 py-1 text-[11px] font-medium text-[var(--text)] transition-colors hover:bg-[var(--text)] hover:text-[var(--canvas)]"
           >
-            {t('seePlans')} <ArrowRight className="size-3" />
+            {t(lockReason === 'guest' ? 'signInCta' : 'seePlans')} <ArrowRight className="size-3" />
           </Link>
         </div>
       ) : null}

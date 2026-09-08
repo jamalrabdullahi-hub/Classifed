@@ -97,7 +97,7 @@ export const GET = handler({}, async ({ request }) => {
       kind: 'perp' as const,
       symbol: market.symbol,
       name: market.name,
-      href: `/perps/${market.symbol}`,
+      href: `/ganacsi/${market.symbol}`,
       detail: t('perpDetail', {
         assetClass: market.assetClass.toLowerCase(),
         leverage: Math.min(market.maxLeverage, config.PERP_MAX_LEVERAGE),
@@ -112,7 +112,7 @@ export const GET = handler({}, async ({ request }) => {
       kind: 'spot' as const,
       symbol: token.symbol,
       name: token.name,
-      href: `/trade?token=${token.address}&chain=${token.chainId}`,
+      href: `/iibso?token=${token.address}&chain=${token.chainId}`,
       detail: t('spotDetail', { chain: token.chain.name }),
       address: token.address,
       /** True when another enabled token shares this symbol. */

@@ -34,10 +34,10 @@ import { LanguageSwitcher } from './language-switcher';
  * account menu because they are settings, not destinations.
  */
 const PRIMARY = [
-  { href: '/dashboard', key: 'home', icon: LayoutGrid },
-  { href: '/markets', key: 'scanner', icon: LineChart },
-  { href: '/portfolio', key: 'portfolio', icon: PieChart },
-  { href: '/activity', key: 'activity', icon: Receipt },
+  { href: '/guriga', key: 'home', icon: LayoutGrid },
+  { href: '/suuqyada', key: 'scanner', icon: LineChart },
+  { href: '/hantida', key: 'portfolio', icon: PieChart },
+  { href: '/dhaqdhaqaaq', key: 'activity', icon: Receipt },
 ] as const;
 
 /**
@@ -48,7 +48,7 @@ const PRIMARY = [
  * tabs both called some variant of "trade" made the user choose between them
  * before knowing what the difference was.
  */
-const TRADE = { href: '/perps', key: 'trade', icon: Gauge } as const;
+const TRADE = { href: '/ganacsi', key: 'trade', icon: Gauge } as const;
 
 /**
  * Referrals sits in the primary bar rather than the account menu.
@@ -58,33 +58,45 @@ const TRADE = { href: '/perps', key: 'trade', icon: Gauge } as const;
  * thing somebody is meant to act on is not a setting. It goes after Trade
  * because that is the order of the work: trade first, then tell people about it.
  */
-const REFERRALS = { href: '/referrals', key: 'referrals', icon: Gift } as const;
+const REFERRALS = { href: '/jeedin', key: 'referrals', icon: Gift } as const;
 
 const ACCOUNT = [
-  { href: '/plans', key: 'plans', icon: Sparkles },
-  { href: '/passive-cash', key: 'passiveCash', icon: PiggyBank },
-  { href: '/wallets', key: 'wallets', icon: Wallet },
-  { href: '/account', key: 'account', icon: Settings },
+  { href: '/qorshayaal', key: 'plans', icon: Sparkles },
+  { href: '/lacag-fadhiya', key: 'passiveCash', icon: PiggyBank },
+  { href: '/boorso', key: 'wallets', icon: Wallet },
+  { href: '/akoon', key: 'account', icon: Settings },
 ] as const;
 
 function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function TopNav({ email, perpsEnabled = false }: { email: string; perpsEnabled?: boolean }) {
+export function TopNav({
+  email,
+  perpsEnabled = false,
+}: {
+  /** null for a signed-out visitor — the trading terminal and plans are public. */
+  email: string | null;
+  perpsEnabled?: boolean;
+}) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const t = useTranslations('nav');
+  const guest = email === null;
   // Without perpetuals the spot swap page takes the Trade slot, so the
   // destination exists either way.
-  const primary = perpsEnabled
-    ? [...PRIMARY, TRADE, REFERRALS]
-    : [...PRIMARY, { href: '/trade', key: 'trade', icon: ArrowLeftRight } as const, REFERRALS];
+  const tradeItem = perpsEnabled
+    ? TRADE
+    : ({ href: '/iibso', key: 'trade', icon: ArrowLeftRight } as const);
+  // A signed-out visitor sees only the two public destinations plus a way to
+  // sign in — every other tab would just bounce them to /gal, which is a
+  // worse first impression than not showing the tab at all.
+  const primary = guest ? [tradeItem, ACCOUNT[0]] : [...PRIMARY, tradeItem, REFERRALS];
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--canvas)]/85 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-6 px-4 sm:px-6">
-        <Link href="/dashboard" className="shrink-0">
+        <Link href={guest ? '/' : '/guriga'} className="shrink-0">
           <Wordmark />
         </Link>
 
@@ -109,7 +121,7 @@ export function TopNav({ email, perpsEnabled = false }: { email: string; perpsEn
         <div className="ml-auto flex items-center gap-2">
           <LanguageSwitcher className="hidden sm:inline-flex" />
           <ThemeToggle className="hidden sm:inline-flex" />
-          <AccountMenu email={email} pathname={pathname} />
+          {guest ? <GuestActions /> : <AccountMenu email={email} pathname={pathname} />}
 
           <button
             type="button"
@@ -128,7 +140,7 @@ export function TopNav({ email, perpsEnabled = false }: { email: string; perpsEn
           className="border-t border-[var(--border)] bg-[var(--surface)] px-4 py-2 md:hidden"
           aria-label="Primary"
         >
-          {[...primary, ...ACCOUNT].map(({ href, key, icon: Icon }) => (
+          {[...primary, ...(guest ? [] : ACCOUNT)].map(({ href, key, icon: Icon }) => (
             <Link
               key={href}
               href={href}
@@ -144,6 +156,24 @@ export function TopNav({ email, perpsEnabled = false }: { email: string; perpsEn
               {t(key)}
             </Link>
           ))}
+          {guest ? (
+            <div className="mt-2 space-y-1.5 border-t border-[var(--border)] px-3 pt-3">
+              <Link
+                href="/gal"
+                onClick={() => setMobileOpen(false)}
+                className="block rounded-[var(--radius-md)] px-3 py-2 text-sm text-[var(--text-muted)]"
+              >
+                {t('signIn')}
+              </Link>
+              <Link
+                href="/is-diiwaan-geli"
+                onClick={() => setMobileOpen(false)}
+                className="block rounded-[var(--radius-md)] bg-[var(--text)] px-3 py-2 text-center text-sm font-medium text-[var(--canvas)]"
+              >
+                {t('openAccount')}
+              </Link>
+            </div>
+          ) : null}
           <div className="flex items-center justify-between px-3 py-3">
             <LanguageSwitcher />
             <ThemeToggle />
@@ -151,6 +181,27 @@ export function TopNav({ email, perpsEnabled = false }: { email: string; perpsEn
         </nav>
       ) : null}
     </header>
+  );
+}
+
+/** Sign in / open account, replacing the account menu for a signed-out visitor. */
+function GuestActions() {
+  const t = useTranslations('nav');
+  return (
+    <div className="hidden items-center gap-2 sm:flex">
+      <Link
+        href="/gal"
+        className="rounded-[var(--radius-md)] px-3 py-1.5 text-[13px] font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
+      >
+        {t('signIn')}
+      </Link>
+      <Link
+        href="/is-diiwaan-geli"
+        className="rounded-[var(--radius-md)] bg-[var(--text)] px-3 py-1.5 text-[13px] font-medium text-[var(--canvas)] transition-colors hover:opacity-90"
+      >
+        {t('openAccount')}
+      </Link>
+    </div>
   );
 }
 

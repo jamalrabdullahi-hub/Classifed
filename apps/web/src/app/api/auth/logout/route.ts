@@ -33,7 +33,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   // A form post expects a redirect; a fetch expects JSON.
   if (request.headers.get('content-type')?.includes('form')) {
-    return NextResponse.redirect(new URL('/login', request.url), { status: 303 });
+    return NextResponse.redirect(new URL('/gal', request.url), { status: 303 });
   }
   return NextResponse.json({ data: { ok: true } });
 }

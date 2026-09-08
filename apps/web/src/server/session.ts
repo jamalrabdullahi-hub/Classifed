@@ -100,7 +100,7 @@ export async function requireSession(): Promise<ResolvedSession> {
 /** Page-level guard: redirects rather than throwing, for server components. */
 export async function requireUserPage(): Promise<User> {
   const user = await currentUser();
-  if (!user) redirect('/login');
+  if (!user) redirect('/gal');
   return user;
 }
 

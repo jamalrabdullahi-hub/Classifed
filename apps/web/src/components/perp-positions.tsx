@@ -140,7 +140,7 @@ export function PerpPositionsPanel({
           description={t('linkWalletBody')}
           action={
             <Button asChild variant="primary" size="sm">
-              <Link href="/wallets">{t('linkWallet')}</Link>
+              <Link href="/boorso">{t('linkWallet')}</Link>
             </Button>
           }
         />

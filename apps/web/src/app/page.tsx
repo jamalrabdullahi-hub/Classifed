@@ -8,21 +8,39 @@ import { ThemeToggle } from '@/components/theme';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { env } from '@flt/config';
 import { currentUser } from '@/server/session';
+import { listAllOfferedMarkets } from '@flt/core/services/perps';
+import { perpVenues } from '@flt/providers';
 
 /**
- * Landing page.
+ * Landing.
  *
- * Written to set the expectation the product has to meet: this is not an
- * exchange that holds your money. The custody model is the headline rather than
- * a footnote, because a user who does not understand it will be confused by
- * every screen that follows.
+ * ## The trade panel is the pitch
  *
- * No price tickers, no volume counters, no urgency. Those belong to a different
- * kind of product.
+ * This used to be a marketing page describing the terminal. It now redirects
+ * straight into the terminal itself, live and unlocked for reading — a
+ * signed-out visitor sees real prices, a real chart and a real order book
+ * before they have opened an account, with the order controls dimmed and a
+ * one-line reason why. A description of a product is never as convincing as
+ * the product, and asking somebody to read three paragraphs before they are
+ * allowed to see what FLT actually does was the wrong trade.
+ *
+ * A signed-in visitor still goes to `/guriga`, their account home — the
+ * terminal is the front door, not a replacement for the dashboard.
+ *
+ * The marketing copy below is the fallback for the one state that has no
+ * terminal to show: perpetuals switched off. It also still runs if the venue
+ * has no market configured at all, for the same reason — better a page that
+ * explains the product than a broken redirect.
  */
 export default async function HomePage() {
   const user = await currentUser();
-  if (user) redirect('/dashboard');
+  if (user) redirect('/guriga');
+
+  if (env().PERPS_ENABLED) {
+    const markets = await listAllOfferedMarkets(perpVenues());
+    const first = markets[0];
+    if (first) redirect(`/ganacsi/${first.symbol}`);
+  }
 
   const perpsEnabled = env().PERPS_ENABLED;
   const t = await getTranslations('landing');
@@ -40,10 +58,10 @@ export default async function HomePage() {
             <LanguageSwitcher className="hidden sm:inline-flex" />
             <ThemeToggle className="hidden sm:inline-flex" />
             <Button asChild variant="ghost" size="sm">
-              <Link href="/login">{t('signIn')}</Link>
+              <Link href="/gal">{t('signIn')}</Link>
             </Button>
             <Button asChild variant="primary" size="sm">
-              <Link href="/register">{t('openAccount')}</Link>
+              <Link href="/is-diiwaan-geli">{t('openAccount')}</Link>
             </Button>
           </div>
         </div>
@@ -68,13 +86,13 @@ export default async function HomePage() {
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Button asChild variant="primary" size="lg">
-                <Link href="/register">
+                <Link href="/is-diiwaan-geli">
                   {t('openAccount')}
                   <ArrowRight className="size-4" />
                 </Link>
               </Button>
               <Button asChild variant="secondary" size="lg">
-                <Link href="/login">{t('signIn')}</Link>
+                <Link href="/gal">{t('signIn')}</Link>
               </Button>
             </div>
           </div>

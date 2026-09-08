@@ -31,6 +31,7 @@ export function PerpTerminal({
   venueName,
   venueIsMock,
   canTrade = true,
+  guest = false,
   requiresBridgedCollateral,
 }: {
   market: TickerMarket;
@@ -39,6 +40,8 @@ export function PerpTerminal({
   venueIsMock: boolean;
   /** False on a plan without perpetuals: everything renders, nothing submits. */
   canTrade?: boolean;
+  /** No session at all. Locks the ticket for a different reason than `canTrade`, and skips the position panel — there is no account to hold one. */
+  guest?: boolean;
   requiresBridgedCollateral: boolean;
 }) {
   const t = useTranslations('terminal');
@@ -113,7 +116,8 @@ export function PerpTerminal({
           bodyClassName="p-0"
         >
           <ProtectedTicket
-            locked={!canTrade}
+            locked={guest || !canTrade}
+            lockReason={guest ? 'guest' : 'plan'}
             onPriceLinesChange={setProtectionLines}
             symbol={market.symbol}
             markPrice={market.markPrice}
@@ -126,7 +130,11 @@ export function PerpTerminal({
 
       <div className="grid border-t border-[var(--border)] lg:grid-cols-[minmax(0,1fr)_180px_300px]">
         <Panel label={t('yourPosition')} className="min-h-[120px]">
-          <PerpPositionsPanel compact symbol={market.symbol} />
+          {guest ? (
+            <p className="p-3 text-[11px] text-[var(--text-subtle)]">{t('signInForPositions')}</p>
+          ) : (
+            <PerpPositionsPanel compact symbol={market.symbol} />
+          )}
         </Panel>
 
         <Panel label={t('recentTrades')} className="border-t lg:border-l lg:border-t-0">

@@ -7,26 +7,35 @@ import { Providers } from '@/components/providers';
 import { currentUser } from '@/server/session';
 
 /**
- * Shell for every authenticated screen.
+ * Shell for every screen under this group, authenticated or not.
  *
  * The KYC gate lives on the trade path rather than here: a user awaiting
  * verification can still see markets, link a wallet and read their account.
  * Locking the whole application behind verification would leave them with a
  * single screen and nothing to do while they wait.
+ *
+ * ## This layout no longer requires a session
+ *
+ * The trading terminal (`/ganacsi`) and the plans page (`/qorshayaal`) are
+ * deliberately open to a signed-out visitor — someone deciding whether to
+ * open an account should be able to see the real screen first, not a
+ * marketing description of it. Every other page under this group still
+ * guards itself: each one calls `requireUserPage()` on its own and redirects
+ * to `/gal` individually, so removing the blanket redirect here does not
+ * open anything that was not already meant to be public.
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await currentUser();
-  if (!user) redirect('/login');
 
   // A suspended account keeps its session but loses the application. The
   // dedicated page explains what happened rather than bouncing them to a login
   // form that would appear to accept their password and then fail.
-  if (user.accountStatus === AccountStatus.SUSPENDED) redirect('/suspended');
+  if (user?.accountStatus === AccountStatus.SUSPENDED) redirect('/suspended');
 
   return (
     <Providers>
       <div className="flex min-h-screen flex-col">
-      <TopNav email={user.email} perpsEnabled={env().PERPS_ENABLED} />
+      <TopNav email={user?.email ?? null} perpsEnabled={env().PERPS_ENABLED} />
 
       <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-8 sm:px-6">{children}</main>
 

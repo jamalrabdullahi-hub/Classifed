@@ -21,7 +21,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     name: 'FLT-Exchange',
     short_name: 'FLT',
     description: t('rootDescription'),
-    start_url: '/dashboard',
+    start_url: '/guriga',
     display: 'standalone',
     orientation: 'portrait',
     background_color: '#0a0c11',

@@ -129,7 +129,7 @@ export function UpgradeBanner({
       </div>
 
       <Link
-        href="/upgrade"
+        href="/kordhi"
         className="shrink-0 rounded-[var(--radius)] border border-[var(--text)] px-2.5 py-1 text-[11px] font-medium text-[var(--text)] transition-colors hover:bg-[var(--text)] hover:text-[var(--canvas)]"
       >
         {t('seePlans')}

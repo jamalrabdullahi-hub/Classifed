@@ -14,7 +14,9 @@
     "signOut": "Ka bax",
     "openMenu": "Fur liiska",
     "closeMenu": "Xir liiska",
-    "language": "Luqadda"
+    "language": "Luqadda",
+    "signIn": "Gal",
+    "openAccount": "Furo akoon"
   },
   "home": {
     "eyebrow": "Ganacsi aan qofna hayn lacagtaada",
@@ -162,6 +164,7 @@
     "prioritySupport": "Taageero mudnaan leh",
     "currentPlanLabel": "Qorshahaaga hadda",
     "freeIncluded": "Waxa akoon kastaa leeyahay",
+    "signInToChoose": "Gal si aad u doorato",
     "connectWalletTitle": "Ku xidh boorsadaada",
     "connectWalletBody": "Qorshuhu waxaa lagu bixiyaa wareejin aad iska saxiixdo.",
     "footerNote": "Qorshayaasha waxaa lagu bixiyaa hal xilli mar, mana cusboonaystaan si toos ah — FLT ma haysto furaha ku dhici lahaa inuu mar kale ku qaado, taasoo ah sababtuu u wado inuu u dhaqaajin waayo lacagtaada ganacsiga. Marka xilligu dhammaado, akoonku wuxuu ku noqdaa Bilaash; boosaska, taariikhda, iyo siyaasadaha ilaalinta way taabanayaan.",
@@ -375,6 +378,7 @@
     "orderBook": "Buugga dalabka",
     "order": "Dalabka",
     "yourPosition": "Booskaaga",
+    "signInForPositions": "Gal si aad u aragto boosaskaaga furan.",
     "recentTrades": "Ganacsiyada dhawaan",
     "costOfHolding": "Qiimaha hayrista",
     "protectionPanelLabel": "Ilaalinta booska — xisaabin kaliya",
@@ -496,7 +500,10 @@
   "protection": {
     "needsPlanTitle": "Ganacsiga leverage-ka wuxuu u baahan yahay qorshe",
     "needsPlanBody": "Wax kasta baad arki kartaa — qiimaha, jaantusyada, iyo xisaabinta ilaalinta dhammaantood way socdaan. Dhigista dalabka waxay u baahan tahay FLT Basic ama ka sarreeya.",
-    "seePlans": "Eeg qorshayaasha"
+    "seePlans": "Eeg qorshayaasha",
+    "needsLoginTitle": "Gal si aad u ganacsato",
+    "needsLoginBody": "Wax kasta halkan waa firfircoon — qiimaha, jaantuska, buugga amarrada, iyo xisaabinta ilaalinta. Furitaanka akoon wuxuu qaadataa hal daqiiqad, mana loo baahna qorshe si aad u eegto.",
+    "signInCta": "Gal"
   },
   "referrals": {
     "title": "Jeedinta",

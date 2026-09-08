@@ -14,7 +14,9 @@
     "signOut": "Sign out",
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
-    "language": "Language"
+    "language": "Language",
+    "signIn": "Sign in",
+    "openAccount": "Open an account"
   },
   "home": {
     "eyebrow": "Non-custodial trading",
@@ -162,6 +164,7 @@
     "prioritySupport": "Priority support",
     "currentPlanLabel": "Your current plan",
     "freeIncluded": "What every account has",
+    "signInToChoose": "Sign in to choose",
     "connectWalletTitle": "Connect your wallet",
     "connectWalletBody": "A plan is paid by a transfer you sign yourself.",
     "footerNote": "Plans are paid one period at a time and do not renew automatically — FLT holds no key that could charge you again, which is the same reason it cannot move your trading funds. When a period ends the account returns to Free; positions, history and protection policies are untouched.",
@@ -375,6 +378,7 @@
     "orderBook": "Order book",
     "order": "Order",
     "yourPosition": "Your position",
+    "signInForPositions": "Sign in to see your open positions.",
     "recentTrades": "Recent trades",
     "costOfHolding": "Cost of holding",
     "protectionPanelLabel": "Position protection — calculation only",
@@ -496,7 +500,10 @@
   "protection": {
     "needsPlanTitle": "Perpetuals need a plan",
     "needsPlanBody": "Look around as much as you like — prices, charts and the protection calculation are all live. Placing an order needs FLT Basic or above.",
-    "seePlans": "See plans"
+    "seePlans": "See plans",
+    "needsLoginTitle": "Sign in to trade",
+    "needsLoginBody": "Everything here is live — prices, the chart, the order book and the protection calculation. Opening an account takes a minute, and no plan is required to look.",
+    "signInCta": "Sign in"
   },
   "referrals": {
     "title": "Referrals",

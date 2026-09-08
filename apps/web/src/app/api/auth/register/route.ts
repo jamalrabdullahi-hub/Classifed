@@ -33,7 +33,7 @@ export const POST = handler(
         requestId: context.requestId,
       });
 
-      const verifyUrl = `${env().WEB_APP_URL}/verify-email?token=${verificationToken}`;
+      const verifyUrl = `${env().WEB_APP_URL}/xaqiiji-iimaylka?token=${verificationToken}`;
       await mailProvider().sendVerification({ to: user.email, verifyUrl });
     } catch (error) {
       // A taken email is not surfaced. Anything else is a real failure.

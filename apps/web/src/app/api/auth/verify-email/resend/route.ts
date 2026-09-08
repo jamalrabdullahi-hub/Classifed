@@ -30,7 +30,7 @@ export const POST = handler(
     }
 
     const token = await issueEmailVerification(prisma, user.id);
-    const verifyUrl = `${env().WEB_APP_URL}/verify-email?token=${token}`;
+    const verifyUrl = `${env().WEB_APP_URL}/xaqiiji-iimaylka?token=${token}`;
 
     await mailProvider().sendVerification({ to: user.email, verifyUrl });
 

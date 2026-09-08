@@ -29,7 +29,7 @@ export const POST = handler(
     if (result) {
       await mailProvider().sendPasswordReset({
         to: result.user.email,
-        resetUrl: `${env().WEB_APP_URL}/reset-password?token=${result.token}`,
+        resetUrl: `${env().WEB_APP_URL}/beddel-furaha?token=${result.token}`,
         expiresInMinutes: 60,
       });
     }

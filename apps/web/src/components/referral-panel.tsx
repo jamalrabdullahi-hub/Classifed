@@ -67,7 +67,7 @@ export function ReferralPanel({
   const [redeeming, setRedeeming] = useState(false);
   const [redeemed, setRedeemed] = useState<string | null>(null);
 
-  const shareUrl = code ? `${appUrl}/register?ref=${code}` : '';
+  const shareUrl = code ? `${appUrl}/is-diiwaan-geli?ref=${code}` : '';
 
   async function issue() {
     setError(null);

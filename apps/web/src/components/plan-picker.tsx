@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useAccount, useSendTransaction, useSwitchChain } from 'wagmi';
 import { Check, Minus } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
@@ -56,12 +57,15 @@ export function PlanPicker({
   expiresAt,
   currentSubscriptionId,
   baseFeeBps,
+  guest = false,
 }: {
   plans: Plan[];
   currentTier: string;
   expiresAt: string | null;
   currentSubscriptionId: string | null;
   baseFeeBps: number;
+  /** No session at all — every "Choose" becomes a sign-in prompt instead of a wallet purchase. */
+  guest?: boolean;
 }) {
   const { isConnected, chainId } = useAccount();
   const { sendTransactionAsync } = useSendTransaction();
@@ -211,6 +215,10 @@ export function PlanPicker({
                   <p className="text-center text-[11px] text-[var(--text-subtle)]">
                     {t('freeIncluded')}
                   </p>
+                ) : guest ? (
+                  <Button asChild variant={plan.isFeatured ? 'primary' : 'secondary'} block>
+                    <Link href="/gal">{t('signInToChoose')}</Link>
+                  </Button>
                 ) : (
                   <Button
                     variant={plan.isFeatured ? 'primary' : 'secondary'}
@@ -228,7 +236,7 @@ export function PlanPicker({
         })}
       </div>
 
-      {!isConnected ? (
+      {!guest && !isConnected ? (
         <Notice tone="warning" title={t('connectWalletTitle')}>
           {t('connectWalletBody')}
         </Notice>

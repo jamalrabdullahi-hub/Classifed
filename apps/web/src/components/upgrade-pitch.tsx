@@ -74,7 +74,7 @@ export function UpgradePitch({
     return (
       <Notice tone="positive" title={t('onPaidPlanTitle')}>
         {t('onPaidPlanBody')}{' '}
-        <Link href="/plans" className="underline">
+        <Link href="/qorshayaal" className="underline">
           {t('comparePlans')}
         </Link>{' '}
         {t('toMoveUpOrDown')}
@@ -166,7 +166,7 @@ export function UpgradePitch({
           .map((plan) => (
             <Link
               key={plan.tier}
-              href="/plans"
+              href="/qorshayaal"
               className={cn(
                 'flex flex-col rounded-[var(--radius-lg)] border p-3 transition-colors',
                 plan.isFeatured
