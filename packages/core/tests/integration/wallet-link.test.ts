@@ -6,7 +6,7 @@ prepareTestDatabase();
 
 const { prisma } = await import('@flt/db');
 const { register } = await import('../../src/services/auth');
-const { completeLink, createLinkChallenge, listWallets } = await import(
+const { completeLink, createLinkChallenge, listWallets, unlinkWallet } = await import(
   '../../src/services/wallets'
 );
 
@@ -78,6 +78,54 @@ describe('wallet linking', () => {
     expect(wallet.verifiedAt).not.toBeNull();
     // The first wallet linked becomes the default.
     expect(wallet.isPreferred).toBe(true);
+  });
+
+  it('re-links a wallet that was previously unlinked, rather than refusing it as a duplicate', async () => {
+    const user = await makeUser('relink');
+
+    const first = await createLinkChallenge(
+      prisma,
+      user,
+      { address: account.address, chainId: 8453 },
+      metadata,
+    );
+    const firstSignature = await account.signMessage({ message: first.message });
+    const linked = await completeLink(
+      user,
+      { nonce: first.nonce, message: first.message, signature: firstSignature },
+      metadata,
+    );
+
+    await unlinkWallet(user.id, linked.id, metadata);
+
+    const afterUnlink = await listWallets(prisma, user.id);
+    expect(afterUnlink).toHaveLength(1);
+    expect(afterUnlink[0]!.verifiedAt).toBeNull();
+
+    // The bug this guards against: linking the same address again used to
+    // hit the (userId, address, chainId) unique constraint on a blind
+    // INSERT and surface as "That wallet is already linked to your
+    // account" — even though the account showed no linked wallet at all.
+    const second = await createLinkChallenge(
+      prisma,
+      user,
+      { address: account.address, chainId: 8453 },
+      metadata,
+    );
+    const secondSignature = await account.signMessage({ message: second.message });
+    const relinked = await completeLink(
+      user,
+      { nonce: second.nonce, message: second.message, signature: secondSignature },
+      metadata,
+    );
+
+    expect(relinked.id).toBe(linked.id); // the same row, not a duplicate
+    expect(relinked.address.toLowerCase()).toBe(account.address.toLowerCase());
+    expect(relinked.verifiedAt).not.toBeNull();
+    expect(relinked.isPreferred).toBe(true);
+
+    const afterRelink = await listWallets(prisma, user.id);
+    expect(afterRelink).toHaveLength(1);
   });
 
   it('refuses a nonce that has already been used', async () => {

@@ -223,8 +223,63 @@ export async function completeLink(
     throw new ValidationError('That verification request has already been used.');
   }
 
+  /*
+   * Unlinking never deletes the row — see `unlinkWallet` below, which clears
+   * `verifiedAt` rather than removing it, so the address's history (orders,
+   * positions, protection policies, transactions) stays attached to
+   * something rather than an orphaned foreign key. That means the row this
+   * signature is for may already exist, previously unlinked, and the
+   * `(userId, address, chainId)` unique constraint would reject a blind
+   * `create` for it — which is exactly the bug this used to have: a user who
+   * unlinked a wallet could never link it again, and the resulting
+   * "already linked" error was actively false. Re-verifying and re-activating
+   * the existing row is what the person asked for; a second, disconnected
+   * history for the same address is not.
+   */
   try {
     const wallet = await prisma.$transaction(async (tx) => {
+      const existing = await tx.wallet.findUnique({
+        where: { userId_address_chainId: { userId: user.id, address, chainId } },
+      });
+
+      if (existing) {
+        if (existing.verifiedAt) {
+          throw new ConflictError(
+            'WALLET_ALREADY_LINKED',
+            'That wallet is already linked to your account.',
+          );
+        }
+
+        // If nothing else is currently verified, this relinked wallet becomes
+        // the preferred one again — otherwise the account is left with a
+        // verified wallet nothing points at, same as a first-time link with
+        // no wallets at all would be wrong to leave unset.
+        const hasOtherVerified = await tx.wallet.findFirst({
+          where: { userId: user.id, verifiedAt: { not: null }, id: { not: existing.id } },
+        });
+
+        const relinked = await tx.wallet.update({
+          where: { id: existing.id },
+          data: {
+            connector: input.connector ?? existing.connector,
+            verifiedAt: new Date(),
+            isPreferred: hasOtherVerified ? existing.isPreferred : true,
+          },
+        });
+
+        await tx.walletConnection.create({
+          data: {
+            id: newId(),
+            walletId: relinked.id,
+            connector: input.connector ?? 'unknown',
+            ip: metadata.ip ?? null,
+            userAgent: metadata.userAgent ?? null,
+          },
+        });
+
+        return relinked;
+      }
+
       const isFirst = (await tx.wallet.count({ where: { userId: user.id } })) === 0;
 
       const created = await tx.wallet.create({
