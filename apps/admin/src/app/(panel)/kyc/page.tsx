@@ -50,6 +50,15 @@ export default async function KycQueuePage() {
             dateOfBirth: profile.dateOfBirth?.toISOString() ?? null,
             submittedAt: profile.submittedAt?.toISOString() ?? null,
             accountCreatedAt: profile.user.createdAt.toISOString(),
+            residenceAddress: profile.residenceAddress,
+            occupation: profile.occupation,
+            accountPurpose: profile.accountPurpose,
+            expectedMonthlyVolume: profile.expectedMonthlyVolume,
+            riskTier: profile.riskTier,
+            eddRequired: profile.eddRequired,
+            isPoliticallyExposed: profile.isPoliticallyExposed,
+            pepDetails: profile.pepDetails,
+            sourceOfFundsEvidence: profile.sourceOfFundsEvidence,
           }))}
         />
       )}

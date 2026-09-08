@@ -21,6 +21,13 @@ const schema = z.object({
     return age >= 18 && age <= 120;
   }, 'You must be at least 18 years old'),
   countryCode: z.string().trim().length(2, 'Select your country'),
+  residenceAddress: z.string().trim().min(5, 'Enter your residential address').max(300),
+  occupation: z.string().trim().min(2, 'Enter your occupation').max(150),
+  accountPurpose: z.string().trim().min(5, 'Tell us what you plan to use this account for').max(300),
+  expectedMonthlyVolume: z.string().trim().min(1, 'Select an expected monthly volume').max(100),
+  isPoliticallyExposed: z.boolean(),
+  pepDetails: z.string().trim().max(1000).optional(),
+  sourceOfFundsEvidence: z.string().trim().max(1000).optional(),
 });
 
 export const POST = handler(
@@ -33,6 +40,13 @@ export const POST = handler(
         legalLastName: body.legalLastName,
         dateOfBirth: new Date(body.dateOfBirth),
         countryCode: body.countryCode,
+        residenceAddress: body.residenceAddress,
+        occupation: body.occupation,
+        accountPurpose: body.accountPurpose,
+        expectedMonthlyVolume: body.expectedMonthlyVolume,
+        isPoliticallyExposed: body.isPoliticallyExposed,
+        pepDetails: body.pepDetails,
+        sourceOfFundsEvidence: body.sourceOfFundsEvidence,
       },
       { ip: context.ip, userAgent: context.userAgent, requestId: context.requestId },
     );
@@ -48,5 +62,6 @@ export const GET = handler({}, async ({ user }) => {
     submittedAt: profile?.submittedAt?.toISOString() ?? null,
     decidedAt: profile?.decidedAt?.toISOString() ?? null,
     rejectionReason: profile?.rejectionReason ?? null,
+    eddRequired: profile?.eddRequired ?? false,
   };
 });

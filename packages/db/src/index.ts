@@ -59,6 +59,7 @@ export {
   AccountStatus,
   AccountType,
   KycStatus,
+  KycRiskTier,
   EmailTokenKind,
   MfaMethod,
   TokenVerificationTier,

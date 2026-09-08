@@ -28,6 +28,15 @@ export interface QueuedProfile {
   dateOfBirth: string | null;
   submittedAt: string | null;
   accountCreatedAt: string;
+  residenceAddress: string | null;
+  occupation: string | null;
+  accountPurpose: string | null;
+  expectedMonthlyVolume: string | null;
+  riskTier: string;
+  eddRequired: boolean;
+  isPoliticallyExposed: boolean;
+  pepDetails: string | null;
+  sourceOfFundsEvidence: string | null;
 }
 
 /**
@@ -91,8 +100,31 @@ export function KycQueue({
         {profiles.map((profile) => (
           <Card key={profile.id}>
             <CardContent className="flex flex-wrap items-start justify-between gap-4">
-              <div className="min-w-0 space-y-1">
-                <p className="text-[14px] font-medium text-[var(--text)]">{profile.legalName}</p>
+              <div className="min-w-0 space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-[14px] font-medium text-[var(--text)]">{profile.legalName}</p>
+                  <span
+                    className={`rounded-[3px] border px-1.5 py-0.5 text-[9px] uppercase tracking-[0.06em] ${
+                      profile.riskTier === 'HIGH'
+                        ? 'border-red-500/40 text-red-500'
+                        : profile.riskTier === 'MEDIUM'
+                          ? 'border-amber-500/40 text-amber-500'
+                          : 'border-[var(--border)] text-[var(--text-subtle)]'
+                    }`}
+                  >
+                    {profile.riskTier} risk
+                  </span>
+                  {profile.eddRequired ? (
+                    <span className="rounded-[3px] border border-red-500/40 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.06em] text-red-500">
+                      EDD required
+                    </span>
+                  ) : null}
+                  {profile.isPoliticallyExposed ? (
+                    <span className="rounded-[3px] border border-amber-500/40 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.06em] text-amber-500">
+                      PEP
+                    </span>
+                  ) : null}
+                </div>
                 <p className="text-[12px] text-[var(--text-muted)]">{profile.email}</p>
                 <p className="num text-[11px] text-[var(--text-subtle)]">
                   {profile.countryCode ?? '—'}
@@ -103,6 +135,44 @@ export function KycQueue({
                     ? ` · submitted ${new Date(profile.submittedAt).toLocaleString()}`
                     : ''}
                 </p>
+                <dl className="grid gap-x-4 gap-y-0.5 text-[11px] text-[var(--text-subtle)] sm:grid-cols-2">
+                  {profile.occupation ? (
+                    <div>
+                      <dt className="inline font-medium text-[var(--text-muted)]">Occupation: </dt>
+                      <dd className="inline">{profile.occupation}</dd>
+                    </div>
+                  ) : null}
+                  {profile.expectedMonthlyVolume ? (
+                    <div>
+                      <dt className="inline font-medium text-[var(--text-muted)]">Expected volume: </dt>
+                      <dd className="inline">{profile.expectedMonthlyVolume}</dd>
+                    </div>
+                  ) : null}
+                  {profile.residenceAddress ? (
+                    <div className="sm:col-span-2">
+                      <dt className="inline font-medium text-[var(--text-muted)]">Address: </dt>
+                      <dd className="inline">{profile.residenceAddress}</dd>
+                    </div>
+                  ) : null}
+                  {profile.accountPurpose ? (
+                    <div className="sm:col-span-2">
+                      <dt className="inline font-medium text-[var(--text-muted)]">Purpose: </dt>
+                      <dd className="inline">{profile.accountPurpose}</dd>
+                    </div>
+                  ) : null}
+                  {profile.pepDetails ? (
+                    <div className="sm:col-span-2">
+                      <dt className="inline font-medium text-amber-500">PEP details: </dt>
+                      <dd className="inline">{profile.pepDetails}</dd>
+                    </div>
+                  ) : null}
+                  {profile.sourceOfFundsEvidence ? (
+                    <div className="sm:col-span-2">
+                      <dt className="inline font-medium text-[var(--text-muted)]">Source of funds: </dt>
+                      <dd className="inline">{profile.sourceOfFundsEvidence}</dd>
+                    </div>
+                  ) : null}
+                </dl>
               </div>
 
               {canDecide ? (

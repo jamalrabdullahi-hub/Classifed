@@ -218,6 +218,11 @@ describe('verification gates trading', () => {
         legalLastName: 'User',
         dateOfBirth: new Date('1990-01-01'),
         countryCode: 'GB',
+        residenceAddress: '1 Test Street, London',
+        occupation: 'Software engineer',
+        accountPurpose: 'Personal crypto trading',
+        expectedMonthlyVolume: '$1,000–$5,000',
+        isPoliticallyExposed: false,
       },
       metadata,
     );

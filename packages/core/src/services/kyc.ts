@@ -1,13 +1,20 @@
 import {
   AccountStatus,
   ActorType,
+  KycRiskTier,
   KycStatus,
   type DbClient,
   type KycProfile,
   type User,
   prisma,
 } from '@flt/db';
-import { ConflictError, KycRequiredError, NotFoundError, TradingDisabledError } from '../domain/errors';
+import {
+  ConflictError,
+  KycRequiredError,
+  NotFoundError,
+  TradingDisabledError,
+  ValidationError,
+} from '../domain/errors';
 import { newId } from '../domain/id';
 import { accountStateMachine, kycStateMachine } from '../domain/state';
 import { AuditAction, audit } from './audit';
@@ -18,17 +25,56 @@ import { AuditAction, audit } from './audit';
  * Phase 1 does not fabricate verification. A user submits their details, the
  * profile moves to IN_REVIEW, and a human with the COMPLIANCE role decides in
  * the admin panel. That is an honest manual workflow, not a fake automated one.
+ * There is no document-authenticity check, no liveness/face-match, and no
+ * live sanctions/PEP-list screening here — those require a vendor contract
+ * this codebase cannot provision on its own (AML/CFT Procedures P-02, P-04,
+ * P-05). What this module does implement is the required-information
+ * collection, PEP self-attestation, and risk-tiering those procedures call
+ * for ahead of the human decision (P-01, P-03, P-05, P-06).
  *
  * The account status and the KYC status are kept in step here rather than in
  * the callers, so there is exactly one place where "approved verification means
  * an approved account" is expressed.
  */
 
+/**
+ * Jurisdictions treated as High risk by default (FATF-style "increased
+ * monitoring" / high-risk lists, kept intentionally short and unofficial).
+ *
+ * [INITIAL CONFIGURATION — MUST BE CALIBRATED USING ACTUAL CUSTOMER DATA
+ * AND A PROPER RISK ASSESSMENT] per AML/CFT Procedures P-03. This is a
+ * starting point so the risk-tiering code path exists and is exercised, not
+ * a substitute for the Enterprise Risk Assessment (Doc 04) or legal advice
+ * on which lists actually apply.
+ */
+export const HIGH_RISK_KYC_COUNTRIES = new Set([
+  'KP', // North Korea
+  'IR', // Iran
+  'MM', // Myanmar
+  'AF', // Afghanistan
+  'SY', // Syria
+]);
+
 export interface SubmitKycInput {
   legalFirstName: string;
   legalLastName: string;
   dateOfBirth: Date;
   countryCode: string;
+  residenceAddress: string;
+  occupation: string;
+  accountPurpose: string;
+  expectedMonthlyVolume: string;
+  isPoliticallyExposed: boolean;
+  pepDetails?: string;
+  /** Only required once risk-tiering (below) lands the profile on EDD. */
+  sourceOfFundsEvidence?: string;
+}
+
+/** P-03: Low/Medium/High from what's known at submission time. */
+function computeRiskTier(input: SubmitKycInput): KycRiskTier {
+  if (input.isPoliticallyExposed) return KycRiskTier.HIGH;
+  if (HIGH_RISK_KYC_COUNTRIES.has(input.countryCode.toUpperCase())) return KycRiskTier.HIGH;
+  return KycRiskTier.LOW;
 }
 
 export async function submitKyc(
@@ -48,6 +94,23 @@ export async function submitKyc(
     kycStateMachine.assertTransition(existing.status, KycStatus.IN_REVIEW);
   }
 
+  const riskTier = computeRiskTier(input);
+  const eddRequired = riskTier === KycRiskTier.HIGH;
+
+  // P-06: source-of-funds evidence is required before an EDD-track
+  // submission can even reach the reviewer — not optional context the
+  // reviewer might ask for later.
+  if (eddRequired && (!input.sourceOfFundsEvidence || input.sourceOfFundsEvidence.trim().length < 20)) {
+    throw new ValidationError(
+      'This account requires enhanced due diligence. Describe the source of the funds you plan to use (at least 20 characters) before submitting.',
+    );
+  }
+  if (input.isPoliticallyExposed && (!input.pepDetails || input.pepDetails.trim().length < 10)) {
+    throw new ValidationError(
+      'Describe the political exposure (yours, a family member\'s, or a close associate\'s) before submitting.',
+    );
+  }
+
   const profile = await prisma.$transaction(async (tx) => {
     const saved = await tx.kycProfile.upsert({
       where: { userId: user.id },
@@ -60,6 +123,15 @@ export async function submitKyc(
         legalLastName: input.legalLastName,
         dateOfBirth: input.dateOfBirth,
         countryCode: input.countryCode.toUpperCase(),
+        residenceAddress: input.residenceAddress,
+        occupation: input.occupation,
+        accountPurpose: input.accountPurpose,
+        expectedMonthlyVolume: input.expectedMonthlyVolume,
+        isPoliticallyExposed: input.isPoliticallyExposed,
+        pepDetails: input.pepDetails ?? null,
+        riskTier,
+        eddRequired,
+        sourceOfFundsEvidence: input.sourceOfFundsEvidence ?? null,
         submittedAt: new Date(),
       },
       update: {
@@ -68,6 +140,15 @@ export async function submitKyc(
         legalLastName: input.legalLastName,
         dateOfBirth: input.dateOfBirth,
         countryCode: input.countryCode.toUpperCase(),
+        residenceAddress: input.residenceAddress,
+        occupation: input.occupation,
+        accountPurpose: input.accountPurpose,
+        expectedMonthlyVolume: input.expectedMonthlyVolume,
+        isPoliticallyExposed: input.isPoliticallyExposed,
+        pepDetails: input.pepDetails ?? null,
+        riskTier,
+        eddRequired,
+        sourceOfFundsEvidence: input.sourceOfFundsEvidence ?? null,
         submittedAt: new Date(),
         decidedAt: null,
         decidedByAdminId: null,
@@ -96,7 +177,12 @@ export async function submitKyc(
     requestId: metadata.requestId ?? null,
     // Names and dates of birth are personal data. The audit trail records that
     // a submission happened and by whom, not its contents.
-    after: { status: profile.status, countryCode: profile.countryCode },
+    after: {
+      status: profile.status,
+      countryCode: profile.countryCode,
+      riskTier: profile.riskTier,
+      eddRequired: profile.eddRequired,
+    },
   });
 
   return profile;

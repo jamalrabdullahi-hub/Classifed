@@ -341,6 +341,18 @@ model EmailToken {
 // Compliance
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Low/Medium/High per the Customer Risk Scoring procedure (AML/CFT
+/// Procedures, P-03). The thresholds behind this are a starting
+/// configuration, not a calibrated model — see `HIGH_RISK_KYC_COUNTRIES` in
+/// @flt/core/services/kyc, which the same procedure document flags as
+/// requiring calibration against real customer data and a proper risk
+/// assessment before being relied on.
+enum KycRiskTier {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 model KycProfile {
   id               String    @id
   userId           String    @unique
@@ -353,6 +365,29 @@ model KycProfile {
   legalLastName    String?
   dateOfBirth      DateTime?
   countryCode      String?
+
+  /// The rest of P-01's required-information list beyond identity: where the
+  /// customer lives, what they do, why they're opening the account, and how
+  /// much they expect to move through it. None of this is optional at
+  /// submission — Phase 1 has no vendor to fall back on to infer it later.
+  residenceAddress       String?
+  occupation             String?
+  accountPurpose         String?
+  expectedMonthlyVolume  String?
+
+  /// Self-attestation per P-05. A "yes" does not reject the account — it
+  /// forces the Enhanced Due Diligence track (mandatory EDD + MLRO-equivalent
+  /// approval before activation) rather than an automatic decline.
+  isPoliticallyExposed Boolean @default(false)
+  pepDetails           String?
+
+  /// Computed at submission per P-03. HIGH forces `sourceOfFundsEvidence` to
+  /// be present (P-06) and is surfaced to the reviewer — it does not by
+  /// itself block anything; only an unresolved decision does.
+  riskTier               KycRiskTier @default(LOW)
+  eddRequired             Boolean     @default(false)
+  sourceOfFundsEvidence  String?
+
   submittedAt      DateTime?
   decidedAt        DateTime?
   /// The admin who decided, when the decision was manual.
@@ -366,6 +401,7 @@ model KycProfile {
   documents KycDocument[]
 
   @@index([status])
+  @@index([riskTier])
   @@map("kyc_profiles")
 }
 
