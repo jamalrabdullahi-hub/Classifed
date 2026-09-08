@@ -4,6 +4,7 @@ import { SectionHeader } from '@flt/ui';
 import { agentStatusFor, agenticTradingOperational } from '@flt/core/services/agent-trading';
 import { requireUserPage } from '@/server/session';
 import { AgentPanel } from './agent-panel';
+import { BridgeKeysPanel } from './bridge-panel';
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations('meta'))('titleAgent') };
@@ -46,6 +47,7 @@ export default async function AgentPage() {
           authorized: key.authorizedAt !== null,
         }))}
       />
+      {agenticTradingOperational() && status.eligible && status.agent ? <BridgeKeysPanel /> : null}
     </div>
   );
 }

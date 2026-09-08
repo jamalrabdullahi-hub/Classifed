@@ -238,6 +238,7 @@ model User {
   referralEarnings   ReferralEarning[]      @relation("ReferralEarnings")
   passiveCash        PassiveCashAccount?
   tradingAgent       TradingAgent?
+  bridgeApiKeys      BridgeApiKey[]
 
   @@index([accountStatus])
   @@index([createdAt])
@@ -1859,4 +1860,40 @@ model AgentDecision {
 
   @@index([agentId, requestedAt])
   @@map("agent_decisions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MetaTrader 4/5 bridge.
+//
+// A participant's own MT4/MT5 terminal cannot hold a signing key or speak
+// FLT's session auth, so it authenticates with a bearer key instead. What
+// that key is allowed to do is bounded entirely by the participant's own
+// TradingAgent config (allocation, leverage cap, symbol list, mandatory
+// protection) — the bridge sends the EA's trade signals through the exact
+// same executeAgentDecision/agent-risk path an AI decision goes through, so
+// an MT position is validated, sized, protected and audited identically to
+// one the AI agent opened. There is no separate, weaker code path here.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A bearer key an MT4/5 Expert Advisor presents on every request. Only the
+/// hash is stored — same discipline as a password — so a leaked database
+/// backup does not hand out live keys.
+model BridgeApiKey {
+  id     String @id
+  userId String
+
+  label    String
+  keyHash  String @unique
+  /// Last 4 characters of the raw key, kept only so the participant can tell
+  /// keys apart in the UI without FLT ever storing the key itself.
+  lastFour String
+
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("bridge_api_keys")
 }

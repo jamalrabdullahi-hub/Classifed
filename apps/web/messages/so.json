@@ -854,7 +854,19 @@
       "Boos kasta oo uu furo waa in uu sido alaabta ilaalinta, heerka daboolka aad dejisay, kharashkaaga dheeraad ah oo ka baxsan qadarka.",
       "Waad damin kartaa wakiilka iyo ganacsigiisa waqti kasta. Damintu waxay joojisaa ganacsi cusub; kaligeed kama bixiso lacagta horeyba loo geliyay boosaska furan.",
       "Tani maaha talo maalgashi, sababtuna sida wakiilku u fikiro maaha talo aad qiimayn doonto — waxaa loo diiwaan geliyaa si aad u baaris karto waxa uu sameeyay ka dib, ee maaha si aad marka hore u ogolaato."
-    ]
+    ],
+    "bridge": {
+      "title": "Isku xirka MetaTrader 4/5",
+      "body": "Samee furaha loogu talagalay Expert Advisor-ka FLT si aad calaamado ganacsi uga soo dirto terminal-kaaga MT4/5. Calaamad kastaa waxay weli ku xaddidan tahay qadarka, leverage-ka iyo suuqyada kor lagu qeexay — furuhu kaliya wuxuu siinayaa hab loola hadlo xadkaas, mana dhaafo.",
+      "labelPlaceholder": "Magaca furaha, tusaale \"VPS 1\"",
+      "issue": "Samee furaha",
+      "issuedTitle": "Hadda ku daabac furahan",
+      "issuedBody": "Hal mar ayaa la muujinayaa. Ku dar goobta \"Bridge API key\" ee EA-ga FLTBridge ee MetaTrader.",
+      "dismiss": "Dhammeeyay",
+      "revoke": "Baabbi'i",
+      "revoked": "La baabbi'iyay",
+      "createError": "Furahan lama samayn karin."
+    }
   },
   "common": {
     "loading": "Waa la soo raraya…",

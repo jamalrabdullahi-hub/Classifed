@@ -854,7 +854,19 @@
       "Every position it opens is required to carry the protection product, at your configured cover level, at your expense in addition to the allocation.",
       "You can disable the agent and its trading at any time. Disabling stops new trades; it does not itself withdraw funds already committed to open positions.",
       "This is not investment advice, and the model's reasoning is not a recommendation you are meant to evaluate — it is logged so you can audit what it did after the fact, not so you approve it beforehand."
-    ]
+    ],
+    "bridge": {
+      "title": "MetaTrader 4/5 bridge",
+      "body": "Issue a key for the FLT Expert Advisor so you can send trade signals from your own MT4/5 terminal. Every signal is still bounded by the allocation, leverage cap and symbols configured above — the key itself only grants a way to talk to that same limit, not to exceed it.",
+      "labelPlaceholder": "Key label, e.g. \"VPS 1\"",
+      "issue": "Issue key",
+      "issuedTitle": "Copy this key now",
+      "issuedBody": "Shown once. Paste it into the FLTBridge EA's \"Bridge API key\" input in MetaTrader.",
+      "dismiss": "Done",
+      "revoke": "Revoke",
+      "revoked": "Revoked",
+      "createError": "Could not create this key."
+    }
   },
   "common": {
     "loading": "Loading…",
