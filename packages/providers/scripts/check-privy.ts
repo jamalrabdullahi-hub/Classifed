@@ -12,8 +12,19 @@ import { PrivyClient } from '@privy-io/node';
  * present but rejected, and credentials accepted but the app not permitted to
  * use the wallet API.
  *
+ * Lives inside @flt/providers rather than in the repo's /scripts directory
+ * because the root .npmrc sets `shamefully-hoist=false` on purpose — a package
+ * must declare what it imports. A script at the repo root cannot resolve
+ * `@privy-io/node`, which is a dependency of this package and installed only
+ * under it.
+ *
+ * Reads the environment it is given rather than loading a file: the documented
+ * invocation sources /opt/flt-exchange/.env first, and a second, subtly
+ * different idea of where .env lives is how a check reports "not configured"
+ * about a server that is configured.
+ *
  * Usage, on the server:
- *   pnpm check:privy
+ *   sudo -u flt bash -c 'set -a; source /opt/flt-exchange/.env; set +a;  *     cd /opt/flt-exchange && pnpm check:privy'
  */
 async function main(): Promise<void> {
   const appId = process.env.PRIVY_APP_ID;
