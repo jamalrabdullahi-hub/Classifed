@@ -24,6 +24,7 @@ import { explorerAddressUrl, explorerTxUrl } from '@flt/core/chains';
 import { PERMISSIONS, can } from '@flt/core/services/admin';
 import { UserControls } from './user-controls';
 import { TierControl } from '@/components/tier-control';
+import { SubscriptionControl } from '@/components/subscription-control';
 import { requireAdminPage } from '@/server/session';
 
 export const metadata: Metadata = { title: 'User' };
@@ -39,6 +40,7 @@ export const dynamic = 'force-dynamic';
 export default async function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdminPage();
   const canPrice = can(admin, PERMISSIONS.MANAGE_FEES);
+  const canGrantSubscription = can(admin, PERMISSIONS.MANAGE_SUBSCRIPTIONS);
   const { id } = await params;
 
   const user = await prisma.user.findUnique({
@@ -47,6 +49,11 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
       kycProfile: { include: { decidedBy: { select: { email: true } } } },
       wallets: { orderBy: [{ isPreferred: 'desc' }, { createdAt: 'asc' }] },
       transactions: { orderBy: { submittedAt: 'desc' }, take: 25 },
+      subscriptions: {
+        where: { status: 'ACTIVE' },
+        orderBy: { endsAt: 'desc' },
+        take: 1,
+      },
       _count: { select: { sessions: true, quotes: true } },
     },
   });
@@ -212,6 +219,21 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
               <DetailRow
                 label="Email confirmed"
                 value={user.emailVerifiedAt ? 'Yes' : 'No'}
+              />
+              <DetailRow
+                label="Plan"
+                value={
+                  canGrantSubscription ? (
+                    <SubscriptionControl
+                      userId={user.id}
+                      currentTier={user.subscriptions[0]?.tier ?? 'FREE'}
+                      currentEndsAt={user.subscriptions[0]?.endsAt?.toISOString() ?? null}
+                    />
+                  ) : (
+                    (user.subscriptions[0]?.tier ?? 'FREE')
+                  )
+                }
+                hint="Entitlements — what this account can do, separate from pricing."
               />
               <DetailRow
                 label="Trading"

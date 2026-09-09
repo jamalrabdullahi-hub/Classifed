@@ -60,6 +60,7 @@ export const PERMISSIONS = {
   MANAGE_PROVIDERS: 'manage_providers',
   MANAGE_FEES: 'manage_fees',
   MANAGE_ADMINS: 'manage_admins',
+  MANAGE_SUBSCRIPTIONS: 'manage_subscriptions',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -74,6 +75,7 @@ const ROLE_PERMISSIONS: Record<AdminRole, readonly Permission[]> = {
     PERMISSIONS.MANAGE_TOKENS,
     PERMISSIONS.MANAGE_PROVIDERS,
     PERMISSIONS.MANAGE_FEES,
+    PERMISSIONS.MANAGE_SUBSCRIPTIONS,
   ],
   [AdminRole.SUPER_ADMIN]: Object.values(PERMISSIONS),
 };

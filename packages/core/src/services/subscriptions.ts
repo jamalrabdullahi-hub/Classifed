@@ -16,6 +16,7 @@ import { publicClient } from '../chains/client';
 import { AuditAction, audit } from './audit';
 import { activeTier } from './entitlements';
 import { recordReferralEarning } from './referrals';
+import { PERMISSIONS, assertCan, recordAdminAction, type AdminActionContext } from './admin';
 
 /**
  * Buying a subscription.
@@ -312,6 +313,74 @@ export async function confirmSubscription(
   });
 
   return activated;
+}
+
+/**
+ * Grants a subscription period without a payment — an operator override, not
+ * a purchase.
+ *
+ * Everything upstream of this function still applies: `entitlementsFor`
+ * cannot tell a granted period from a paid one, because it is the same
+ * ACTIVE row with the same tier and `endsAt`. What's different is
+ * `pricePaidUsd`/`txHash`/`paidAt` staying null and the audit entry
+ * recording which admin granted it and why — this is the one path in the
+ * whole subscriptions module that does not require a verified on-chain
+ * transfer, so it exists as its own function rather than a flag on
+ * `confirmSubscription`, where a caller could reach for it by accident.
+ */
+export async function grantSubscription(
+  context: AdminActionContext,
+  input: { targetUserId: string; tier: SubscriptionTier; days: number; reason: string },
+): Promise<Subscription> {
+  assertCan(context.admin, PERMISSIONS.MANAGE_SUBSCRIPTIONS);
+
+  if (input.tier === SubscriptionTier.FREE) {
+    throw new ValidationError('FREE is the default; there is nothing to grant.');
+  }
+  if (!Number.isInteger(input.days) || input.days < 1 || input.days > 3650) {
+    throw new ValidationError('Grant length must be between 1 and 3650 days');
+  }
+
+  const now = new Date();
+
+  const granted = await prisma.$transaction(async (tx) => {
+    const previous = await tx.subscription.findFirst({
+      where: { userId: input.targetUserId, status: SubscriptionStatus.ACTIVE, endsAt: { gt: now } },
+      orderBy: { endsAt: 'desc' },
+    });
+
+    if (previous) {
+      await tx.subscription.update({
+        where: { id: previous.id },
+        data: {
+          status: SubscriptionStatus.CANCELLED,
+          cancelledAt: now,
+          cancelReason: `Replaced by an operator grant: ${input.reason}`,
+        },
+      });
+    }
+
+    return tx.subscription.create({
+      data: {
+        id: newId(),
+        userId: input.targetUserId,
+        tier: input.tier,
+        status: SubscriptionStatus.ACTIVE,
+        startsAt: now,
+        endsAt: new Date(now.getTime() + input.days * 86_400_000),
+      },
+    });
+  });
+
+  await recordAdminAction(prisma, context, {
+    action: AuditAction.SUBSCRIPTION_ACTIVATED,
+    entityType: 'subscription',
+    entityId: granted.id,
+    after: { tier: input.tier, days: input.days, endsAt: granted.endsAt, granted: true },
+    reason: input.reason,
+  });
+
+  return granted;
 }
 
 /** Ends a subscription early. The period is not refunded — no balance is held. */
