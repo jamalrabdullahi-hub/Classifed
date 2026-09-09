@@ -3,7 +3,7 @@ import { prisma } from '@flt/db';
 import { resolveTradingWallet } from '@flt/core/services/wallets';
 import { prepareClose, prepareOpen } from '@flt/core/services/perps';
 import { RateLimits } from '@flt/core/services/ratelimit';
-import { perpVenue, perpVenues } from '@flt/providers';
+import { perpVenue, perpVenues, submitManualOrder } from '@flt/providers';
 import { handler } from '@/server/api';
 import { resolveOfferedMarket } from '@flt/core/services/perps';
 import { ValidationError, Decimal, NotFoundError } from '@flt/core/domain';
@@ -19,8 +19,13 @@ import type { PerpVenue } from '@flt/core/ports';
  * persisted server-side first, so what the user approved can be compared
  * against what the venue reports having filled.
  *
- * FLT does not submit the order. The client signs it with a key this server
- * has never seen and posts it to the venue itself.
+ * The order is then submitted for the participant, signed with the venue key
+ * they authorised — see submitManualOrder. This used to end at "prepared" and
+ * tell the browser to sign, which nothing in the browser ever did, so a manual
+ * order stopped at a database row and never reached the venue.
+ *
+ * Submission is reported honestly: `submitted` is false, with a reason, when
+ * there is no authorised key rather than the order being silently dropped.
  */
 const decimalString = z
   .string()
@@ -83,7 +88,16 @@ export const POST = handler(
         userAgent: context.userAgent,
       });
 
-      return { orderId: order.id, action, kind: 'CLOSE' as const };
+      const execution = await submitManualOrder({
+        user,
+        venueSlug: venue.meta.slug,
+        orderId: order.id,
+        action,
+        walletAddress: wallet.address,
+        ip: context.ip,
+      });
+
+      return { orderId: order.id, action, kind: 'CLOSE' as const, execution };
     }
 
     if (!body.side || !body.leverage || (!body.size && !body.usdNotional)) {
@@ -123,10 +137,20 @@ export const POST = handler(
       requestId: context.requestId,
     });
 
+    const execution = await submitManualOrder({
+      user,
+      venueSlug: venue.meta.slug,
+      orderId: result.order.id,
+      action: result.action,
+      walletAddress: wallet.address,
+      ip: context.ip,
+    });
+
     return {
       orderId: result.order.id,
       kind: 'OPEN' as const,
       action: result.action,
+      execution,
       preview: result.preview,
       liquidation: result.liquidation,
       warnings: result.warnings,

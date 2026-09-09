@@ -495,7 +495,6 @@
     "liquidationEst": "Liquidation (qiyaas)",
     "blockedNotice": "{leverage}x, suuqu wuxuu ku dhici doonaa liquidation ka hor inta uusan ilaalintu gaarin xadkeeda, sidaa darteed caymiska marnaba ma xallin doono marka hore. {max}x ayaa ugu badan ee ilaalintani taageerto.",
     "execute": "Fuli",
-    "orderPrepared": "Dalabka waa la diyaariyay. Ku saxiix boorsadaada si aad ugu dirto suuqa.",
     "prepareError": "Dalabka lama diyaarin karin.",
     "confirmOrderAria": "Xaqiiji dalabka",
     "dialogTitleLong": "Long {symbol} ee {leverage}x",
@@ -513,7 +512,10 @@
     "cancel": "Jooji",
     "confirm": "Xaqiiji",
     "boundaryChartLabel": "{z}σ ilaalin",
-    "moneyDash": "—"
+    "moneyDash": "—",
+    "orderSent": "Dalabka waa la diray suuqa.",
+    "needsVenueKey": "Koontadan weli ma laha fure suuq oo la oggolaaday, sidaa darteed waxba lama dirin. Ka samayso bogga AI trading si aad hal gujin ugu fulliso — waa isku fure, ha ahaato adiga oo riixaya ama wakiilka.",
+    "venueNotSupported": "Hal-gujin fulin looguma heli karo suuqan weli, sidaa darteed waxba lama dirin. Dalabkaaga lama gelin."
   },
   "protection": {
     "needsPlanTitle": "Ganacsiga leverage-ka wuxuu u baahan yahay qorshe",

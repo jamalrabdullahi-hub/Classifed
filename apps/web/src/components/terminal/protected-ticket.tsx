@@ -270,7 +270,9 @@ export function ProtectedTicket({
     setError(null);
     setPending(true);
     try {
-      await post('/api/perps/orders', {
+      const result = await post<{
+        execution: { submitted: boolean; reason: string };
+      }>('/api/perps/orders', {
         action: 'open',
         symbol,
         side,
@@ -292,7 +294,21 @@ export function ProtectedTicket({
             }
           : {}),
       });
-      setDone(tt('orderPrepared'));
+      /**
+       * Say what actually happened to the order.
+       *
+       * This used to report "sign it in your wallet" unconditionally, naming a
+       * step the interface never offered — so an order that reached the venue
+       * and one that stopped dead read identically. The three outcomes are now
+       * distinguished, and only one of them is success.
+       */
+      if (result.execution.submitted) {
+        setDone(tt('orderSent'));
+      } else if (result.execution.reason === 'no-authorised-key') {
+        setError(tt('needsVenueKey'));
+      } else {
+        setError(tt('venueNotSupported'));
+      }
       setConfirming(false);
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : tt('prepareError'));
