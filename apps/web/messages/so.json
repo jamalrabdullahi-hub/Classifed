@@ -582,6 +582,9 @@
   "walletsPage": {
     "title": "Boorsooyinka",
     "description": "Boorsooyinka iskood u maamusha ee akoonkaaga ku xidhan. Furayaashaadu waligood ka bixi maayaan qalabkaaga, FLT-na ma dhaqaajin karto lacagtaada.",
+    "totalBalanceLabel": "Wadarta hadda diyaarka ah",
+    "totalBalanceHint": "USDC/USDT oo laga soo ururiyay boorsad kasta oo akoonkaaga leeyahay. Ganacsigu wuxuu weli isticmaalaa boorsadda dhabta ah ee haysata lacagta.",
+    "unsupportedChainsNote": "+{count} shabakad oo aan weli la akhrin karin",
     "connectWallet": "Ku xidh boorsad",
     "noWalletTitle": "Boorsad lama xidhin",
     "noWalletBody": "Ku xidh boorsad iskood u maamusha adigoo saxiixaya fariin. Gas kuma baahna, mana ogolaanayso wax bixin ah.",

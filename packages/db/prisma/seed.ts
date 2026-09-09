@@ -105,6 +105,33 @@ const BASE_TOKENS: SeedToken[] = [
   },
 ];
 
+const BNB_CHAIN_ID = 56;
+
+/**
+ * UNVERIFIED, unlike the Base list above: nothing here has been checked
+ * on-chain against `scripts/verify-tokens.ts` the way every Base row has.
+ * Seeded only so the USD balance summary (packages/core/src/services/
+ * portfolio-usd.ts) has stablecoin addresses to read on BNB Chain — this is
+ * NOT an enablement of BNB spot trading, which stays gated on
+ * `DexProvider.supportedChainIds`.
+ */
+const BNB_TOKENS: SeedToken[] = [
+  {
+    address: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+    symbol: 'USDC',
+    name: 'USD Coin',
+    decimals: 18,
+    tier: TokenVerificationTier.UNVERIFIED,
+  },
+  {
+    address: '0x55d398326f99059fF775485246999027B3197955',
+    symbol: 'USDT',
+    name: 'Tether USD',
+    decimals: 18,
+    tier: TokenVerificationTier.UNVERIFIED,
+  },
+];
+
 async function main(): Promise<void> {
   console.info('Seeding FLT Exchange…\n');
 
@@ -182,6 +209,29 @@ async function main(): Promise<void> {
     });
   }
   console.info(`  tokens     ${BASE_TOKENS.length} on Base`);
+
+  for (const token of BNB_TOKENS) {
+    await prisma.token.upsert({
+      where: { chainId_address: { chainId: BNB_CHAIN_ID, address: token.address } },
+      create: {
+        id: randomUUID(),
+        chainId: BNB_CHAIN_ID,
+        address: token.address,
+        symbol: token.symbol,
+        name: token.name,
+        decimals: token.decimals,
+        verificationTier: token.tier,
+        isEnabled: true,
+      },
+      update: {
+        symbol: token.symbol,
+        name: token.name,
+        decimals: token.decimals,
+        verificationTier: token.tier,
+      },
+    });
+  }
+  console.info(`  tokens     ${BNB_TOKENS.length} on BNB Chain (unverified, balance display only)`);
 
   // ── Routing providers ────────────────────────────────────────────────────
   // Rows here gate the adapters at runtime, so an operator can disable a

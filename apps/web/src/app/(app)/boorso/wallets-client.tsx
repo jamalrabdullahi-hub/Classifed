@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Star, Unlink, Wallet } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import {
@@ -16,7 +16,82 @@ import {
   StatusPill,
 } from '@flt/ui';
 import { WalletConnectDialog } from '@/components/wallet-connect';
-import { ApiError, apiFetch, del } from '@/lib/api';
+import { ApiError, apiFetch, del, get } from '@/lib/api';
+
+interface ChainUsdBalance {
+  chainId: number;
+  chainName: string;
+  usd: string;
+  complete: boolean;
+}
+
+interface UsdBalanceSummary {
+  totalUsd: string;
+  chains: ChainUsdBalance[];
+  unsupportedChainIds: number[];
+}
+
+/**
+ * One combined $ number across every wallet the account has, in USDC/USDT
+ * terms. Purely a display aggregate — see the module doc on
+ * `usdBalanceSummary` (packages/core/src/services/portfolio-usd.ts) for why
+ * this doesn't move or convert anything itself.
+ */
+function UsdBalanceSummaryCard() {
+  const t = useTranslations('walletsPage');
+  const [summary, setSummary] = useState<UsdBalanceSummary | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    get<UsdBalanceSummary>('/api/wallets/usd-balance')
+      .then((result) => {
+        if (!cancelled) setSummary(result);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (failed) return null;
+
+  return (
+    <Card>
+      <CardContent className="space-y-3">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.08em] text-[var(--text-subtle)]">
+            {t('totalBalanceLabel')}
+          </p>
+          <p className="num text-[28px] font-semibold tabular-nums text-[var(--text)]">
+            {summary ? `$${summary.totalUsd}` : '—'}
+          </p>
+          <p className="mt-1 text-[11px] text-[var(--text-subtle)]">{t('totalBalanceHint')}</p>
+        </div>
+        {summary && summary.chains.length > 0 ? (
+          <div className="flex flex-wrap gap-2 border-t border-[var(--border)] pt-3">
+            {summary.chains.map((chain) => (
+              <span
+                key={chain.chainId}
+                className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-sunken)] px-2.5 py-1 text-[11px] text-[var(--text-muted)]"
+              >
+                {chain.chainName}: <span className="num tabular-nums text-[var(--text)]">${chain.usd}</span>
+                {!chain.complete ? ' *' : ''}
+              </span>
+            ))}
+            {summary.unsupportedChainIds.length > 0 ? (
+              <span className="self-center text-[11px] text-[var(--text-subtle)]">
+                {t('unsupportedChainsNote', { count: summary.unsupportedChainIds.length })}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
 
 export interface WalletSummary {
   id: string;
@@ -90,6 +165,8 @@ export function WalletsClient({ wallets }: { wallets: WalletSummary[] }) {
           </Button>
         }
       />
+
+      <UsdBalanceSummaryCard />
 
       {error ? <Notice tone="negative">{error}</Notice> : null}
 

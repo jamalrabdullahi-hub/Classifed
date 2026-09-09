@@ -582,6 +582,9 @@
   "walletsPage": {
     "title": "Wallets",
     "description": "Self-custody wallets linked to your account. Your keys never leave your device, and FLT cannot move your funds.",
+    "totalBalanceLabel": "Total available",
+    "totalBalanceHint": "USDC/USDT across every wallet on your account, added together. Trading still uses whichever wallet actually holds the funds.",
+    "unsupportedChainsNote": "+{count} chain(s) not yet balance-readable",
     "connectWallet": "Connect a wallet",
     "noWalletTitle": "No wallet linked",
     "noWalletBody": "Link a self-custody wallet by signing a message. It costs no gas and does not authorise any spending.",
