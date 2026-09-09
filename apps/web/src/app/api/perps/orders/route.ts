@@ -3,7 +3,7 @@ import { prisma } from '@flt/db';
 import { resolveTradingWallet } from '@flt/core/services/wallets';
 import { prepareClose, prepareOpen } from '@flt/core/services/perps';
 import { RateLimits } from '@flt/core/services/ratelimit';
-import { perpVenue, perpVenues, submitManualOrder } from '@flt/providers';
+import { perpVenue, perpVenues } from '@flt/providers';
 import { handler } from '@/server/api';
 import { resolveOfferedMarket } from '@flt/core/services/perps';
 import { ValidationError, Decimal, NotFoundError } from '@flt/core/domain';
@@ -19,13 +19,15 @@ import type { PerpVenue } from '@flt/core/ports';
  * persisted server-side first, so what the user approved can be compared
  * against what the venue reports having filled.
  *
- * The order is then submitted for the participant, signed with the venue key
- * they authorised — see submitManualOrder. This used to end at "prepared" and
- * tell the browser to sign, which nothing in the browser ever did, so a manual
- * order stopped at a database row and never reached the venue.
+ * FLT does not submit it. The browser does, with a key only the browser holds
+ * — see lib/hyperliquid-agent.ts and the execute path in protected-ticket.
  *
- * Submission is reported honestly: `submitted` is false, with a reason, when
- * there is no authorised key rather than the order being silently dropped.
+ * There was briefly a server-side submission here, signing with a key FLT
+ * held. It worked, and it was the wrong trade: it made FLT custodian of a key
+ * that can move a participant's positions, and it dragged manual trading
+ * behind the AI agent's setup because that is where the key came from. The
+ * browser-held key gives the same one-click execution and asks FLT to hold
+ * nothing.
  */
 const decimalString = z
   .string()
@@ -88,16 +90,7 @@ export const POST = handler(
         userAgent: context.userAgent,
       });
 
-      const execution = await submitManualOrder({
-        user,
-        venueSlug: venue.meta.slug,
-        orderId: order.id,
-        action,
-        walletAddress: wallet.address,
-        ip: context.ip,
-      });
-
-      return { orderId: order.id, action, kind: 'CLOSE' as const, execution };
+      return { orderId: order.id, action, kind: 'CLOSE' as const };
     }
 
     if (!body.side || !body.leverage || (!body.size && !body.usdNotional)) {
@@ -137,20 +130,10 @@ export const POST = handler(
       requestId: context.requestId,
     });
 
-    const execution = await submitManualOrder({
-      user,
-      venueSlug: venue.meta.slug,
-      orderId: result.order.id,
-      action: result.action,
-      walletAddress: wallet.address,
-      ip: context.ip,
-    });
-
     return {
       orderId: result.order.id,
       kind: 'OPEN' as const,
       action: result.action,
-      execution,
       preview: result.preview,
       liquidation: result.liquidation,
       warnings: result.warnings,

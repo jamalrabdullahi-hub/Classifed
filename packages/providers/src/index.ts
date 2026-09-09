@@ -17,7 +17,4 @@ export * from './market/index';
 export * from './history/index';
 export * from './kyc/index';
 export * from './mail/index';
-export * from './ai/deepseek';
-export * from './perps/agent-executor';
-export * from './perps/manual-execution';
 export * from './wallet-provisioning/index';

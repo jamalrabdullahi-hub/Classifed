@@ -77,7 +77,6 @@ const PLANS = [
      * find out whether they want the thing they would be paying for.
      */
     perpsAccess: true,
-    agenticTradingAccess: false,
   },
   {
     tier: SubscriptionTier.BASIC,
@@ -118,7 +117,6 @@ const PLANS = [
     perpsAccess: true,
     // The feature this ladder exists to sell as the reason to upgrade from
     // Free: the AI trading agent, from the cheapest paid tier up.
-    agenticTradingAccess: true,
   },
   {
     tier: SubscriptionTier.PRO,
@@ -143,7 +141,6 @@ const PLANS = [
     maxLeverage: 20,
     dailyTradeLimit: null,
     perpsAccess: true,
-    agenticTradingAccess: true,
   },
   {
     tier: SubscriptionTier.ELITE,
@@ -169,7 +166,6 @@ const PLANS = [
     maxLeverage: 50,
     dailyTradeLimit: null,
     perpsAccess: true,
-    agenticTradingAccess: true,
   },
 ];
 

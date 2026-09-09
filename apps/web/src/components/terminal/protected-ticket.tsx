@@ -5,9 +5,14 @@ import Link from 'next/link';
 import { TriangleAlert, ShieldCheck, ChevronDown, ArrowRight } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Button, Notice, cn } from '@flt/ui';
-import { useWalletClient } from 'wagmi';
-import { ApiError, get, post, put } from '@/lib/api';
-import { approveExistingAgent } from '@/lib/hyperliquid-agent';
+import { useAccount, useWalletClient } from 'wagmi';
+import { ApiError, get, post } from '@/lib/api';
+import {
+  authorizeAgent,
+  hasAgentKey,
+  submitOrder,
+  type SubmittableOrder,
+} from '@/lib/hyperliquid-agent';
 import {
   COVERAGE_PRESETS,
   HORIZON_PRESETS,
@@ -21,6 +26,19 @@ import {
 } from '@/lib/protection-math';
 import type { Candle } from '@flt/core/ports/history';
 import type { PriceLineSpec } from '@/components/price-chart';
+
+/**
+ * Hyperliquid wants the builder-fee ceiling as a percentage string.
+ *
+ * The order carries the fee in tenths of a basis point, so ten of them make
+ * one basis point and one basis point is 0.01% — the division below is that,
+ * not a magic number. Zero when there is no builder fee configured, which is
+ * the default.
+ */
+function maxFeeRateOf(tenthsBps: number | null | undefined): string {
+  if (!tenthsBps || tenthsBps <= 0) return '0%';
+  return `${tenthsBps / 1000}%`;
+}
 
 /** Per-browser preference: skip the pre-execution review. See `skipReview`. */
 const SKIP_REVIEW_KEY = 'flt.skip-order-review';
@@ -188,13 +206,10 @@ export function ProtectedTicket({
    * erring toward showing it is the safe direction for a screen that opens a
    * leveraged position.
    */
+  const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
 
   const [skipReview, setSkipReview] = useState(false);
-
-  /** Set when an order could not be sent because this account has no signing key. */
-  const [needsKey, setNeedsKey] = useState(false);
-  const [keySetupPending, setKeySetupPending] = useState(false);
 
   useEffect(() => {
     try {
@@ -204,45 +219,6 @@ export function ProtectedTicket({
       // which is the right way to fail.
     }
   }, []);
-
-  /**
-   * Sets up one-click execution without leaving the ticket.
-   *
-   * Three steps behind one button: create the key, have the participant sign
-   * Hyperliquid's approval for it, then let the server confirm against
-   * Hyperliquid's own record. The order that failed is then retried, because
-   * the person pressed Execute and nothing about their intent changed.
-   */
-  async function setUpKey() {
-    setError(null);
-    setKeySetupPending(true);
-    try {
-      if (!walletClient) throw new Error(tt('connectFirst'));
-
-      const meta = await get<{ configured: boolean; disclosureVersion: string }>(
-        '/api/venue-keys',
-      );
-      if (!meta.configured) throw new Error(tt('keySetupUnavailable'));
-
-      const key = await post<{ address: string }>('/api/venue-keys', {
-        venueSlug: 'hyperliquid',
-        disclosureVersion: meta.disclosureVersion,
-      });
-
-      await approveExistingAgent({
-        wallet: walletClient,
-        agentAddress: key.address as `0x${string}`,
-      });
-      await put('/api/venue-keys', { venueSlug: 'hyperliquid' });
-
-      setNeedsKey(false);
-      await execute();
-    } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : (caught as Error).message);
-    } finally {
-      setKeySetupPending(false);
-    }
-  }
 
   function rememberSkip() {
     setSkipReview(true);
@@ -346,12 +322,31 @@ export function ProtectedTicket({
   const blocked = insured && pricing !== null && !pricing.waterfallHolds;
   const ready = Boolean(amount) && leverageValid && (!insured || pricing !== null) && !blocked;
 
+  /**
+   * Places the order the way this platform was designed to place orders: the
+   * browser signs, FLT never does.
+   *
+   * The server prepares and persists the exact order — that is what makes the
+   * preview binding and gives the reconciler something to compare a fill
+   * against — and then hands it back for this browser to submit with a key
+   * only this browser holds.
+   *
+   * The first order of a session costs one wallet signature, approving a
+   * freshly generated key on the venue. After that every order is one click,
+   * with no popup and no key on any server.
+   */
   async function execute() {
     setError(null);
     setPending(true);
     try {
-      const result = await post<{
-        execution: { submitted: boolean; reason: string };
+      const prepared = await post<{
+        orderId: string;
+        action: {
+          kind: string;
+          order: SubmittableOrder;
+          attached?: SubmittableOrder[];
+          grouping?: 'na' | 'normalTpsl' | 'positionTpsl';
+        };
       }>('/api/perps/orders', {
         action: 'open',
         symbol,
@@ -374,27 +369,45 @@ export function ProtectedTicket({
             }
           : {}),
       });
-      /**
-       * Say what actually happened to the order.
-       *
-       * This used to report "sign it in your wallet" unconditionally, naming a
-       * step the interface never offered — so an order that reached the venue
-       * and one that stopped dead read identically. The three outcomes are now
-       * distinguished, and only one of them is success.
-       */
-      if (result.execution.submitted) {
-        setDone(tt('orderSent'));
-      } else if (result.execution.reason === 'no-authorised-key') {
-        // Not an error to read and act on elsewhere: the fix is offered right
-        // here, because being told to visit another page to make this button
-        // work is how the feature felt broken.
-        setNeedsKey(true);
-      } else {
-        setError(tt('venueNotSupported'));
+
+      if (!address || !walletClient) throw new Error(tt('connectFirst'));
+      if (prepared.action.kind !== 'venue-order') throw new Error(tt('venueNotSupported'));
+
+      // One signature, once per browser session. Skipped entirely when this
+      // browser already holds a key the venue has accepted.
+      if (!hasAgentKey(address)) {
+        await authorizeAgent({
+          wallet: walletClient,
+          owner: address,
+          builderAddress: (prepared.action.order.builderAddress as `0x${string}` | null) ?? null,
+          builderMaxFeeRate: maxFeeRateOf(prepared.action.order.builderFeeTenthsBps),
+        });
       }
+
+      const outcome = await submitOrder({
+        owner: address,
+        order: prepared.action.order,
+        attached: prepared.action.attached,
+        grouping: prepared.action.grouping,
+      });
+
+      // Reported to FLT as a claim, not as proof: FLT never posted to the
+      // venue, so it cannot witness the submission. The worker reconciles
+      // against the venue's own record and is what marks an order filled.
+      try {
+        await post(`/api/perps/orders/${prepared.orderId}`, {
+          venueOrderId: outcome.venueOrderId,
+        });
+      } catch {
+        // The order is at the venue either way. Failing to record it here is a
+        // bookkeeping problem, not a trading one, and must not read as a
+        // failed trade.
+      }
+
+      setDone(tt('orderSent'));
       setConfirming(false);
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : tt('prepareError'));
+      setError(caught instanceof ApiError ? caught.message : (caught as Error).message);
       setConfirming(false);
     } finally {
       setPending(false);
@@ -753,27 +766,6 @@ export function ProtectedTicket({
       {blocked ? (
         <Notice tone="negative" icon={<TriangleAlert className="size-4" />}>
           {tt('blockedNotice', { leverage, max: pricing?.maxLeverage ?? 0 })}
-        </Notice>
-      ) : null}
-
-      {/*
-        Offered where the wall is, not as a link somewhere else. An order that
-        cannot be sent for want of a signing key is one button away from being
-        sent, and that button sets the key up and then retries the order.
-      */}
-      {needsKey ? (
-        <Notice tone="warning" title={tt('needsVenueKeyTitle')}>
-          {tt('needsVenueKeyBody')}
-          <div className="mt-3">
-            <Button
-              variant="primary"
-              size="sm"
-              loading={keySetupPending}
-              onClick={() => void setUpKey()}
-            >
-              {tt('setUpKeyCta')}
-            </Button>
-          </div>
         </Notice>
       ) : null}
 

@@ -1,36 +1,30 @@
 import { prisma } from '@flt/db';
-import { env } from '@flt/config';
 import { ValidationError } from '../domain/errors';
 import { encryptSecret, decryptSecret } from './crypto/hashing';
 import { PERMISSIONS, assertCan, recordAdminAction, type AdminActionContext } from './admin';
 
 /**
- * Operational settings an admin can change from the panel, without a
- * deploy or server access.
+ * Operational settings an admin can change from the panel, without a deploy
+ * or server access.
  *
- * ## Why AGENT_KEY_ENCRYPTION_KEY is not here
+ * ## What belongs here
  *
- * Everything in this module can be moved into the database precisely
- * because none of it is the thing standing between a database breach and a
- * participant's funds. `AGENT_KEY_ENCRYPTION_KEY` is: it is the key that
- * makes every `AgentSigningKey.ciphertext` unreadable without it. Storing
- * it in this table would mean a single Postgres dump contains both the
- * ciphertexts and the key to open them — the exact failure mode encrypting
- * them was meant to prevent. It stays an environment variable, set once by
- * whoever has server access, and this module does not offer a path around
- * that.
+ * Business details that change without a code change and are not, themselves,
+ * the thing standing between a breach and somebody's money: the EVC merchant
+ * number, the remittance corridor's terms. A leaked merchant number is an
+ * embarrassment; a wrong one sends money to a stranger, which is why it is
+ * editable at all rather than compiled in.
  *
- * ## What this covers instead
+ * ## What does not
  *
- * The agentic-trading on/off switch and the DeepSeek API key — consequential
- * (the switch starts real signed trades), but neither is a master key over
- * anything else. A leaked DeepSeek key costs API abuse, not funds; the
- * switch is reversible with one more admin action.
+ * Anything that decrypts something else. `ENCRYPTION_KEY` stays an
+ * environment variable: storing it here would put the ciphertexts and the key
+ * to open them in the same Postgres dump, which is the exact failure mode
+ * encrypting them was meant to prevent. This module offers no path around
+ * that, and should not grow one.
  */
 
 export const PLATFORM_SETTING_KEYS = {
-  AGENTIC_TRADING_ENABLED: 'agentic_trading_enabled',
-  DEEPSEEK_API_KEY: 'deepseek_api_key',
   EVC_MERCHANT_NUMBER: 'evc_merchant_number',
   EVC_ENABLED: 'evc_enabled',
   REMITTANCE_ENABLED: 'remittance_enabled',
@@ -89,49 +83,6 @@ async function writeSetting(
     entityId: key,
     after: { key, secret: options.secret },
   });
-}
-
-/**
- * Whether the agentic trading feature is live, combining the admin toggle
- * with the one thing that must still come from the environment: without
- * `AGENT_KEY_ENCRYPTION_KEY` configured, nothing here can safely encrypt a
- * signing key, so the toggle cannot turn it on regardless of what's stored.
- */
-export async function agenticTradingOperational(): Promise<boolean> {
-  if (!env().AGENT_KEY_ENCRYPTION_KEY) return false;
-
-  const stored = await readSetting(PLATFORM_SETTING_KEYS.AGENTIC_TRADING_ENABLED);
-  if (stored !== null) return stored === 'true';
-
-  // No admin decision recorded yet — fall back to the environment flag, so
-  // an existing deployment's behaviour does not change the moment this
-  // table exists.
-  return env().AGENTIC_TRADING_ENABLED;
-}
-
-export async function setAgenticTradingEnabled(
-  context: AdminActionContext,
-  enabled: boolean,
-): Promise<void> {
-  await writeSetting(context, PLATFORM_SETTING_KEYS.AGENTIC_TRADING_ENABLED, String(enabled), {
-    secret: false,
-  });
-}
-
-/** The DeepSeek key to use: an admin-set override if present, else the environment's. */
-export async function resolveDeepSeekApiKey(): Promise<string | null> {
-  const stored = await readSetting(PLATFORM_SETTING_KEYS.DEEPSEEK_API_KEY);
-  if (stored !== null) return stored;
-  return env().DEEPSEEK_API_KEY ?? null;
-}
-
-export async function setDeepSeekApiKey(context: AdminActionContext, apiKey: string): Promise<void> {
-  await writeSetting(context, PLATFORM_SETTING_KEYS.DEEPSEEK_API_KEY, apiKey, { secret: true });
-}
-
-/** For the admin panel: is a key configured at all, without ever returning it. */
-export async function deepSeekApiKeyConfigured(): Promise<boolean> {
-  return (await resolveDeepSeekApiKey()) !== null;
 }
 
 export interface EvcSettings {

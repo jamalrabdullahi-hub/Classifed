@@ -76,8 +76,6 @@ export interface Entitlements {
   dailyTradeLimit: number | null;
   /** Whether this account may trade perpetuals at all. */
   perpsAccess: boolean;
-  /** Whether this account may enable the AI trading agent. */
-  agenticTradingAccess: boolean;
 }
 
 /**
@@ -105,7 +103,6 @@ const FREE_FALLBACK: Omit<Entitlements, 'tier' | 'planName' | 'expiresAt'> = {
   maxLeverage: 2,
   dailyTradeLimit: 10,
   perpsAccess: false,
-  agenticTradingAccess: false,
 };
 
 /** The tier a user is currently entitled to, ignoring what they have bought before. */
@@ -174,7 +171,6 @@ export function fromPlan(
     prioritySupport: plan.prioritySupport,
     dailyTradeLimit: plan.dailyTradeLimit,
     perpsAccess: plan.perpsAccess,
-    agenticTradingAccess: plan.agenticTradingAccess,
     // The plan is one ceiling among several; the platform's own cap and the
     // venue's still apply, and the lowest always wins.
     maxLeverage: Math.min(plan.maxLeverage, config.PERP_MAX_LEVERAGE),
