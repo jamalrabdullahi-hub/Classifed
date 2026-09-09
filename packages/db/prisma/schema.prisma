@@ -767,6 +767,33 @@ model PortfolioSnapshot {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Platform settings
+//
+// A small number of operational values an admin can change without a
+// deploy — currently just the agentic-trading toggle and its DeepSeek key.
+// Deliberately NOT where AGENT_KEY_ENCRYPTION_KEY lives: that key encrypts
+// every participant's venue signing key, and storing it in the same
+// database it protects would mean a single database breach compromises
+// both the ciphertext and the key to read it. It stays an environment
+// variable, set once on the server, by design — see
+// @flt/core/services/platform-settings for the full reasoning.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model PlatformSetting {
+  /// e.g. "agentic_trading_enabled", "deepseek_api_key".
+  key   String @id
+  /// AES-256-GCM ciphertext (via encryptSecret) when isSecret, plain text
+  /// otherwise. Never the raw secret at rest either way.
+  value String
+  isSecret Boolean @default(false)
+
+  updatedAt        DateTime @updatedAt
+  updatedByAdminId String?
+
+  @@map("platform_settings")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Fees
 //
 // Resolution is most-specific-first:

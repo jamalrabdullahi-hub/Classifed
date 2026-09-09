@@ -53,6 +53,7 @@ export type {
   AgentSigningKey,
   AgentDecision,
   BridgeApiKey,
+  PlatformSetting,
 } from '@prisma/client';
 
 export {

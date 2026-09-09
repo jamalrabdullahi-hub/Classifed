@@ -115,10 +115,14 @@ async function main(): Promise<void> {
     loop('protection', PROTECTION_SWEEP_INTERVAL_MS, sweepProtectionPolicies);
   }
 
-  if (config.AGENTIC_TRADING_ENABLED) {
-    console.info(`  agent trading every ${AGENT_TRADING_INTERVAL_MS}ms`);
-    loop('agent-trading', AGENT_TRADING_INTERVAL_MS, runAgentTradingPass);
-  }
+  // Always registered, unlike the perps/protection loops above: whether
+  // this actually does anything is now an admin-panel toggle
+  // (agenticTradingOperational, checked inside runAgentTradingPass on every
+  // tick) that can change without a restart, not just an env flag fixed at
+  // boot. AGENT_KEY_ENCRYPTION_KEY still has to be set in the environment
+  // regardless — see the comment on PlatformSetting in schema.prisma.
+  console.info(`  agent trading every ${AGENT_TRADING_INTERVAL_MS}ms (enabled via admin panel)`);
+  loop('agent-trading', AGENT_TRADING_INTERVAL_MS, runAgentTradingPass);
 }
 
 /**

@@ -61,9 +61,8 @@ export interface AgentStatusView {
   eligible: boolean;
 }
 
-export function agenticTradingOperational(): boolean {
-  return env().AGENTIC_TRADING_ENABLED;
-}
+import { agenticTradingOperational } from './platform-settings';
+export { agenticTradingOperational };
 
 export async function agentStatusFor(user: User): Promise<AgentStatusView> {
   const entitlements = await entitlementsFor(user.id);
@@ -88,7 +87,7 @@ export async function agentStatusFor(user: User): Promise<AgentStatusView> {
  * when the key was created.
  */
 export async function configureAgent(user: User, input: AgentConfigInput): Promise<TradingAgent> {
-  if (!agenticTradingOperational()) {
+  if (!(await agenticTradingOperational())) {
     throw new ValidationError(
       'The AI trading agent is not available on this deployment.',
     );

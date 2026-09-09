@@ -61,6 +61,7 @@ export const PERMISSIONS = {
   MANAGE_FEES: 'manage_fees',
   MANAGE_ADMINS: 'manage_admins',
   MANAGE_SUBSCRIPTIONS: 'manage_subscriptions',
+  MANAGE_PLATFORM_SETTINGS: 'manage_platform_settings',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -77,6 +78,10 @@ const ROLE_PERMISSIONS: Record<AdminRole, readonly Permission[]> = {
     PERMISSIONS.MANAGE_FEES,
     PERMISSIONS.MANAGE_SUBSCRIPTIONS,
   ],
+  // MANAGE_PLATFORM_SETTINGS is deliberately not granted to OPERATOR — it
+  // controls a platform-wide switch that starts real, signed venue trades
+  // and a live third-party API key, one tier more consequential than the
+  // per-account controls OPERATOR already has.
   [AdminRole.SUPER_ADMIN]: Object.values(PERMISSIONS),
 };
 

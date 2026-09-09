@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { env } from '@flt/config';
+import { resolveDeepSeekApiKey } from '@flt/core/services/platform-settings';
 
 /**
  * The trade-decision model.
@@ -64,7 +65,8 @@ export async function requestTradeDecision(
   request: AgentDecisionRequest,
 ): Promise<{ decision: DeepSeekDecision; raw: string }> {
   const config = env();
-  if (!config.DEEPSEEK_API_KEY) {
+  const apiKey = await resolveDeepSeekApiKey();
+  if (!apiKey) {
     throw new DeepSeekDecisionError('DEEPSEEK_API_KEY is not configured.');
   }
 
@@ -79,7 +81,7 @@ export async function requestTradeDecision(
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      authorization: `Bearer ${config.DEEPSEEK_API_KEY}`,
+      authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model: config.DEEPSEEK_MODEL,

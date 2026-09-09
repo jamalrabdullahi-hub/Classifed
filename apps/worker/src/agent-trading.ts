@@ -2,6 +2,7 @@ import { prisma, TradingAgentStatus } from '@flt/db';
 import { env } from '@flt/config';
 import { Decimal, newId } from '@flt/core/domain';
 import { HistoricalStdDev, toDailySigma } from '@flt/core/protection';
+import { agenticTradingOperational } from '@flt/core/services/platform-settings';
 import { perpVenueBySlug, requestTradeDecision, executeAgentDecision, type MarketSnapshot } from '@flt/providers';
 
 /**
@@ -15,7 +16,7 @@ import { perpVenueBySlug, requestTradeDecision, executeAgentDecision, type Marke
  * throughput reason to parallelise it.
  */
 export async function runAgentTradingPass(): Promise<{ decisions: number; executed: number }> {
-  if (!env().AGENTIC_TRADING_ENABLED) return { decisions: 0, executed: 0 };
+  if (!(await agenticTradingOperational())) return { decisions: 0, executed: 0 };
 
   const agents = await prisma.tradingAgent.findMany({
     where: { status: TradingAgentStatus.ACTIVE },

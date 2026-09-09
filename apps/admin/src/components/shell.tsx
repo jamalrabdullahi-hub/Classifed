@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Activity,
+  Bot,
   Coins,
   FileText,
   Gauge,
@@ -58,6 +59,7 @@ const SECTIONS: { label: string; items: { href: string; label: string; icon: typ
       { href: '/plans', label: 'Plans', icon: Sparkles },
       { href: '/protection', label: 'Protection', icon: Shield },
       { href: '/market-making', label: 'Market making', icon: TrendingUp },
+      { href: '/agent-settings', label: 'AI trading', icon: Bot },
     ],
   },
   {

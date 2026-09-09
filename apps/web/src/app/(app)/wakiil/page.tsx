@@ -21,13 +21,13 @@ export const dynamic = 'force-dynamic';
 export default async function AgentPage() {
   const user = await requireUserPage();
   const t = await getTranslations('agentPage');
-  const status = await agentStatusFor(user);
+  const [status, operational] = await Promise.all([agentStatusFor(user), agenticTradingOperational()]);
 
   return (
     <div className="space-y-6">
       <SectionHeader title={t('title')} description={t('description')} />
       <AgentPanel
-        operational={agenticTradingOperational()}
+        operational={operational}
         eligible={status.eligible}
         agent={
           status.agent
@@ -47,7 +47,7 @@ export default async function AgentPage() {
           authorized: key.authorizedAt !== null,
         }))}
       />
-      {agenticTradingOperational() && status.eligible && status.agent ? <BridgeKeysPanel /> : null}
+      {operational && status.eligible && status.agent ? <BridgeKeysPanel /> : null}
     </div>
   );
 }
