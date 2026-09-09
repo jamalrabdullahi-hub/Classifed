@@ -197,6 +197,11 @@ export const AuditAction = {
   AGENT_TRADING_ENABLED: 'agent_trading.enabled',
   AGENT_TRADING_DISABLED: 'agent_trading.disabled',
   AGENT_TRADING_AUTHORIZED: 'agent_trading.authorized',
+  /// A venue signing key created or authorised for one-click manual execution,
+  /// which is a different act from switching on the AI agent — see
+  /// services/venue-keys.ts.
+  AGENT_KEY_CREATED: 'venue_key.created',
+  AGENT_KEY_AUTHORIZED: 'venue_key.authorized',
   AGENT_TRADING_KILL_SWITCHED: 'agent_trading.kill_switched',
   AGENT_TRADING_ORDER_SUBMITTED: 'agent_trading.order_submitted',
 

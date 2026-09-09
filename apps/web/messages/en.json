@@ -524,9 +524,13 @@
     "boundaryChartLabel": "{z}σ cover",
     "moneyDash": "—",
     "orderSent": "Order sent to the venue.",
-    "needsVenueKey": "This account has no authorised venue key yet, so nothing was sent. Set one up under the AI trading page to execute in one click — it is the same key, whether you press the button or the agent does.",
     "venueNotSupported": "One-click execution is not available on this venue yet, so nothing was sent. Your order was not placed.",
-    "confirmAndSkip": "Confirm, and stop showing this review on this device"
+    "confirmAndSkip": "Confirm, and stop showing this review on this device",
+    "needsVenueKeyTitle": "One more step before your first trade",
+    "needsVenueKeyBody": "To place orders for you, FLT needs a signing key approved on your Hyperliquid account. It can place and cancel orders and nothing else — it cannot withdraw. This takes one signature and only happens once.",
+    "setUpKeyCta": "Set it up and place the order",
+    "keySetupUnavailable": "One-click execution is not configured on this deployment yet.",
+    "connectFirst": "Connect your wallet first — it signs the approval."
   },
   "protection": {
     "needsPlanTitle": "Perpetuals need a plan",

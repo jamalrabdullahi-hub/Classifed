@@ -524,9 +524,13 @@
     "boundaryChartLabel": "{z}σ ilaalin",
     "moneyDash": "—",
     "orderSent": "Dalabka waa la diray suuqa.",
-    "needsVenueKey": "Koontadan weli ma laha fure suuq oo la oggolaaday, sidaa darteed waxba lama dirin. Ka samayso bogga AI trading si aad hal gujin ugu fulliso — waa isku fure, ha ahaato adiga oo riixaya ama wakiilka.",
     "venueNotSupported": "Hal-gujin fulin looguma heli karo suuqan weli, sidaa darteed waxba lama dirin. Dalabkaaga lama gelin.",
-    "confirmAndSkip": "Xaqiiji, oo qalabkan mar dambe ha i tusin dib-u-eegistan"
+    "confirmAndSkip": "Xaqiiji, oo qalabkan mar dambe ha i tusin dib-u-eegistan",
+    "needsVenueKeyTitle": "Hal tallaabo ka hor ganacsigaaga koowaad",
+    "needsVenueKeyBody": "Si FLT dalabyada kuugu diro, waxay u baahan tahay fure la oggolaaday koontadaada Hyperliquid. Wuxuu keliya geli karaa oo joojin karaa dalabyo — lacag ma saari karo. Waxay qaadanaysaa hal saxiix, hal markna.",
+    "setUpKeyCta": "Samee oo dalabka dir",
+    "keySetupUnavailable": "Hal-gujin fulin weli laguma habayn deggaankan.",
+    "connectFirst": "Marka hore boorsadaada ku xir — iyada ayaa saxiixda."
   },
   "protection": {
     "needsPlanTitle": "Ganacsiga leverage-ka wuxuu u baahan yahay qorshe",

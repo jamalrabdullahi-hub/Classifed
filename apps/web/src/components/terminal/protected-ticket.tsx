@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { TriangleAlert, ShieldCheck, ChevronDown, ArrowRight } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Button, Notice, cn } from '@flt/ui';
-import { ApiError, get, post } from '@/lib/api';
+import { useWalletClient } from 'wagmi';
+import { ApiError, get, post, put } from '@/lib/api';
+import { approveExistingAgent } from '@/lib/hyperliquid-agent';
 import {
   COVERAGE_PRESETS,
   HORIZON_PRESETS,
@@ -186,7 +188,13 @@ export function ProtectedTicket({
    * erring toward showing it is the safe direction for a screen that opens a
    * leveraged position.
    */
+  const { data: walletClient } = useWalletClient();
+
   const [skipReview, setSkipReview] = useState(false);
+
+  /** Set when an order could not be sent because this account has no signing key. */
+  const [needsKey, setNeedsKey] = useState(false);
+  const [keySetupPending, setKeySetupPending] = useState(false);
 
   useEffect(() => {
     try {
@@ -196,6 +204,45 @@ export function ProtectedTicket({
       // which is the right way to fail.
     }
   }, []);
+
+  /**
+   * Sets up one-click execution without leaving the ticket.
+   *
+   * Three steps behind one button: create the key, have the participant sign
+   * Hyperliquid's approval for it, then let the server confirm against
+   * Hyperliquid's own record. The order that failed is then retried, because
+   * the person pressed Execute and nothing about their intent changed.
+   */
+  async function setUpKey() {
+    setError(null);
+    setKeySetupPending(true);
+    try {
+      if (!walletClient) throw new Error(tt('connectFirst'));
+
+      const meta = await get<{ configured: boolean; disclosureVersion: string }>(
+        '/api/venue-keys',
+      );
+      if (!meta.configured) throw new Error(tt('keySetupUnavailable'));
+
+      const key = await post<{ address: string }>('/api/venue-keys', {
+        venueSlug: 'hyperliquid',
+        disclosureVersion: meta.disclosureVersion,
+      });
+
+      await approveExistingAgent({
+        wallet: walletClient,
+        agentAddress: key.address as `0x${string}`,
+      });
+      await put('/api/venue-keys', { venueSlug: 'hyperliquid' });
+
+      setNeedsKey(false);
+      await execute();
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : (caught as Error).message);
+    } finally {
+      setKeySetupPending(false);
+    }
+  }
 
   function rememberSkip() {
     setSkipReview(true);
@@ -338,7 +385,10 @@ export function ProtectedTicket({
       if (result.execution.submitted) {
         setDone(tt('orderSent'));
       } else if (result.execution.reason === 'no-authorised-key') {
-        setError(tt('needsVenueKey'));
+        // Not an error to read and act on elsewhere: the fix is offered right
+        // here, because being told to visit another page to make this button
+        // work is how the feature felt broken.
+        setNeedsKey(true);
       } else {
         setError(tt('venueNotSupported'));
       }
@@ -703,6 +753,27 @@ export function ProtectedTicket({
       {blocked ? (
         <Notice tone="negative" icon={<TriangleAlert className="size-4" />}>
           {tt('blockedNotice', { leverage, max: pricing?.maxLeverage ?? 0 })}
+        </Notice>
+      ) : null}
+
+      {/*
+        Offered where the wall is, not as a link somewhere else. An order that
+        cannot be sent for want of a signing key is one button away from being
+        sent, and that button sets the key up and then retries the order.
+      */}
+      {needsKey ? (
+        <Notice tone="warning" title={tt('needsVenueKeyTitle')}>
+          {tt('needsVenueKeyBody')}
+          <div className="mt-3">
+            <Button
+              variant="primary"
+              size="sm"
+              loading={keySetupPending}
+              onClick={() => void setUpKey()}
+            >
+              {tt('setUpKeyCta')}
+            </Button>
+          </div>
         </Notice>
       ) : null}
 
