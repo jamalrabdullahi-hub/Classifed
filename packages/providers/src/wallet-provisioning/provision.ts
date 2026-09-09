@@ -30,14 +30,26 @@ import { provisionEmbeddedWallets } from './privy';
  */
 
 /**
- * Not a real EIP-155 chain id — Solana has none. This is the convention
- * several bridge/aggregator protocols (LI.FI, Socket, Router Protocol) use
- * to represent Solana in an EVM-shaped chain-id field, reused here so the
- * `Wallet.chainId` column can hold a Solana address without a schema change
- * for a second, non-EVM addressing scheme. No real EIP-155 id is anywhere
- * near this range, so it will never collide with an actual EVM chain.
+ * Not a real EIP-155 chain id — Solana has none. This stands in for one so
+ * the `Wallet.chainId` column can hold a Solana address without a schema
+ * change for a second, non-EVM addressing scheme.
+ *
+ * ## It must fit in a signed 32-bit integer
+ *
+ * `chains.chainId` and every `chainId` column referencing it are Postgres
+ * `INTEGER`, so anything above 2,147,483,647 fails at insert time with
+ * "integer out of range" — which is exactly what the first version of this
+ * constant did. It used 1151111081099710, the identifier LI.FI and Socket
+ * use for Solana, which is fifteen digits and cannot be stored here. Widening
+ * eight columns to BIGINT to accommodate one placeholder row would have been
+ * the tail wagging the dog.
+ *
+ * 1399811149 is Solana mainnet-beta's id in the multi-chain registries that
+ * do keep to 32 bits. It is far above every allocated EIP-155 id in practical
+ * use, so a collision with a real EVM chain is not a live concern, and it is
+ * a published convention rather than a number invented here.
  */
-export const SOLANA_CHAIN_ID = 1_151_111_081_099_710;
+export const SOLANA_CHAIN_ID = 1_399_811_149;
 
 export function autoWalletProvisioningOperational(): boolean {
   return env().AUTO_WALLET_PROVISIONING_ENABLED;

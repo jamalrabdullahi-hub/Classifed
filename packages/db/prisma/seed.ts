@@ -169,9 +169,9 @@ async function main(): Promise<void> {
   // Not a real EIP-155 id — see SOLANA_CHAIN_ID in
   // packages/providers/src/wallet-provisioning/provision.ts.
   await prisma.chain.upsert({
-    where: { chainId: 1_151_111_081_099_710 },
+    where: { chainId: 1_399_811_149 },
     create: {
-      chainId: 1_151_111_081_099_710,
+      chainId: 1_399_811_149,
       name: 'Solana',
       shortName: 'solana',
       nativeSymbol: 'SOL',
