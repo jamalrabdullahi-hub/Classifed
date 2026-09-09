@@ -44,3 +44,12 @@ export type {
   TypedDataRequest,
   VenueAuthorization,
 } from './perps';
+
+export type {
+  CustodyBalance,
+  CustodyDepositAddress,
+  CustodyProvider,
+  CustodyProviderMeta,
+  CustodyWithdrawal,
+  CustodyWithdrawalRequest,
+} from './custody';

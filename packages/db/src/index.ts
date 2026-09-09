@@ -52,6 +52,9 @@ export type {
   PlatformSetting,
   EvcPayment,
   RemittanceOrder,
+  LedgerAccount,
+  LedgerTransfer,
+  LedgerEntry,
 } from '@prisma/client';
 
 export {
@@ -87,4 +90,6 @@ export {
   EvcPaymentStatus,
   PerpAssetClass,
   RemittanceStatus,
+  LedgerAccountKind,
+  LedgerTransferKind,
 } from '@prisma/client';

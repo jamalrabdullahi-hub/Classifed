@@ -234,6 +234,7 @@ model User {
   subscriptions      Subscription[]
   evcPayments        EvcPayment[]
   remittances        RemittanceOrder[]
+  ledgerAccounts     LedgerAccount[]
   referralCode       ReferralCode?          @relation("ReferralCodeOwner")
   referralsMade      Referral[]             @relation("ReferralsMade")
   referredBy         Referral?              @relation("ReferredBy")
@@ -1931,4 +1932,129 @@ model PassiveCashEntry {
 
   @@index([accountId, createdAt])
   @@map("passive_cash_entries")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Custody ledger
+//
+// FLT holds client assets at a qualified sub-custodian and owes each client a
+// balance. That liability is what this ledger records, and it is the part that
+// cannot be got wrong: Mt. Gox was drained for years because nobody compared an
+// internal ledger to the chain, and FTX permitted a balance that could never be
+// covered. Both are ledger failures, not cryptography failures.
+//
+// Three properties are enforced by the database rather than by application
+// code, because a rule that lives only in a service is a rule until somebody
+// writes a second service:
+//
+//   1. Every transfer's entries sum to exactly zero (a constraint trigger).
+//   2. An account marked non-negative can never go below zero (a CHECK).
+//   3. A transfer's (kind, reference) pair is unique, so a retried deposit
+//      credits once.
+//
+// Amounts are NUMERIC(38,18), not strings. Money is stored as decimal strings
+// elsewhere in this schema, and that is right where the database only has to
+// hand the value back. Here it has to SUM balances and enforce a sign, so the
+// type has to be one Postgres understands.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum LedgerAccountKind {
+  /// A client's spendable balance. A liability: FLT owes it.
+  USER_AVAILABLE
+  /// A client's balance reserved against an open order or a pending
+  /// withdrawal. Still owed to them, but not spendable twice.
+  USER_LOCKED
+  /// What the sub-custodian holds for clients, in aggregate. An asset.
+  /// Segregated by construction: operational funds never touch this account.
+  CLIENT_OMNIBUS
+  /// FLT's own revenue. Deliberately a separate account from CLIENT_OMNIBUS —
+  /// commingling those two is the single most common way a custodian fails.
+  FEE_REVENUE
+  /// Fiat received and not yet converted, or vice versa.
+  FIAT_GATEWAY
+}
+
+enum LedgerTransferKind {
+  DEPOSIT
+  WITHDRAWAL
+  TRADE_SETTLEMENT
+  FEE
+  LOCK
+  UNLOCK
+  /// An operator correcting the ledger. Always attributed, always reasoned.
+  ADJUSTMENT
+}
+
+model LedgerAccount {
+  id     String            @id
+  kind   LedgerAccountKind
+  /// Null for platform accounts (omnibus, revenue, gateway).
+  userId String?
+
+  /// The unit this account is denominated in — "USDC", "USD". One account per
+  /// asset: a single account holding mixed assets cannot be reconciled.
+  asset String
+
+  /// Maintained in the same transaction as the entries that move it, and
+  /// re-derived from those entries by the reconciliation job. The column is an
+  /// optimisation; the entries are the truth.
+  balance Decimal @default(0) @db.Decimal(38, 18)
+
+  /// False for every client and omnibus account. True only where a negative
+  /// balance is meaningful — none today, but a fee account that accrues before
+  /// settlement would be the case that needs it.
+  allowsNegative Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User?         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  entries LedgerEntry[]
+
+  @@unique([kind, userId, asset])
+  @@index([userId])
+  @@map("ledger_accounts")
+}
+
+model LedgerTransfer {
+  id   String             @id
+  kind LedgerTransferKind
+
+  /// The external fact this transfer records — a custodian transaction id, an
+  /// EVC payment id, a withdrawal id. Unique per kind, so replaying a webhook
+  /// or retrying a job credits exactly once.
+  reference String?
+
+  /// Why this movement happened, in words. Read by whoever investigates a
+  /// discrepancy months later.
+  memo String
+
+  createdByAdminId String?
+  createdAt        DateTime @default(now())
+
+  entries LedgerEntry[]
+
+  @@unique([kind, reference])
+  @@index([createdAt])
+  @@map("ledger_transfers")
+}
+
+model LedgerEntry {
+  id         String @id
+  transferId String
+  accountId  String
+
+  /// Signed. Positive increases the account, negative decreases it, and every
+  /// transfer's entries sum to zero — enforced by a deferred constraint
+  /// trigger, not by whoever wrote the calling service.
+  amount Decimal @db.Decimal(38, 18)
+
+  createdAt DateTime @default(now())
+
+  transfer LedgerTransfer @relation(fields: [transferId], references: [id], onDelete: Restrict)
+  account  LedgerAccount  @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([accountId, createdAt])
+  @@index([transferId])
+  @@map("ledger_entries")
 }
