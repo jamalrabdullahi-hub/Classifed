@@ -18,7 +18,8 @@
     "signIn": "Sign in",
     "openAccount": "Open an account",
     "agent": "AI agent",
-    "remittance": "Send money"
+    "remittance": "Remittance",
+    "remittanceBadge": "-90% cheaper!"
   },
   "home": {
     "eyebrow": "Non-custodial trading",

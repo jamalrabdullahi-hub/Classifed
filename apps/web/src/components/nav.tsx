@@ -53,8 +53,15 @@ const PRIMARY = [
  */
 const WALLET = { href: '/boorso', key: 'wallets', icon: Wallet } as const;
 
-/** Sending money home is a destination in its own right, not an account setting. */
-const REMITTANCE = { href: '/xawilaad', key: 'remittance', icon: Send } as const;
+/**
+ * Sending money home is a destination in its own right, not an account setting.
+ *
+ * It carries the only badge in the bar. That is a deliberate ration: a nav
+ * where several items shout is a nav where none of them do, so the flag is
+ * spent on the one thing a new arrival would not otherwise know this platform
+ * does at all.
+ */
+const REMITTANCE = { href: '/xawilaad', key: 'remittance', icon: Send, badgeKey: 'remittanceBadge' } as const;
 
 /**
  * The terminal is where trading happens, so it carries the name.
@@ -119,19 +126,24 @@ export function TopNav({
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
-          {primary.map(({ href, key }) => (
+          {primary.map((item) => (
             <Link
-              key={href}
-              href={href}
-              aria-current={isActive(pathname, href) ? 'page' : undefined}
+              key={item.href}
+              href={item.href}
+              aria-current={isActive(pathname, item.href) ? 'page' : undefined}
               className={cn(
-                'rounded-[var(--radius-md)] px-3 py-1.5 text-[13px] font-medium transition-colors',
-                isActive(pathname, href)
+                'flex items-center gap-1.5 rounded-[var(--radius-md)] px-3 py-1.5 text-[13px] font-medium transition-colors',
+                isActive(pathname, item.href)
                   ? 'bg-[var(--surface-hover)] text-[var(--text)]'
                   : 'text-[var(--text-muted)] hover:text-[var(--text)]',
               )}
             >
-              {t(key)}
+              {t(item.key)}
+              {'badgeKey' in item ? (
+                <span className="text-[10px] font-semibold leading-none text-[var(--positive)]">
+                  {t(item.badgeKey)}
+                </span>
+              ) : null}
             </Link>
           ))}
         </nav>
@@ -158,22 +170,30 @@ export function TopNav({
           className="border-t border-[var(--border)] bg-[var(--surface)] px-4 py-2 md:hidden"
           aria-label="Primary"
         >
-          {[...primary, ...(guest ? [] : ACCOUNT)].map(({ href, key, icon: Icon }) => (
+          {[...primary, ...(guest ? [] : ACCOUNT)].map((item) => {
+            const Icon = item.icon;
+            return (
             <Link
-              key={href}
-              href={href}
+              key={item.href}
+              href={item.href}
               onClick={() => setMobileOpen(false)}
               className={cn(
                 'flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-sm',
-                isActive(pathname, href)
+                isActive(pathname, item.href)
                   ? 'bg-[var(--surface-hover)] font-medium text-[var(--text)]'
                   : 'text-[var(--text-muted)]',
               )}
             >
               <Icon className="size-4" />
-              {t(key)}
+              {t(item.key)}
+              {'badgeKey' in item ? (
+                <span className="text-[11px] font-semibold text-[var(--positive)]">
+                  {t(item.badgeKey)}
+                </span>
+              ) : null}
             </Link>
-          ))}
+            );
+          })}
           {guest ? (
             <div className="mt-2 space-y-1.5 border-t border-[var(--border)] px-3 pt-3">
               <Link
