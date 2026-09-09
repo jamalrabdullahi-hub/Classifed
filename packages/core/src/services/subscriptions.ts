@@ -8,7 +8,6 @@ import {
   type SubscriptionPlan,
   type User,
 } from '@flt/db';
-import { env } from '@flt/config';
 import { ForbiddenError, NotFoundError, ValidationError } from '../domain/errors';
 import { newId } from '../domain/id';
 import { Decimal } from '../domain/money';
@@ -16,6 +15,7 @@ import { publicClient } from '../chains/client';
 import { AuditAction, audit } from './audit';
 import { activeTier } from './entitlements';
 import { recordReferralEarning } from './referrals';
+import { resolveProtectionSettings } from './protection-settings';
 import { PERMISSIONS, assertCan, recordAdminAction, type AdminActionContext } from './admin';
 
 /**
@@ -83,22 +83,35 @@ export async function prepareSubscription(
     throw new ValidationError('The free tier is what you have when nothing is active.');
   }
 
-  const config = env();
   const plan = await prisma.subscriptionPlan.findUnique({ where: { tier } });
 
   if (!plan || !plan.isAvailable) throw new NotFoundError('Plan');
 
-  const recipient = config.FLT_FEE_RECIPIENT_ADDRESS;
-  const tokenAddress = config.PROTECTION_PREMIUM_TOKEN_ADDRESS;
+  /**
+   * Where the money goes, resolved rather than read straight from the
+   * environment.
+   *
+   * This used to read `env()` directly, which meant an operator could set the
+   * fee wallet and payment token in the admin panel, see them stored, and
+   * still have every checkout refuse with "not configured" — the panel wrote
+   * to the database and this read past it. `resolveProtectionSettings` is the
+   * one place that decides the effective value, and it still falls back to the
+   * environment when nothing is stored.
+   */
+  const settings = await resolveProtectionSettings();
+  const recipient = settings.operatorAddress;
+  const tokenAddress = settings.premiumTokenAddress;
+  const chainId = settings.premiumChainId;
 
   if (!recipient || !tokenAddress) {
     throw new ValidationError(
-      'Subscriptions cannot be bought yet: the payment token or recipient is not configured.',
+      'Subscriptions cannot be bought yet: the payment token or the receiving wallet is not ' +
+        'set. An operator sets both under Protection in the admin panel.',
     );
   }
 
   const token = await prisma.token.findFirst({
-    where: { chainId: config.PROTECTION_PREMIUM_CHAIN_ID, address: tokenAddress.toLowerCase() },
+    where: { chainId, address: tokenAddress.toLowerCase() },
   });
   if (!token) {
     throw new ValidationError(
@@ -136,7 +149,7 @@ export async function prepareSubscription(
       status: SubscriptionStatus.PENDING_PAYMENT,
       pricePaidUsd: plan.priceUsd,
       tokenAddress: tokenAddress.toLowerCase(),
-      chainId: config.PROTECTION_PREMIUM_CHAIN_ID,
+      chainId,
     },
   });
 
@@ -148,7 +161,7 @@ export async function prepareSubscription(
     transfer: {
       to: getAddress(recipient),
       token: getAddress(tokenAddress),
-      chainId: config.PROTECTION_PREMIUM_CHAIN_ID,
+      chainId,
       data: encodeFunctionData({
         abi: erc20Abi,
         functionName: 'transfer',
@@ -214,8 +227,11 @@ export async function confirmSubscription(
   if (!wallet) throw new ValidationError('No verified wallet on this account');
   if (!token) throw new ValidationError('The payment token is no longer in the registry');
 
-  const config = env();
-  const recipient = config.FLT_FEE_RECIPIENT_ADDRESS;
+  // Resolved the same way `prepareSubscription` resolved it. Reading the
+  // environment here while the quote came from the stored settings would
+  // reject every legitimate payment: the transfer would land at the address
+  // the participant was told to pay, and be checked against a different one.
+  const recipient = (await resolveProtectionSettings()).operatorAddress;
   if (!recipient) throw new ValidationError('No payment recipient is configured');
 
   const expected = BigInt(

@@ -112,7 +112,11 @@ export const GET = handler({}, async ({ request }) => {
       kind: 'spot' as const,
       symbol: token.symbol,
       name: token.name,
-      href: `/iibso?token=${token.address}&chain=${token.chainId}`,
+      // `buy`, because that is the parameter the trade screen actually reads.
+      // This previously emitted `?token=…&chain=…`, which nothing consumed:
+      // the link put a query string in the address bar and pre-selected
+      // nothing, so picking a token from search dropped you on a default pair.
+      href: `/iibso?buy=${token.address}`,
       detail: t('spotDetail', { chain: token.chain.name }),
       address: token.address,
       /** True when another enabled token shares this symbol. */

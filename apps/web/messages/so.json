@@ -179,7 +179,8 @@
     "chooseX": "Dooro {name}",
     "activeUntil": "{plan} waa firfircoon ilaa {date}. Waxba si toos ah ma cusboonaysan doonaan.",
     "declined": "Wareejinta waad diiday, sidaa darteed waxba lagaama qaadin.",
-    "genericError": "Wax baa qaldamay, qorshuhuna ma bilaabmin."
+    "genericError": "Wax baa qaldamay, qorshuhuna ma bilaabmin.",
+    "payWithEvc": "Ku bixi EVC Plus"
   },
   "upgrade": {
     "leverageHeadline": "Qorshahaagu wuxuu ku xaddidan yahay 2x",
@@ -947,7 +948,9 @@
     "statusPending": "Sugaya"
   },
   "pages": {
-    "account": { "title": "Akoonka" },
+    "account": {
+      "title": "Akoonka"
+    },
     "activity": {
       "title": "Dhaqdhaqaaqa",
       "description": "Dhaqdhaqaaq kasta oo lagu saxiixay boorsad ku xidhan akoonkan, iyo waxa chain-ku ku sameeyay.",
@@ -967,7 +970,9 @@
       "swap": "Isbeddel",
       "approval": "Ogolaansho"
     },
-    "recentActivity": { "title": "Dhaqdhaqaaqa dhawaan" },
+    "recentActivity": {
+      "title": "Dhaqdhaqaaqa dhawaan"
+    },
     "scanner": {
       "title": "Baadhe",
       "description": "{count} token oo ku yaal Base, iyo suuq kasta oo perpetual ah. Cinwaannada qandaraasyada had iyo jeer waa la muujiyaa — hubi ka hor inta aadan ganacsan.",
@@ -1034,5 +1039,37 @@
       "preferFullComparison": "Ma doorbidaysaa isbarbardhigga buuxa?",
       "seeSideBySide": "Eeg qorshe kasta oo isbarbar socda"
     }
+  },
+  "checkout": {
+    "title": "Lacag bixinta",
+    "description": "Ku bixi qorshahaaga EVC Plus.",
+    "noPlanTitle": "Qorshe lama dooran",
+    "noPlanBody": "Marka hore dooro qorshe, waxaanan halkan kuu soo celinaynaa si aad u bixiso.",
+    "seePlans": "Eeg qorshayaasha",
+    "unavailableTitle": "Lacag bixinta EVC waa damisan tahay",
+    "unavailableBody": "Lacag bixinta EVC Plus weli lama shidin. Waxba lagaama qaadi doono halkan.",
+    "intro": "Waxaad taleefankaaga ku wici doontaa kood USSD ah si aad ugu bixiso ganacsadaha {merchant}. Geli magaca iyo lambarka koontada EVC ee aad wax ka bixinayso, si aan lacagtaada u helno.",
+    "payerName": "Magacaaga",
+    "payerNameHint": "Sida saxda ah ee uu koontadaada EVC ku qoran yahay.",
+    "payerPhone": "Lambarka taleefankaaga",
+    "payerPhoneHint": "Lambarka aad lacagta ka bixinayso.",
+    "receiptTo": "Waxaan kugula soo xiriiri doonnaa {email} haddii wax aan caddayn jiraan.",
+    "getCode": "I sii koodhka lacag bixinta",
+    "genericError": "Wax baa qaldamay. Fadlan mar kale isku day.",
+    "dialTitle": "Kan wac si aad u bixiso",
+    "copyCode": "Koobi koodhka",
+    "copied": "La koobiyeeyay",
+    "amount": "Qadarka",
+    "merchant": "Lambarka ganacsadaha",
+    "period": "Muddada",
+    "days": "{days} maalmood",
+    "pendingTitle": "Weli ma firfircoona",
+    "yourPayments": "Lacagahaaga",
+    "status": {
+      "AWAITING_REVIEW": "Waa la hubinayaa",
+      "CONFIRMED": "La xaqiijiyay",
+      "REJECTED": "Lama helin"
+    },
+    "pendingBody": "Qorshahaagu wuxuu bilaabmayaa marka aan lacagtan ka helno warbixinta EVC. Waxaad bogganan ku soo noqon kartaa."
   }
 }

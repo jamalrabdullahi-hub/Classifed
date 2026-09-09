@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   LogOut,
   Percent,
+  Banknote,
   Sparkles,
   Shield,
   TrendingUp,
@@ -60,6 +61,7 @@ const SECTIONS: { label: string; items: { href: string; label: string; icon: typ
       { href: '/protection', label: 'Protection', icon: Shield },
       { href: '/market-making', label: 'Market making', icon: TrendingUp },
       { href: '/agent-settings', label: 'AI trading', icon: Bot },
+      { href: '/payments', label: 'Payments', icon: Banknote },
     ],
   },
   {

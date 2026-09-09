@@ -179,7 +179,8 @@
     "chooseX": "Choose {name}",
     "activeUntil": "{plan} is active until {date}. Nothing will renew automatically.",
     "declined": "You declined the transfer, so nothing was charged.",
-    "genericError": "Something went wrong and no plan was started."
+    "genericError": "Something went wrong and no plan was started.",
+    "payWithEvc": "Pay with EVC Plus"
   },
   "upgrade": {
     "leverageHeadline": "Your plan is capped at 2x",
@@ -947,7 +948,9 @@
     "statusPending": "Pending"
   },
   "pages": {
-    "account": { "title": "Account" },
+    "account": {
+      "title": "Account"
+    },
     "activity": {
       "title": "Activity",
       "description": "Every transaction signed with a wallet linked to this account, and what the chain did with it.",
@@ -967,7 +970,9 @@
       "swap": "Swap",
       "approval": "Approval"
     },
-    "recentActivity": { "title": "Recent activity" },
+    "recentActivity": {
+      "title": "Recent activity"
+    },
     "scanner": {
       "title": "Scanner",
       "description": "{count} tokens on Base, plus every perpetual market. Contract addresses are always shown — check them before you trade.",
@@ -1034,5 +1039,37 @@
       "preferFullComparison": "Prefer the full comparison?",
       "seeSideBySide": "See every plan side by side"
     }
+  },
+  "checkout": {
+    "title": "Checkout",
+    "description": "Pay for your plan with EVC Plus.",
+    "noPlanTitle": "No plan chosen",
+    "noPlanBody": "Pick a plan first and we will bring you back here to pay for it.",
+    "seePlans": "See plans",
+    "unavailableTitle": "EVC payment is off",
+    "unavailableBody": "EVC Plus checkout has not been switched on yet. Nothing you enter here will be charged.",
+    "intro": "You will dial a USSD code on your own phone to pay merchant {merchant}. Enter the name and number on the EVC account you are paying from, so we can match your payment.",
+    "payerName": "Your name",
+    "payerNameHint": "Exactly as it appears on your EVC account.",
+    "payerPhone": "Your phone number",
+    "payerPhoneHint": "The number you will pay from.",
+    "receiptTo": "We will contact you at {email} if anything is unclear.",
+    "getCode": "Get my payment code",
+    "genericError": "Something went wrong. Please try again.",
+    "dialTitle": "Dial this to pay",
+    "copyCode": "Copy code",
+    "copied": "Copied",
+    "amount": "Amount",
+    "merchant": "Merchant number",
+    "period": "Period",
+    "days": "{days} days",
+    "pendingTitle": "Not active yet",
+    "yourPayments": "Your payments",
+    "status": {
+      "AWAITING_REVIEW": "Checking",
+      "CONFIRMED": "Confirmed",
+      "REJECTED": "Not found"
+    },
+    "pendingBody": "Your plan starts once we have matched this payment against our EVC statement. You can check back on this page."
   }
 }

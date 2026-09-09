@@ -54,6 +54,7 @@ export type {
   AgentDecision,
   BridgeApiKey,
   PlatformSetting,
+  EvcPayment,
 } from '@prisma/client';
 
 export {
@@ -88,4 +89,5 @@ export {
   SubscriptionStatus,
   TradingAgentStatus,
   AgentDecisionAction,
+  EvcPaymentStatus,
 } from '@prisma/client';

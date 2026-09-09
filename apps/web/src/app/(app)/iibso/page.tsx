@@ -20,9 +20,14 @@ export const dynamic = 'force-dynamic';
  * at all. Showing a trade panel that cannot produce a quote — and only saying
  * why after the user has picked a pair and typed an amount — wastes their time.
  */
-export default async function TradePage() {
+export default async function TradePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ buy?: string; sell?: string }>;
+}) {
   const user = await requireUserPage();
   const t = await getTranslations('tradePage');
+  const params = await searchParams;
 
   const [tokens, wallets] = await Promise.all([
     prisma.token.findMany({
@@ -84,8 +89,26 @@ export default async function TradePage() {
     );
   }
 
+  /**
+   * A deep link's requested pair, matched against the registry here rather
+   * than trusted from the URL.
+   *
+   * Resolved on the server so the client starts on the right pair on its first
+   * paint — a token picked out of search should be selected when the screen
+   * appears, not a frame later. An address that is not an enabled token
+   * resolves to nothing and the defaults stand, so a stale or hand-edited link
+   * can never put a token on the screen that this account is not allowed to
+   * trade.
+   */
+  const findToken = (address: string | undefined) =>
+    address
+      ? tokens.find((token) => token.address.toLowerCase() === address.toLowerCase())
+      : undefined;
+
   return (
     <TradeClient
+      initialBuyAddress={findToken(params.buy)?.address ?? null}
+      initialSellAddress={findToken(params.sell)?.address ?? null}
       tokens={tokens.map((token) => ({
         address: token.address,
         symbol: token.symbol,

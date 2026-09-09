@@ -232,6 +232,7 @@ model User {
   perpPositions      PerpPositionSnapshot[]
   protectionPolicies ProtectionPolicy[]
   subscriptions      Subscription[]
+  evcPayments        EvcPayment[]
   referralCode       ReferralCode?          @relation("ReferralCodeOwner")
   referralsMade      Referral[]             @relation("ReferralsMade")
   referredBy         Referral?              @relation("ReferredBy")
@@ -856,6 +857,7 @@ model AdminUser {
   sessions     AdminSession[]
   actions      AdminAction[]
   kycDecisions KycProfile[]
+  evcReviews   EvcPayment[]
 
   @@map("admin_users")
 }
@@ -1546,6 +1548,76 @@ model Subscription {
   @@index([userId, status])
   @@index([status, endsAt])
   @@map("subscriptions")
+}
+
+enum EvcPaymentStatus {
+  /// The participant says they have paid. Nothing has been verified.
+  AWAITING_REVIEW
+  /// An operator matched it against the merchant statement and granted the plan.
+  CONFIRMED
+  /// An operator could not find the payment, or it did not match.
+  REJECTED
+}
+
+/// A claimed EVC Plus (mobile money) payment for a subscription.
+///
+/// ## Why this is a claim and not a payment
+///
+/// EVC Plus has no merchant API available to FLT, so nothing here can verify
+/// that money moved. The participant dials the USSD string on their own phone,
+/// then tells us they did. That is a *claim*, and this model is deliberately
+/// named and staged so nobody downstream mistakes it for a settled payment:
+/// the row is AWAITING_REVIEW, it grants nothing, and entitlements do not
+/// change until an operator has looked at the merchant statement and confirmed.
+///
+/// The on-chain rail in `Subscription` is the opposite — it verifies against a
+/// mined receipt and needs no human. These two rails are kept separate rather
+/// than merged so that "verified by a receipt" and "vouched for by an operator"
+/// are never the same field.
+model EvcPayment {
+  id     String @id
+  userId String
+
+  /// What they are buying. Applied via the ordinary operator grant path on
+  /// confirmation, so an EVC purchase and a manual grant produce the same
+  /// subscription rows and the same audit trail.
+  tier SubscriptionTier
+  /// Days granted on confirmation. Recorded here rather than re-derived, so a
+  /// later change to the period length cannot alter a past purchase.
+  days Int
+
+  /// Priced in USD, as a decimal string — never a float.
+  amountUsd String
+
+  /// As the participant gave them. This is what an operator matches against
+  /// the merchant statement, so it is captured verbatim and never normalised
+  /// into something that no longer matches what the telco recorded.
+  payerName  String
+  payerPhone String
+
+  /// The merchant number this was quoted against, snapshotted at creation.
+  /// If an operator changes the merchant number later, an older claim must
+  /// still say which number it was told to pay.
+  merchantNumber String
+
+  status EvcPaymentStatus @default(AWAITING_REVIEW)
+
+  /// Set on confirmation. The subscription an operator's decision produced.
+  subscriptionId String?
+  reviewedAt     DateTime?
+  reviewedById   String?
+  /// Why it was rejected, or which statement line matched on confirmation.
+  reviewNote     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy AdminUser? @relation(fields: [reviewedById], references: [id])
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@map("evc_payments")
 }
 
 /// A referral code somebody can post publicly.

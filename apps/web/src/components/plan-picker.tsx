@@ -58,6 +58,7 @@ export function PlanPicker({
   currentSubscriptionId,
   baseFeeBps,
   guest = false,
+  evcAvailable = false,
 }: {
   plans: Plan[];
   currentTier: string;
@@ -66,6 +67,8 @@ export function PlanPicker({
   baseFeeBps: number;
   /** No session at all — every "Choose" becomes a sign-in prompt instead of a wallet purchase. */
   guest?: boolean;
+  /** Whether the EVC Plus rail is switched on, so its link is offered. */
+  evcAvailable?: boolean;
 }) {
   const { isConnected, chainId } = useAccount();
   const { sendTransactionAsync } = useSendTransaction();
@@ -220,15 +223,27 @@ export function PlanPicker({
                     <Link href="/gal">{t('signInToChoose')}</Link>
                   </Button>
                 ) : (
-                  <Button
-                    variant={plan.isFeatured ? 'primary' : 'secondary'}
-                    block
-                    disabled={!isConnected || busyTier !== null}
-                    loading={busyTier === plan.tier}
-                    onClick={() => void choose(plan)}
-                  >
-                    {phaseLabel(busyTier === plan.tier ? phase : 'idle', plan.name, t)}
-                  </Button>
+                  <div className="space-y-2">
+                    <Button
+                      variant={plan.isFeatured ? 'primary' : 'secondary'}
+                      block
+                      disabled={!isConnected || busyTier !== null}
+                      loading={busyTier === plan.tier}
+                      onClick={() => void choose(plan)}
+                    >
+                      {phaseLabel(busyTier === plan.tier ? phase : 'idle', plan.name, t)}
+                    </Button>
+
+                    {/* The second rail. Most people this serves have EVC Plus
+                        and no wallet at all, so paying must not require one —
+                        the wallet button above is disabled without a
+                        connection, and that would otherwise be a dead end. */}
+                    {evcAvailable ? (
+                      <Button asChild variant="ghost" size="sm" block>
+                        <Link href={`/lacag-bixin?tier=${plan.tier}`}>{t('payWithEvc')}</Link>
+                      </Button>
+                    ) : null}
+                  </div>
                 )}
               </div>
             </div>

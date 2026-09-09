@@ -93,7 +93,18 @@ type Phase = 'idle' | 'quoted' | 'approving' | 'signing' | 'submitted';
 
 const EXPLORER = 'https://basescan.org';
 
-export function TradeClient({ tokens, wallets }: { tokens: TokenView[]; wallets: WalletView[] }) {
+export function TradeClient({
+  tokens,
+  wallets,
+  initialBuyAddress = null,
+  initialSellAddress = null,
+}: {
+  tokens: TokenView[];
+  wallets: WalletView[];
+  /** From a `?buy=` / `?sell=` deep link, already matched against the registry. */
+  initialBuyAddress?: string | null;
+  initialSellAddress?: string | null;
+}) {
   const router = useRouter();
   const t = useTranslations('tradeClient');
   const { address: connectedAddress, isConnected, chainId } = useAccount();
@@ -103,12 +114,39 @@ export function TradeClient({ tokens, wallets }: { tokens: TokenView[]; wallets:
 
   const preferred = wallets.find((wallet) => wallet.isPreferred) ?? wallets[0]!;
 
-  const [sellToken, setSellToken] = useState<TokenView>(
-    () => tokens.find((token) => token.symbol === 'ETH') ?? tokens[0]!,
-  );
-  const [buyToken, setBuyToken] = useState<TokenView>(
-    () => tokens.find((token) => token.symbol === 'USDC') ?? tokens[1] ?? tokens[0]!,
-  );
+  /**
+   * The starting pair.
+   *
+   * A deep link names one side; the other is filled with the sensible
+   * counterparty and, above all, never the same token — a pair of one token
+   * has no quote, and arriving on a screen in that state looks like a bug to
+   * the person who just clicked a search result.
+   */
+  const [sellToken, setSellToken] = useState<TokenView>(() => {
+    const requested = byAddress(tokens, initialSellAddress);
+    if (requested) return requested;
+    const buying = byAddress(tokens, initialBuyAddress);
+    return (
+      pick(tokens, 'ETH', buying) ??
+      pick(tokens, 'USDC', buying) ??
+      tokens.find((token) => token.address !== buying?.address) ??
+      tokens[0]!
+    );
+  });
+  const [buyToken, setBuyToken] = useState<TokenView>(() => {
+    const requested = byAddress(tokens, initialBuyAddress);
+    const sellSide = byAddress(tokens, initialSellAddress);
+    // Honoured unless the same token is already on the sell side.
+    if (requested && requested.address !== sellSide?.address) return requested;
+
+    const selling = sellSide ?? pick(tokens, 'ETH', undefined);
+    return (
+      pick(tokens, 'USDC', selling) ??
+      tokens.find((token) => token.address !== selling?.address) ??
+      tokens[1] ??
+      tokens[0]!
+    );
+  });
 
   const [amount, setAmount] = useState('');
   const [indicative, setIndicative] = useState<IndicativePrice | null>(null);
@@ -794,6 +832,17 @@ function TokenAmountField({
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
+
+function byAddress(tokens: TokenView[], address: string | null): TokenView | undefined {
+  if (!address) return undefined;
+  return tokens.find((token) => token.address.toLowerCase() === address.toLowerCase());
+}
+
+/** The named token, unless it is the one already taken by the other side. */
+function pick(tokens: TokenView[], symbol: string, exclude: TokenView | undefined) {
+  const found = tokens.find((token) => token.symbol === symbol);
+  return found && found.address !== exclude?.address ? found : undefined;
+}
 
 /** Permits only digits and a single decimal point while typing. */
 function sanitizeAmount(value: string): string {

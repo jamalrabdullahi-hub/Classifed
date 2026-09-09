@@ -1,5 +1,6 @@
 import { prisma } from '@flt/db';
 import { env } from '@flt/config';
+import { ValidationError } from '../domain/errors';
 import { encryptSecret, decryptSecret } from './crypto/hashing';
 import { PERMISSIONS, assertCan, recordAdminAction, type AdminActionContext } from './admin';
 
@@ -30,7 +31,20 @@ import { PERMISSIONS, assertCan, recordAdminAction, type AdminActionContext } fr
 export const PLATFORM_SETTING_KEYS = {
   AGENTIC_TRADING_ENABLED: 'agentic_trading_enabled',
   DEEPSEEK_API_KEY: 'deepseek_api_key',
+  EVC_MERCHANT_NUMBER: 'evc_merchant_number',
+  EVC_ENABLED: 'evc_enabled',
 } as const;
+
+/**
+ * The EVC Plus merchant number quoted to participants, and whether the rail
+ * is offered at all.
+ *
+ * Not a secret — it is printed on the checkout page for people to dial — so it
+ * is stored in plain text. It is here rather than in the environment because
+ * it is a business detail that changes without a deploy, and getting it wrong
+ * sends somebody's money to a stranger.
+ */
+export const EVC_MERCHANT_NUMBER_FALLBACK = '635465';
 
 async function readSetting(key: string): Promise<string | null> {
   const row = await prisma.platformSetting.findUnique({ where: { key } });
@@ -112,4 +126,60 @@ export async function setDeepSeekApiKey(context: AdminActionContext, apiKey: str
 /** For the admin panel: is a key configured at all, without ever returning it. */
 export async function deepSeekApiKeyConfigured(): Promise<boolean> {
   return (await resolveDeepSeekApiKey()) !== null;
+}
+
+export interface EvcSettings {
+  enabled: boolean;
+  merchantNumber: string;
+}
+
+export async function resolveEvcSettings(): Promise<EvcSettings> {
+  const [enabled, merchantNumber] = await Promise.all([
+    readSetting(PLATFORM_SETTING_KEYS.EVC_ENABLED),
+    readSetting(PLATFORM_SETTING_KEYS.EVC_MERCHANT_NUMBER),
+  ]);
+
+  return {
+    // Off until an operator turns it on. A payment rail that appears before
+    // anyone has checked the merchant number would collect real money into an
+    // unowned account.
+    enabled: enabled === 'true',
+    merchantNumber: merchantNumber ?? EVC_MERCHANT_NUMBER_FALLBACK,
+  };
+}
+
+export async function setEvcSettings(
+  context: AdminActionContext,
+  input: { enabled: boolean; merchantNumber: string },
+): Promise<void> {
+  const merchantNumber = input.merchantNumber.trim();
+
+  // Digits only. A merchant number with a space or a "+" in it produces a USSD
+  // string that fails silently on the handset, which the participant reads as
+  // "the site is broken" rather than "the number is wrong".
+  if (!/^\d{3,15}$/.test(merchantNumber)) {
+    throw new ValidationError('The EVC merchant number must be 3–15 digits, with no spaces or +');
+  }
+
+  await writeSetting(context, PLATFORM_SETTING_KEYS.EVC_MERCHANT_NUMBER, merchantNumber, {
+    secret: false,
+  });
+  await writeSetting(context, PLATFORM_SETTING_KEYS.EVC_ENABLED, String(input.enabled), {
+    secret: false,
+  });
+}
+
+/**
+ * The USSD string a participant dials, in the format EVC Plus expects:
+ * `*712*<merchant>*<whole>*<cents>#`.
+ *
+ * The amount is split into whole units and cents rather than sent as a decimal
+ * because that is the shape of the dial string, and doing the split here means
+ * one implementation is responsible for it instead of the page and the record
+ * each rounding their own way.
+ */
+export function evcUssdCode(merchantNumber: string, amountUsd: string): string {
+  const [whole = '0', fraction = ''] = amountUsd.split('.');
+  const cents = fraction.padEnd(2, '0').slice(0, 2);
+  return `*712*${merchantNumber}*${whole}*${cents}#`;
 }

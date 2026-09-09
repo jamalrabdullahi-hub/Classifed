@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import { SubscriptionTier, prisma } from '@flt/db';
 import { SectionHeader } from '@flt/ui';
 import { listPlans, currentSubscription } from '@flt/core/services/subscriptions';
+import { resolveEvcSettings } from '@flt/core/services/platform-settings';
 import { currentUser } from '@/server/session';
 import { PlanPicker } from '@/components/plan-picker';
 
@@ -30,7 +31,7 @@ export default async function PlansPage() {
   const user = await currentUser();
   const t = await getTranslations('plans');
 
-  const [plans, current, feeRule] = await Promise.all([
+  const [plans, current, feeRule, evc] = await Promise.all([
     listPlans(),
     user
       ? currentSubscription(user.id)
@@ -41,6 +42,7 @@ export default async function PlansPage() {
       where: { isEnabled: true, feeType: 'PERCENTAGE' },
       orderBy: { priority: 'desc' },
     }),
+    resolveEvcSettings(),
   ]);
 
   return (
@@ -83,6 +85,9 @@ export default async function PlansPage() {
          */
         baseFeeBps={feeRule?.bps && feeRule.bps > 0 ? feeRule.bps : 25}
         guest={!user}
+        /* Only offered to somebody with an account: the claim is recorded
+           against a user, so there is nothing to record for a visitor. */
+        evcAvailable={evc.enabled && !!user}
       />
     </div>
   );
