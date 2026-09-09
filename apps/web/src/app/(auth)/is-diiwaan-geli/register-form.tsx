@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
-import { Check, MailCheck } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Button, Field, Input, Notice, cn } from '@flt/ui';
 import { ApiError, post } from '@/lib/api';
@@ -15,14 +16,23 @@ const MIN_PASSWORD_LENGTH = 12;
  * The password requirement is length, not composition. Arbitrary character
  * rules push people toward predictable substitutions without adding real
  * entropy, so the only rule shown is the only rule enforced.
+ *
+ * Just email and password — nothing else is required to create an account.
+ * A successful signup lands the person straight in the app, already signed
+ * in; email verification is a security step surfaced on the dashboard
+ * afterward, not a wall between "submit" and "use the product." The
+ * response is deliberately the same shape whether or not the address was
+ * already registered, so a repeat submission cannot be used to find out who
+ * has an account — it reads as "go check your inbox" either way, which is
+ * also correct advice for someone who forgot they already signed up.
  */
 export function RegisterForm() {
   const t = useTranslations('auth');
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [sent, setSent] = useState(false);
 
   const longEnough = password.length >= MIN_PASSWORD_LENGTH;
 
@@ -33,34 +43,18 @@ export function RegisterForm() {
 
     try {
       await post('/api/auth/register', { email, password });
-      setSent(true);
+      // A fresh signup is now signed in (session cookie set by the route).
+      // A repeat submission for an already-registered email is not — the
+      // response body can't tell the two apart, but this redirect can still
+      // land safely on either: guriga simply bounces back to /gal if there
+      // is no session, which reads as "sign in" rather than an error.
+      router.push('/guriga');
+      router.refresh();
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : t('register.genericError'));
     } finally {
       setPending(false);
     }
-  }
-
-  // Shown whether or not the address was already registered. The response is
-  // deliberately identical either way, so this screen cannot be used to find
-  // out who has an account.
-  if (sent) {
-    return (
-      <div className="animate-fade-up text-center">
-        <div className="mx-auto mb-4 flex size-11 items-center justify-center rounded-full border border-[var(--accent-border)] bg-[var(--accent-subtle)]">
-          <MailCheck className="size-5 text-[var(--accent-text)]" />
-        </div>
-        <h1 className="text-xl font-semibold tracking-[-0.02em] text-[var(--text)]">
-          {t('register.checkInboxTitle')}
-        </h1>
-        <p className="mx-auto mt-2 max-w-[320px] text-[13px] leading-relaxed text-[var(--text-muted)]">
-          {t('register.checkInboxBody', { email })}
-        </p>
-        <Button asChild variant="secondary" className="mt-6">
-          <Link href="/gal">{t('register.goToSignIn')}</Link>
-        </Button>
-      </div>
-    );
   }
 
   return (

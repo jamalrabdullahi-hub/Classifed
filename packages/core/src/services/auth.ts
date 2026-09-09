@@ -74,6 +74,14 @@ export interface RegisterResult {
   user: User;
   /** The raw verification token. Emailed, never persisted, never logged. */
   verificationToken: string;
+  /**
+   * A live session for the account just created. Email verification is a
+   * security recommendation, not a login gate — see the account-status
+   * comment below — so registration signs someone in immediately rather than
+   * making "check your inbox" the only way back into the account they just
+   * made.
+   */
+  issued: IssuedSession;
 }
 
 export async function register(
@@ -124,7 +132,10 @@ export async function register(
       after: { email: user.email, accountStatus: user.accountStatus },
     });
 
-    return { user, verificationToken: token };
+    // No MFA can exist on a brand-new account, so there is nothing to satisfy.
+    const issued = await createSession(prisma, user, metadata, { mfaSatisfied: true });
+
+    return { user, verificationToken: token, issued };
   } catch (error) {
     if (isUniqueViolation(error)) {
       // The email is taken. The caller sends the same "check your inbox"

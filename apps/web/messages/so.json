@@ -394,6 +394,10 @@
     "shortsPayLongs": "Short-yadu waxay bixiyaan long-yada heerka hadda. Waxaa la qaadaa saac kasta oo boosku furan yahay, si gaar ah oo ka duwan khidmadaha ganacsiga.",
     "marginHeldBy": "Margin-ka waxaa hayo {venue}, ma aha boorsadaada ku xidhan."
   },
+  "referralBanner": {
+    "message": "Isdiiwaan geli saaxiib si aad u hesho ilaa 50% dakhliga FLT ee akoonkiisa. Isaguna wuxuu helayaa 100% dhimis bisha ugu horeysa ee qorshaha FLT!",
+    "dismiss": "Xir"
+  },
   "verifyForm": {
     "submitError": "Lama gudbin karin. Isku day mar kale.",
     "verifiedTitle": "Aqoonsiga waa la xaqiijiyay",
@@ -889,8 +893,8 @@
   },
   "dashboard": {
     "welcomeBack": "Ku soo dhawoow mar labaad",
-    "confirmEmailTitle": "Xaqiiji cinwaankaaga iimaylka",
-    "confirmEmailBody": "Link xaqiijin ah ayaa la soo diray markii aad isdiiwaangelisay. Akoonkaagu wuu xaddidan yahay ilaa la xaqiijiyo — haddii linkigu aanu kuu iman ama uusan shaqaynayn, dir mid cusub.",
+    "confirmEmailTitle": "Ammaan geli akoonkaaga — xaqiiji iimaylkaaga",
+    "confirmEmailBody": "Link xaqiijin ah ayaa la soo diray markii aad isdiiwaangelisay. Xaqiijintu looma baahna inaad isticmaasho FLT, laakiin waa sida aad ugu soo laaban karto akoonkaaga haddii aad illowdo furahaaga sirta ah — haddii linkigu aanu kuu iman ama uusan shaqaynayn, dir mid cusub.",
     "reviewTitle": "Xaqiijintaada waa la dib-u-eegayaa",
     "reviewBody": "Xubin ka tirsan kooxdayada sinnaanta ayaa dib u eegaya gudbintaada. Waxaad ku xidhi kartaa boorsad oo baadhi kartaa suuqyada intaa lagu jiro.",
     "rejectedTitle": "Xaqiijinta lama ansixin",

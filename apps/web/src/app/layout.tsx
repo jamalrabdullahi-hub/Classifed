@@ -5,6 +5,7 @@ import { getMessages, getLocale, getTranslations } from 'next-intl/server';
 import './globals.css';
 import { TooltipProvider } from '@flt/ui';
 import { ThemeScript } from '@/components/theme';
+import { ReferralBanner } from '@/components/referral-banner';
 
 /**
  * One type system, two cuts.
@@ -126,7 +127,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body className="min-h-screen antialiased">
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <TooltipProvider>{children}</TooltipProvider>
+          <TooltipProvider>
+            <ReferralBanner />
+            {children}
+          </TooltipProvider>
         </NextIntlClientProvider>
       </body>
     </html>
