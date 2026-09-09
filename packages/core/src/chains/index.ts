@@ -1,5 +1,6 @@
 export {
   BASE_CHAIN_ID,
+  BNB_CHAIN_ID,
   SUPPORTED_CHAINS,
   findChain,
   requireChain,

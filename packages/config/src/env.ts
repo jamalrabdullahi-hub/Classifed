@@ -58,6 +58,23 @@ const schema = z.object({
    * without ever needing an RPC client of its own.
    */
   ARBITRUM_RPC_URL: z.string().url().default('https://arb1.arbitrum.io/rpc'),
+  /** BNB Smart Chain RPC — chain registry only; no trading route uses it yet. */
+  BNB_RPC_URL: z.string().url().default('https://bsc-dataseed.binance.org'),
+  BNB_RPC_FALLBACK_URL: z.union([z.string().url(), z.literal('')]).optional(),
+
+  // ── Embedded wallet provisioning ────────────────────────────────────────
+  /**
+   * Off by default. When on, a non-custodial embedded wallet (EVM + Solana)
+   * is pregenerated via Privy for every new account at registration — see
+   * @flt/core/services/auto-wallet. FLT never holds a key for these; Privy's
+   * MPC infrastructure does, and the participant claims theirs the first
+   * time they authenticate through a Privy-powered client flow. Nothing
+   * fabricates a wallet if this is off or misconfigured — provisioning is
+   * best-effort and a failure never blocks signup.
+   */
+  AUTO_WALLET_PROVISIONING_ENABLED: z.coerce.boolean().default(false),
+  PRIVY_APP_ID: z.string().optional(),
+  PRIVY_APP_SECRET: z.string().optional(),
 
   // ── DEX routing ──────────────────────────────────────────────────────────
   DEX_ROUTER: z.enum(['mock', 'zeroex']).default('mock'),
@@ -345,6 +362,9 @@ function load(): Env {
     }
     if (value.AGENTIC_TRADING_ENABLED && !value.DEEPSEEK_API_KEY) {
       problems.push('AGENTIC_TRADING_ENABLED requires DEEPSEEK_API_KEY');
+    }
+    if (value.AUTO_WALLET_PROVISIONING_ENABLED && (!value.PRIVY_APP_ID || !value.PRIVY_APP_SECRET)) {
+      problems.push('AUTO_WALLET_PROVISIONING_ENABLED requires PRIVY_APP_ID and PRIVY_APP_SECRET');
     }
     if (value.WEB_APP_URL.startsWith('http://')) {
       problems.push('WEB_APP_URL must use https in production (cookies are set Secure)');

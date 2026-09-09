@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { env } from '@flt/config';
 import { assertPasswordPolicy, register, RateLimits } from '@flt/core/services';
-import { mailProvider } from '@flt/providers';
+import { mailProvider, provisionWalletsForUser } from '@flt/providers';
 import { handler } from '@/server/api';
 import { setSessionCookie } from '@/server/session';
 
@@ -48,6 +48,18 @@ export const POST = handler(
 
       const verifyUrl = `${env().WEB_APP_URL}/xaqiiji-iimaylka?token=${verificationToken}`;
       await mailProvider().sendVerification({ to: user.email, verifyUrl });
+
+      // Best-effort and deliberately isolated from the try/catch's normal
+      // error path below: a Privy outage or misconfiguration must never
+      // turn into a failed signup, and must never be mistaken for the
+      // EMAIL_TAKEN case that path exists to swallow.
+      try {
+        await provisionWalletsForUser(user);
+      } catch (error) {
+        console.error(`[register] wallet provisioning failed for user ${user.id}`, {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     } catch (error) {
       // A taken email is not surfaced. Anything else is a real failure.
       const code = (error as { code?: string }).code;

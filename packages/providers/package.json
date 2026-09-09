@@ -12,7 +12,8 @@
     "./history": "./src/history/index.ts",
     "./kyc": "./src/kyc/index.ts",
     "./mail": "./src/mail/index.ts",
-    "./perps/*": "./src/perps/*.ts"
+    "./perps/*": "./src/perps/*.ts",
+    "./wallet-provisioning": "./src/wallet-provisioning/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -23,6 +24,7 @@
     "@flt/core": "workspace:*",
     "@flt/db": "workspace:*",
     "@nktkas/hyperliquid": "0.33.3",
+    "@privy-io/node": "^0.34.0",
     "decimal.js": "^10.4.3",
     "viem": "^2.21.60",
     "zod": "^3.24.1"

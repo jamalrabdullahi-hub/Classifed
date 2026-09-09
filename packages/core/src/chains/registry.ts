@@ -1,4 +1,4 @@
-import { base } from 'viem/chains';
+import { base, bsc } from 'viem/chains';
 import type { Chain as ViemChain } from 'viem';
 import { env } from '@flt/config';
 import { UnsupportedChainError } from '../domain/errors';
@@ -53,7 +53,34 @@ const BASE: ChainDefinition = {
   },
 };
 
-export const SUPPORTED_CHAINS: readonly ChainDefinition[] = [BASE];
+export const BNB_CHAIN_ID = 56;
+
+/**
+ * Added for wallet provisioning and address display, not yet wired into DEX
+ * routing (`DexProvider.supportedChainIds`) or fee configuration — enabling
+ * actual trading on BNB Chain is a separate, deliberate operator decision,
+ * the same way Base itself went live only after that was configured by hand.
+ * `wrappedNativeAddress` below is the standard WBNB contract; verify it
+ * against `scripts/verify-tokens.ts` before relying on it for a live route.
+ */
+const BNB: ChainDefinition = {
+  chainId: BNB_CHAIN_ID,
+  name: 'BNB Smart Chain',
+  shortName: 'bnb',
+  nativeSymbol: 'BNB',
+  nativeDecimals: 18,
+  explorerUrl: 'https://bscscan.com',
+  viemChain: bsc,
+  wrappedNativeAddress: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095',
+  multicallAddress: '0xcA11bde05977b3631167028862bE2a173976CA11',
+  rpcUrl: () => env().BNB_RPC_URL,
+  fallbackRpcUrl: () => {
+    const url = env().BNB_RPC_FALLBACK_URL;
+    return url && url.length > 0 ? url : undefined;
+  },
+};
+
+export const SUPPORTED_CHAINS: readonly ChainDefinition[] = [BASE, BNB];
 
 export function findChain(chainId: number): ChainDefinition | undefined {
   return SUPPORTED_CHAINS.find((chain) => chain.chainId === chainId);

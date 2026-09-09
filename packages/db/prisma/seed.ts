@@ -124,6 +124,38 @@ async function main(): Promise<void> {
   });
   console.info('  chain      Base (8453)');
 
+  await prisma.chain.upsert({
+    where: { chainId: 56 },
+    create: {
+      chainId: 56,
+      name: 'BNB Smart Chain',
+      shortName: 'bnb',
+      nativeSymbol: 'BNB',
+      nativeDecimals: 18,
+      explorerUrl: 'https://bscscan.com',
+      isEnabled: true,
+    },
+    update: { isEnabled: true },
+  });
+  console.info('  chain      BNB Smart Chain (56)');
+
+  // Not a real EIP-155 id — see SOLANA_CHAIN_ID in
+  // packages/providers/src/wallet-provisioning/provision.ts.
+  await prisma.chain.upsert({
+    where: { chainId: 1_151_111_081_099_710 },
+    create: {
+      chainId: 1_151_111_081_099_710,
+      name: 'Solana',
+      shortName: 'solana',
+      nativeSymbol: 'SOL',
+      nativeDecimals: 9,
+      explorerUrl: 'https://solscan.io',
+      isEnabled: true,
+    },
+    update: { isEnabled: true },
+  });
+  console.info('  chain      Solana (reserved id, wallet storage only)');
+
   // ── Tokens ───────────────────────────────────────────────────────────────
   for (const token of BASE_TOKENS) {
     await prisma.token.upsert({
