@@ -233,6 +233,7 @@ model User {
   protectionPolicies ProtectionPolicy[]
   subscriptions      Subscription[]
   evcPayments        EvcPayment[]
+  remittances        RemittanceOrder[]
   referralCode       ReferralCode?          @relation("ReferralCodeOwner")
   referralsMade      Referral[]             @relation("ReferralsMade")
   referredBy         Referral?              @relation("ReferredBy")
@@ -858,6 +859,7 @@ model AdminUser {
   actions      AdminAction[]
   kycDecisions KycProfile[]
   evcReviews   EvcPayment[]
+  payouts      RemittanceOrder[]
 
   @@map("admin_users")
 }
@@ -1618,6 +1620,116 @@ model EvcPayment {
   @@index([status, createdAt])
   @@index([userId, createdAt])
   @@map("evc_payments")
+}
+
+enum RemittanceStatus {
+  /// Quoted and recorded. The participant has not sent the crypto yet.
+  AWAITING_TRANSFER
+  /// The inbound transfer is confirmed in a mined receipt. FLT now owes a payout.
+  AWAITING_PAYOUT
+  /// An operator has sent the fiat and recorded the EVC reference.
+  PAID
+  /// Refused before payout — screening, a mismatch, or a transfer that never arrived.
+  REJECTED
+  /// Withdrawn by the participant before sending anything.
+  CANCELLED
+}
+
+/// One crypto-to-fiat remittance: stablecoin in, EVC Plus payout out.
+///
+/// ## This is money transmission, and the model says so
+///
+/// Everything else on this platform is non-custodial by construction. This is
+/// not: between the inbound transfer confirming and the operator sending the
+/// fiat, FLT holds the participant's money and owes them a payout. That window
+/// is the entire risk of this feature, so it is a status of its own
+/// (AWAITING_PAYOUT) rather than an implicit gap between two other states —
+/// "what do we owe, and to whom" has to be answerable with one query.
+///
+/// ## The two legs are asymmetric on purpose
+///
+/// The inbound leg is verified against a mined receipt: token, sender,
+/// recipient and amount all checked, and a browser claiming payment counts for
+/// nothing. The outbound leg cannot be verified at all — EVC Plus exposes no
+/// merchant API to FLT — so it is an operator action with a recorded reference.
+/// Storing them as one "completed" flag would let an unverifiable step inherit
+/// the credibility of a verified one.
+///
+/// ## Travel Rule fields are first-class columns
+///
+/// FATF R.16 requires originator and beneficiary information to travel with a
+/// transfer. Both sides are stored as columns rather than derived at report
+/// time: the participant's KYC name can change, the beneficiary is often not
+/// the participant at all, and a report has to say who they were *then*.
+model RemittanceOrder {
+  id     String @id
+  userId String
+
+  status RemittanceStatus @default(AWAITING_TRANSFER)
+
+  // ── Inbound: what the participant sends ─────────────────────────────────
+  /// The stablecoin, and the chain it is sent on.
+  tokenAddress String
+  chainId      Int
+  /// In the token's own base units — never a float.
+  sendAmount    String
+  /// The dollar value the quote was struck at.
+  sendAmountUsd String
+
+  /// The originator's wallet, snapshotted. Travel Rule: the account the funds
+  /// came from, recorded at the time rather than looked up later, because a
+  /// wallet can be unlinked from an account afterwards.
+  originatorWallet String
+  /// The participant's legal name as KYC held it when the order was placed.
+  originatorName   String
+
+  /// Verified against the receipt, not claimed by a browser.
+  txHash     String?   @unique
+  verifiedAt DateTime?
+
+  // ── Outbound: what the beneficiary receives ─────────────────────────────
+  beneficiaryName  String
+  beneficiaryPhone String
+  /// How the beneficiary is known to the sender. A remittance to a stranger is
+  /// a different proposition from one to a family member, and an operator
+  /// reviewing a payout is entitled to the sender's own answer.
+  beneficiaryRelationship String
+  /// Why the money is being sent. Required by the AML/CFT procedures for
+  /// exactly this kind of transfer.
+  purpose                 String
+
+  /// Rate and fee snapshotted at quote time, so a later repricing cannot
+  /// rewrite what somebody was promised.
+  fxRate         String
+  feeUsd         String
+  payoutAmount   String
+  payoutCurrency String
+
+  // ── Settlement ──────────────────────────────────────────────────────────
+  /// The EVC transaction reference an operator recorded when paying out.
+  payoutReference String?
+  paidAt          DateTime?
+  paidByAdminId   String?
+  /// Why it was refused, shown to the participant.
+  reviewNote      String?
+
+  /// Set when screening or an operator flags it for a closer look. Kept
+  /// separate from `status` so a held order is still visibly awaiting payout
+  /// rather than disappearing from what FLT owes.
+  heldAt     DateTime?
+  heldReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  /// The quote stops being honourable after this.
+  expiresAt DateTime
+
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paidBy   AdminUser? @relation(fields: [paidByAdminId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@map("remittance_orders")
 }
 
 /// A referral code somebody can post publicly.

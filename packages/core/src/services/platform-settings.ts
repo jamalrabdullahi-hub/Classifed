@@ -33,6 +33,12 @@ export const PLATFORM_SETTING_KEYS = {
   DEEPSEEK_API_KEY: 'deepseek_api_key',
   EVC_MERCHANT_NUMBER: 'evc_merchant_number',
   EVC_ENABLED: 'evc_enabled',
+  REMITTANCE_ENABLED: 'remittance_enabled',
+  REMITTANCE_FX_RATE: 'remittance_fx_rate',
+  REMITTANCE_FEE_BPS: 'remittance_fee_bps',
+  REMITTANCE_MIN_USD: 'remittance_min_usd',
+  REMITTANCE_MAX_USD: 'remittance_max_usd',
+  REMITTANCE_CURRENCY: 'remittance_currency',
 } as const;
 
 /**
@@ -182,4 +188,88 @@ export function evcUssdCode(merchantNumber: string, amountUsd: string): string {
   const [whole = '0', fraction = ''] = amountUsd.split('.');
   const cents = fraction.padEnd(2, '0').slice(0, 2);
   return `*712*${merchantNumber}*${whole}*${cents}#`;
+}
+
+export interface RemittanceSettings {
+  enabled: boolean;
+  /** Local currency units per USD, as a decimal string. */
+  fxRate: string;
+  feeBps: number;
+  minUsd: string;
+  maxUsd: string;
+  currency: string;
+}
+
+/**
+ * The remittance corridor's commercial terms.
+ *
+ * Off by default and with no usable default rate, deliberately. Every other
+ * setting in this module fails safe by doing nothing; this one moves real
+ * money at a rate somebody has to own, and an invented starting rate would be
+ * a number nobody chose being quoted to a customer.
+ *
+ * `maxUsd` is a control, not a convenience. It bounds the size of any single
+ * transfer FLT can end up owing between the inbound leg confirming and an
+ * operator paying out by hand, and it is the practical brake on the one part
+ * of this feature that cannot be automated.
+ */
+export async function resolveRemittanceSettings(): Promise<RemittanceSettings> {
+  const [enabled, fxRate, feeBps, minUsd, maxUsd, currency] = await Promise.all([
+    readSetting(PLATFORM_SETTING_KEYS.REMITTANCE_ENABLED),
+    readSetting(PLATFORM_SETTING_KEYS.REMITTANCE_FX_RATE),
+    readSetting(PLATFORM_SETTING_KEYS.REMITTANCE_FEE_BPS),
+    readSetting(PLATFORM_SETTING_KEYS.REMITTANCE_MIN_USD),
+    readSetting(PLATFORM_SETTING_KEYS.REMITTANCE_MAX_USD),
+    readSetting(PLATFORM_SETTING_KEYS.REMITTANCE_CURRENCY),
+  ]);
+
+  return {
+    enabled: enabled === 'true',
+    fxRate: fxRate ?? '0',
+    feeBps: feeBps ? Number(feeBps) : 0,
+    minUsd: minUsd ?? '5',
+    maxUsd: maxUsd ?? '200',
+    currency: currency ?? 'USD',
+  };
+}
+
+export async function setRemittanceSettings(
+  context: AdminActionContext,
+  input: {
+    enabled: boolean;
+    fxRate: string;
+    feeBps: number;
+    minUsd: string;
+    maxUsd: string;
+    currency: string;
+  },
+): Promise<void> {
+  const decimal = /^\d+(\.\d+)?$/;
+
+  if (!decimal.test(input.fxRate) || Number(input.fxRate) <= 0) {
+    throw new ValidationError('The FX rate must be a positive decimal number');
+  }
+  if (!Number.isInteger(input.feeBps) || input.feeBps < 0 || input.feeBps > 2_000) {
+    throw new ValidationError('The fee must be between 0 and 2000 basis points');
+  }
+  if (!decimal.test(input.minUsd) || !decimal.test(input.maxUsd)) {
+    throw new ValidationError('The limits must be decimal numbers');
+  }
+  if (Number(input.maxUsd) <= Number(input.minUsd)) {
+    throw new ValidationError('The maximum must be above the minimum');
+  }
+  if (!/^[A-Z]{3}$/.test(input.currency)) {
+    throw new ValidationError('The currency must be a three-letter code, e.g. USD or SOS');
+  }
+  // Enabling a corridor with no rate would quote every customer zero.
+  if (input.enabled && Number(input.fxRate) <= 0) {
+    throw new ValidationError('Set an FX rate before turning the corridor on');
+  }
+
+  await writeSetting(context, PLATFORM_SETTING_KEYS.REMITTANCE_FX_RATE, input.fxRate, { secret: false });
+  await writeSetting(context, PLATFORM_SETTING_KEYS.REMITTANCE_FEE_BPS, String(input.feeBps), { secret: false });
+  await writeSetting(context, PLATFORM_SETTING_KEYS.REMITTANCE_MIN_USD, input.minUsd, { secret: false });
+  await writeSetting(context, PLATFORM_SETTING_KEYS.REMITTANCE_MAX_USD, input.maxUsd, { secret: false });
+  await writeSetting(context, PLATFORM_SETTING_KEYS.REMITTANCE_CURRENCY, input.currency, { secret: false });
+  await writeSetting(context, PLATFORM_SETTING_KEYS.REMITTANCE_ENABLED, String(input.enabled), { secret: false });
 }

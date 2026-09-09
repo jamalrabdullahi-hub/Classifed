@@ -1,12 +1,21 @@
 import type { Metadata } from 'next';
-import { EvcPaymentStatus } from '@flt/db';
+import { EvcPaymentStatus, RemittanceStatus } from '@flt/db';
 import { Notice, SectionHeader } from '@flt/ui';
 import { PERMISSIONS, can } from '@flt/core/services/admin';
 import { listEvcPaymentsForReview } from '@flt/core/services/evc';
-import { resolveEvcSettings } from '@flt/core/services/platform-settings';
+import {
+  resolveEvcSettings,
+  resolveRemittanceSettings,
+} from '@flt/core/services/platform-settings';
+import {
+  listRemittancesForPayout,
+  outstandingLiability,
+} from '@flt/core/services/remittance';
 import { requireAdminPage } from '@/server/session';
 import { EvcSettingsForm } from './evc-settings-form';
 import { EvcQueue } from './evc-queue';
+import { RemittanceSettingsForm } from './remittance-settings-form';
+import { RemittanceQueue } from './remittance-queue';
 
 export const metadata: Metadata = { title: 'Payments' };
 export const dynamic = 'force-dynamic';
@@ -24,12 +33,22 @@ export default async function PaymentsPage() {
 
   const canConfigure = can(admin, PERMISSIONS.MANAGE_PLATFORM_SETTINGS);
   const canReview = can(admin, PERMISSIONS.MANAGE_SUBSCRIPTIONS);
+  const canPayout = can(admin, PERMISSIONS.MANAGE_PAYOUTS);
 
-  const [settings, pending, recent] = await Promise.all([
-    resolveEvcSettings(),
-    canReview ? listEvcPaymentsForReview(EvcPaymentStatus.AWAITING_REVIEW) : Promise.resolve([]),
-    canReview ? listEvcPaymentsForReview(EvcPaymentStatus.CONFIRMED) : Promise.resolve([]),
-  ]);
+  const [settings, pending, recent, remittanceSettings, payoutQueue, paidOut, liability] =
+    await Promise.all([
+      resolveEvcSettings(),
+      canReview ? listEvcPaymentsForReview(EvcPaymentStatus.AWAITING_REVIEW) : Promise.resolve([]),
+      canReview ? listEvcPaymentsForReview(EvcPaymentStatus.CONFIRMED) : Promise.resolve([]),
+      resolveRemittanceSettings(),
+      canPayout
+        ? listRemittancesForPayout(RemittanceStatus.AWAITING_PAYOUT)
+        : Promise.resolve([]),
+      canPayout ? listRemittancesForPayout(RemittanceStatus.PAID) : Promise.resolve([]),
+      canPayout
+        ? outstandingLiability()
+        : Promise.resolve({ count: 0, usd: '0.00', payout: '0.00', currency: 'USD' }),
+    ]);
 
   return (
     <div className="space-y-6">
@@ -66,8 +85,46 @@ export default async function PaymentsPage() {
           Confirming a payment grants a paid plan, so it needs the subscription permission.
         </Notice>
       )}
+
+      {canPayout ? (
+        <>
+          <RemittanceSettingsForm initial={remittanceSettings} />
+          <RemittanceQueue
+            liability={liability}
+            pending={payoutQueue.map(serialiseRemittance)}
+            recent={paidOut.slice(0, 20).map(serialiseRemittance)}
+          />
+        </>
+      ) : (
+        <Notice tone="neutral" title="No payout access">
+          Releasing a remittance sends real fiat out of FLT&apos;s float and cannot be undone, so
+          it is held to a narrower permission than the rest of this panel.
+        </Notice>
+      )}
     </div>
   );
+}
+
+function serialiseRemittance(
+  order: Awaited<ReturnType<typeof listRemittancesForPayout>>[number],
+) {
+  return {
+    id: order.id,
+    email: order.user.email,
+    originatorName: order.originatorName,
+    originatorWallet: order.originatorWallet,
+    beneficiaryName: order.beneficiaryName,
+    beneficiaryPhone: order.beneficiaryPhone,
+    beneficiaryRelationship: order.beneficiaryRelationship,
+    purpose: order.purpose,
+    sendAmountUsd: order.sendAmountUsd,
+    payoutAmount: order.payoutAmount,
+    payoutCurrency: order.payoutCurrency,
+    txHash: order.txHash,
+    heldReason: order.heldReason,
+    payoutReference: order.payoutReference,
+    createdAt: order.createdAt.toISOString(),
+  };
 }
 
 function serialise(payment: Awaited<ReturnType<typeof listEvcPaymentsForReview>>[number]) {

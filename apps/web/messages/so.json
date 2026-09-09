@@ -17,7 +17,8 @@
     "language": "Luqadda",
     "signIn": "Gal",
     "openAccount": "Furo akoon",
-    "agent": "Wakiilka AI"
+    "agent": "Wakiilka AI",
+    "remittance": "Dir lacag"
   },
   "home": {
     "eyebrow": "Ganacsi aan qofna hayn lacagtaada",
@@ -1081,5 +1082,51 @@
       "REJECTED": "Lama helin"
     },
     "pendingBody": "Qorshahaagu wuxuu bilaabmayaa marka aan lacagtan ka helno warbixinta EVC. Waxaad bogganan ku soo noqon kartaa."
+  },
+  "remittance": {
+    "title": "Dir lacag",
+    "description": "Dir lacag dhijitaal ah, lacagta gudahana loo geeyo lambar EVC Plus.",
+    "closedTitle": "Weli ma furna",
+    "closedBody": "Xawilaadda lama shidin. Waxba lama diri doono.",
+    "verifyTitle": "Marka hore xaqiiji aqoonsigaaga",
+    "verifyBody": "Lacag u dirista qof kale waxay u baahan tahay aqoonsi la xaqiijiyay. Kanu waa meesha kaliya ee FLT muddo gaaban lacagtaada hayso, waxaana naga waajib ah inaan ku ogaanno kaaga hor.",
+    "verifyCta": "Xaqiiji",
+    "walletTitle": "Ku xir boorso",
+    "walletBody": "Waxaad u baahan tahay boorso la xaqiijiyay oo aad lacagta ka dirto.",
+    "walletCta": "Aad boorsada",
+    "sendTitle": "Guriga lacag u dir",
+    "amount": "Qadarka doolarka",
+    "amountHint": "Inta u dhaxaysa ${min} iyo ${max}.",
+    "youSend": "Waxaad dirayso",
+    "fee": "Khidmad",
+    "theyReceive": "Waxay heli doonaan",
+    "recipientName": "Magaca buuxa ee qofka",
+    "recipientNameHint": "Sida saxda ah ee koontadooda EVC ku qoran.",
+    "recipientPhone": "Lambarka EVC ee qofka",
+    "recipientPhoneHint": "Lambarka lacagta loo gaynayo.",
+    "relationship": "Sidee u taqaannaa?",
+    "relationshipHint": "Waxaa naga waajib ah inaan weydiinno cidda la siinayo iyo sababta.",
+    "relationshipPlaceholder": "Hooyaday",
+    "purpose": "Maxay lacagtu u socotaa?",
+    "purposeHint": "Jawaab gaaban way ku filan tahay.",
+    "purposePlaceholder": "Taageero qoys",
+    "fromWallet": "Ka dir",
+    "connectWallet": "Ku xir boorsadaada si aad u saxiixdo.",
+    "sendCta": "Dir",
+    "signInWallet": "Ku xaqiiji boorsadaada…",
+    "confirming": "Waa la xaqiijinayaa…",
+    "genericError": "Wax baa qaldamay. Fadlan mar kale isku day.",
+    "manualTitle": "Gaarsiintu ma aha isla markiiba",
+    "manualBody": "Lacagtaada dhijitaalka ah isla markiiba waa la xaqiijiyaa, laakiin lacagta gudaha waxaa bixiya qof. Ma gaadho isla markaad dirto. Hoos ka daawo.",
+    "receivedTitle": "Waan helnay xawilaaddaada",
+    "receivedBody": "{amount} ayaa loo dirayaa {name}. Lacagtaadu waa la xaqiijiyay; gaarsiintase gacan baa lagu sameeyaa, sidaas darteed ma aha isla markiiba. Boggani wuxuu ku tusayaa xaaladda.",
+    "yourTransfers": "Xawilaadahaaga",
+    "status": {
+      "AWAITING_TRANSFER": "Lama bixin",
+      "AWAITING_PAYOUT": "Waa la dirayaa",
+      "PAID": "La gaarsiiyay",
+      "REJECTED": "La diiday",
+      "CANCELLED": "La joojiyay"
+    }
   }
 }

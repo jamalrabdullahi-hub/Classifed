@@ -62,6 +62,7 @@ export const PERMISSIONS = {
   MANAGE_ADMINS: 'manage_admins',
   MANAGE_SUBSCRIPTIONS: 'manage_subscriptions',
   MANAGE_PLATFORM_SETTINGS: 'manage_platform_settings',
+  MANAGE_PAYOUTS: 'manage_payouts',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -78,6 +79,10 @@ const ROLE_PERMISSIONS: Record<AdminRole, readonly Permission[]> = {
     PERMISSIONS.MANAGE_FEES,
     PERMISSIONS.MANAGE_SUBSCRIPTIONS,
   ],
+  // MANAGE_PAYOUTS is likewise withheld from OPERATOR. Releasing a remittance
+  // sends real fiat out of FLT's own float to a phone number, and unlike every
+  // other operator action it cannot be reversed by a second click.
+  //
   // MANAGE_PLATFORM_SETTINGS is deliberately not granted to OPERATOR — it
   // controls a platform-wide switch that starts real, signed venue trades
   // and a live third-party API key, one tier more consequential than the

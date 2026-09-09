@@ -19,6 +19,7 @@ import {
   Sparkles,
   PiggyBank,
   Gift,
+  Send,
   Bot,
   X,
 } from 'lucide-react';
@@ -51,6 +52,9 @@ const PRIMARY = [
  * needs to find it without knowing to look under an avatar menu.
  */
 const WALLET = { href: '/boorso', key: 'wallets', icon: Wallet } as const;
+
+/** Sending money home is a destination in its own right, not an account setting. */
+const REMITTANCE = { href: '/xawilaad', key: 'remittance', icon: Send } as const;
 
 /**
  * The terminal is where trading happens, so it carries the name.
@@ -105,7 +109,7 @@ export function TopNav({
   // worse first impression than not showing the tab at all.
   const primary = guest
     ? [tradeItem, ACCOUNT[0]]
-    : [...PRIMARY, tradeItem, WALLET, REFERRALS];
+    : [...PRIMARY, tradeItem, WALLET, REMITTANCE, REFERRALS];
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--canvas)]/85 backdrop-blur-md">

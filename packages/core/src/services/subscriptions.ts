@@ -1,4 +1,4 @@
-import { encodeFunctionData, erc20Abi, getAddress, parseEventLogs } from 'viem';
+import { encodeFunctionData, erc20Abi, getAddress } from 'viem';
 import {
   ReferralEarningKind,
   SubscriptionStatus,
@@ -11,11 +11,11 @@ import {
 import { ForbiddenError, NotFoundError, ValidationError } from '../domain/errors';
 import { newId } from '../domain/id';
 import { Decimal } from '../domain/money';
-import { publicClient } from '../chains/client';
 import { AuditAction, audit } from './audit';
 import { activeTier } from './entitlements';
 import { recordReferralEarning } from './referrals';
 import { resolveProtectionSettings } from './protection-settings';
+import { verifyErc20Transfer } from './onchain-payments';
 import { PERMISSIONS, assertCan, recordAdminAction, type AdminActionContext } from './admin';
 
 /**
@@ -241,31 +241,17 @@ export async function confirmSubscription(
       .toFixed(),
   );
 
-  const receipt = await publicClient(subscription.chainId).getTransactionReceipt({
-    hash: txHash as `0x${string}`,
+  // The whole check — token, sender, recipient and amount against the mined
+  // receipt — lives in one place shared with remittance, so the two payment
+  // rails cannot drift into checking different things.
+  await verifyErc20Transfer({
+    chainId: subscription.chainId,
+    txHash,
+    tokenAddress: subscription.tokenAddress,
+    from: wallet.address,
+    to: recipient,
+    expectedBaseUnits: expected,
   });
-
-  if (receipt.status !== 'success') {
-    throw new ValidationError('That transaction reverted on-chain', { txHash });
-  }
-
-  const transfers = parseEventLogs({ abi: erc20Abi, eventName: 'Transfer', logs: receipt.logs });
-
-  const match = transfers.find(
-    (log) =>
-      log.address.toLowerCase() === subscription.tokenAddress!.toLowerCase() &&
-      log.args.from.toLowerCase() === wallet.address.toLowerCase() &&
-      log.args.to.toLowerCase() === recipient.toLowerCase() &&
-      log.args.value >= expected,
-  );
-
-  if (!match) {
-    throw new ValidationError(
-      'That transaction does not contain the payment this plan requires. The token, recipient, ' +
-        'sender and amount all have to match.',
-      { txHash, expected: expected.toString() },
-    );
-  }
 
   const now = new Date();
 

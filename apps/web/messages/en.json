@@ -17,7 +17,8 @@
     "language": "Language",
     "signIn": "Sign in",
     "openAccount": "Open an account",
-    "agent": "AI agent"
+    "agent": "AI agent",
+    "remittance": "Send money"
   },
   "home": {
     "eyebrow": "Non-custodial trading",
@@ -1081,5 +1082,51 @@
       "REJECTED": "Not found"
     },
     "pendingBody": "Your plan starts once we have matched this payment against our EVC statement. You can check back on this page."
+  },
+  "remittance": {
+    "title": "Send money",
+    "description": "Send stablecoin, and have local money delivered to an EVC Plus number.",
+    "closedTitle": "Not open yet",
+    "closedBody": "Money transfer is not switched on. Nothing you enter here would be sent.",
+    "verifyTitle": "Verify your identity first",
+    "verifyBody": "Sending money to someone else needs a verified identity. This is the one part of FLT where we hold your money for a short time, and we are required to know who you are before we do.",
+    "verifyCta": "Verify",
+    "walletTitle": "Connect a wallet",
+    "walletBody": "You need a verified wallet to send the stablecoin from.",
+    "walletCta": "Go to wallet",
+    "sendTitle": "Send money home",
+    "amount": "Amount in dollars",
+    "amountHint": "Between ${min} and ${max}.",
+    "youSend": "You send",
+    "fee": "Fee",
+    "theyReceive": "They receive",
+    "recipientName": "Recipient's full name",
+    "recipientNameHint": "Exactly as it appears on their EVC account.",
+    "recipientPhone": "Recipient's EVC number",
+    "recipientPhoneHint": "The number the money is delivered to.",
+    "relationship": "How do you know them?",
+    "relationshipHint": "We are required to ask who is being paid and why.",
+    "relationshipPlaceholder": "My mother",
+    "purpose": "What is the money for?",
+    "purposeHint": "A short answer is fine.",
+    "purposePlaceholder": "Family support",
+    "fromWallet": "Send from",
+    "connectWallet": "Connect your wallet to sign the transfer.",
+    "sendCta": "Send",
+    "signInWallet": "Confirm in your wallet…",
+    "confirming": "Confirming…",
+    "genericError": "Something went wrong. Please try again.",
+    "manualTitle": "Delivery is not instant",
+    "manualBody": "Your stablecoin is confirmed on-chain straight away, but the local money is paid out by a person. It is not delivered the moment you send. You can follow it below.",
+    "receivedTitle": "We have your transfer",
+    "receivedBody": "{amount} is being sent to {name}. Your payment is confirmed on-chain; the delivery is done by hand, so it is not instant. This page shows the status.",
+    "yourTransfers": "Your transfers",
+    "status": {
+      "AWAITING_TRANSFER": "Not paid",
+      "AWAITING_PAYOUT": "Being sent",
+      "PAID": "Delivered",
+      "REJECTED": "Refused",
+      "CANCELLED": "Cancelled"
+    }
   }
 }

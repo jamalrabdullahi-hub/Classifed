@@ -55,6 +55,7 @@ export type {
   BridgeApiKey,
   PlatformSetting,
   EvcPayment,
+  RemittanceOrder,
 } from '@prisma/client';
 
 export {
@@ -91,4 +92,5 @@ export {
   AgentDecisionAction,
   EvcPaymentStatus,
   PerpAssetClass,
+  RemittanceStatus,
 } from '@prisma/client';
