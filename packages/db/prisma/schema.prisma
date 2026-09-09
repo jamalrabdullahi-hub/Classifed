@@ -441,6 +441,15 @@ model Wallet {
   isPreferred Boolean   @default(false)
   /// Which connector was used to link it: "injected", "walletConnect", ...
   connector   String?
+
+  /// The provider's own identifier for a wallet it manages, where one exists.
+  ///
+  /// Null for a wallet the participant linked themselves — an address is all
+  /// there is to know about a MetaMask account. Set for an embedded wallet,
+  /// because signing through the provider is addressed by *its* id, not by the
+  /// address: `createViemAccount` needs both, and an address alone cannot ask
+  /// Privy to sign anything.
+  providerWalletId String?
   /// Null until the ownership signature has been verified.
   verifiedAt  DateTime?
   createdAt   DateTime  @default(now())

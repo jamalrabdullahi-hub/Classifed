@@ -28,6 +28,15 @@ export interface ProvisionedWallets {
   /** Same address works across every EVM chain (Base, BNB, ...). */
   evmAddress: string;
   solanaAddress: string;
+  /**
+   * Privy's own ids for the two wallets.
+   *
+   * Stored alongside the addresses because signing is addressed by id, not by
+   * address — `createViemAccount` takes both, and an address on its own can
+   * hold funds but can never be asked to move them.
+   */
+  evmWalletId: string;
+  solanaWalletId: string;
 }
 
 let client: PrivyClient | null | undefined;
@@ -69,8 +78,19 @@ export async function provisionEmbeddedWallets(userId: string): Promise<Provisio
   if (!evmWallet.address || !solanaWallet.address) {
     throw new Error('Privy did not return an address for a provisioned wallet');
   }
+  if (!evmWallet.id || !solanaWallet.id) {
+    // Refused rather than stored partially: a wallet row with an address and
+    // no id looks funded and cannot sign, which is a worse state to discover
+    // later than a failed provisioning now.
+    throw new Error('Privy did not return a wallet id for a provisioned wallet');
+  }
 
-  return { evmAddress: evmWallet.address, solanaAddress: solanaWallet.address };
+  return {
+    evmAddress: evmWallet.address,
+    solanaAddress: solanaWallet.address,
+    evmWalletId: evmWallet.id,
+    solanaWalletId: solanaWallet.id,
+  };
 }
 
 /** Resets the cached client — test-only, mirrors the pattern in `registry.ts`. */

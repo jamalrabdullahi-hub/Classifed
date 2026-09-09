@@ -72,7 +72,7 @@ export async function provisionWalletsForUser(user: User): Promise<void> {
   });
   if (existing) return; // Already provisioned.
 
-  let wallets: { evmAddress: string; solanaAddress: string };
+  let wallets: Awaited<ReturnType<typeof provisionEmbeddedWallets>>;
   try {
     wallets = await provisionEmbeddedWallets(user.id);
   } catch (error) {
@@ -96,6 +96,7 @@ export async function provisionWalletsForUser(user: User): Promise<void> {
           chainId,
           label: 'FLT wallet',
           connector: 'privy-embedded',
+          providerWalletId: wallets.evmWalletId,
           verifiedAt: new Date(),
           isPreferred: !hasAnyWallet && chainId === BASE_CHAIN_ID,
         },
@@ -110,6 +111,7 @@ export async function provisionWalletsForUser(user: User): Promise<void> {
         chainId: SOLANA_CHAIN_ID,
         label: 'FLT wallet (Solana)',
         connector: 'privy-embedded',
+        providerWalletId: wallets.solanaWalletId,
         verifiedAt: new Date(),
         isPreferred: false,
       },
