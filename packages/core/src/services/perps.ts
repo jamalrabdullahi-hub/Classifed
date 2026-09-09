@@ -164,6 +164,42 @@ export async function listOfferedMarkets(venue: PerpVenue): Promise<
  * A venue that fails is skipped rather than failing the page: one venue's
  * outage should not blank a list that another venue can still fill.
  */
+/**
+ * A short-lived cache of the full offered-market listing.
+ *
+ * The terminal renders server-side and needs this on every page load, purely
+ * to populate the market switcher — a list of symbols and names. Building it
+ * hits each venue's live listing endpoint, which for a venue carrying a few
+ * hundred perps is the slowest thing on the page, and it was happening on top
+ * of the separate live call that resolves the symbol actually being viewed.
+ * Two full venue listings per page load, neither reused.
+ *
+ * What this caches is metadata: which symbols exist, their names, their
+ * leverage ceilings. Those change when a venue lists or delists something,
+ * not second to second. Prices are deliberately not served from here —
+ * `resolveOfferedMarket` still fetches the viewed market live, so the mark,
+ * index and funding on screen are never stale.
+ *
+ * In-process and per-instance rather than shared: it is an optimisation, and a
+ * cache that needs infrastructure to be correct is a liability rather than a
+ * saving. A cold instance simply does the work.
+ */
+const LISTING_TTL_MS = 30_000;
+
+const listingCache = new Map<
+  string,
+  { at: number; markets: Array<PerpMarket & { maxLeverage: number; venueMaxLeverage: number }> }
+>();
+
+async function cachedOfferedMarkets(venue: PerpVenue) {
+  const cached = listingCache.get(venue.meta.slug);
+  if (cached && Date.now() - cached.at < LISTING_TTL_MS) return cached.markets;
+
+  const markets = await listOfferedMarkets(venue);
+  listingCache.set(venue.meta.slug, { at: Date.now(), markets });
+  return markets;
+}
+
 export async function listAllOfferedMarkets(
   venues: PerpVenue[],
 ): Promise<Array<PerpMarket & { maxLeverage: number; venueMaxLeverage: number; venueSlug: string }>> {
@@ -172,7 +208,7 @@ export async function listAllOfferedMarkets(
   const perVenue = await Promise.all(
     venues.map(async (venue) => {
       try {
-        const markets = await listOfferedMarkets(venue);
+        const markets = await cachedOfferedMarkets(venue);
         return markets.map((market) => ({ ...market, venueSlug: venue.meta.slug }));
       } catch (error) {
         console.error('[perps] venue listing failed', {
