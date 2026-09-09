@@ -202,6 +202,9 @@ export const AuditAction = {
   /// services/venue-keys.ts.
   AGENT_KEY_CREATED: 'venue_key.created',
   AGENT_KEY_AUTHORIZED: 'venue_key.authorized',
+  /// FLT's permission to direct a participant's FLT-provisioned wallet.
+  WALLET_DELEGATION_GRANTED: 'wallet_delegation.granted',
+  WALLET_DELEGATION_REVOKED: 'wallet_delegation.revoked',
   AGENT_TRADING_KILL_SWITCHED: 'agent_trading.kill_switched',
   AGENT_TRADING_ORDER_SUBMITTED: 'agent_trading.order_submitted',
 

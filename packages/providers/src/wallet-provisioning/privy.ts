@@ -41,7 +41,7 @@ export interface ProvisionedWallets {
 
 let client: PrivyClient | null | undefined;
 
-function privyClient(): PrivyClient {
+export function privyClient(): PrivyClient {
   if (client === undefined) {
     const { PRIVY_APP_ID, PRIVY_APP_SECRET } = env();
     client =

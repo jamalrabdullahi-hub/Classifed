@@ -4,3 +4,10 @@ export {
   autoWalletProvisioningOperational,
   SOLANA_CHAIN_ID,
 } from './provision';
+export {
+  WALLET_DELEGATION_VERSION,
+  hasWalletDelegation,
+  isManagedWallet,
+  managedAccountFor,
+  sendManagedTransaction,
+} from './signer';

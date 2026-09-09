@@ -235,6 +235,7 @@ model User {
   evcPayments        EvcPayment[]
   remittances        RemittanceOrder[]
   ledgerAccounts     LedgerAccount[]
+  walletDelegation   WalletDelegation?
   referralCode       ReferralCode?          @relation("ReferralCodeOwner")
   referralsMade      Referral[]             @relation("ReferralsMade")
   referredBy         Referral?              @relation("ReferredBy")
@@ -2066,4 +2067,48 @@ model LedgerEntry {
   @@index([accountId, createdAt])
   @@index([transferId])
   @@map("ledger_entries")
+}
+
+/// A participant's standing permission for FLT to direct their FLT-provisioned
+/// wallet.
+///
+/// ## Why this is a record and not a boolean
+///
+/// FLT does not hold the key — Privy does — but instructing Privy to sign on
+/// somebody's behalf is still a real power, and the difference between that and
+/// custody is not something a participant should have to infer. So the
+/// permission is granted explicitly, versioned like the other disclosures on
+/// this platform, and revocable.
+///
+/// `version` is what makes a change of terms meaningful: a delegation accepted
+/// under wording that has since changed does not carry forward, the same
+/// discipline `PassiveCashAccount` and the venue-key flow use. Somebody who
+/// agreed that FLT could place the trades they choose has not thereby agreed to
+/// anything wider.
+///
+/// One row per participant rather than per wallet: the EVM key is shared across
+/// every EVM chain, so consent per wallet row would ask the same question three
+/// times and let the answers disagree.
+model WalletDelegation {
+  id     String @id
+  userId String @unique
+
+  /// The wording accepted, so a later change of terms invalidates it.
+  version    String
+  acceptedAt DateTime @default(now())
+
+  /// Set when the participant withdraws it. The row is kept: "this permission
+  /// existed between these dates" is the question an investigation asks.
+  revokedAt DateTime?
+
+  /// Captured at acceptance, as with every other consent on this platform.
+  ip        String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("wallet_delegations")
 }

@@ -55,6 +55,7 @@ export type {
   LedgerAccount,
   LedgerTransfer,
   LedgerEntry,
+  WalletDelegation,
 } from '@prisma/client';
 
 export {
