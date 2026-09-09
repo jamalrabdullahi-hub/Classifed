@@ -525,7 +525,8 @@
     "moneyDash": "—",
     "orderSent": "Dalabka waa la diray suuqa.",
     "needsVenueKey": "Koontadan weli ma laha fure suuq oo la oggolaaday, sidaa darteed waxba lama dirin. Ka samayso bogga AI trading si aad hal gujin ugu fulliso — waa isku fure, ha ahaato adiga oo riixaya ama wakiilka.",
-    "venueNotSupported": "Hal-gujin fulin looguma heli karo suuqan weli, sidaa darteed waxba lama dirin. Dalabkaaga lama gelin."
+    "venueNotSupported": "Hal-gujin fulin looguma heli karo suuqan weli, sidaa darteed waxba lama dirin. Dalabkaaga lama gelin.",
+    "confirmAndSkip": "Xaqiiji, oo qalabkan mar dambe ha i tusin dib-u-eegistan"
   },
   "protection": {
     "needsPlanTitle": "Ganacsiga leverage-ka wuxuu u baahan yahay qorshe",

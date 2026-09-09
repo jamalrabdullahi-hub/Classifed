@@ -20,6 +20,9 @@ import {
 import type { Candle } from '@flt/core/ports/history';
 import type { PriceLineSpec } from '@/components/price-chart';
 
+/** Per-browser preference: skip the pre-execution review. See `skipReview`. */
+const SKIP_REVIEW_KEY = 'flt.skip-order-review';
+
 /**
  * The execution ticket, with cover priced as you type.
  *
@@ -172,6 +175,36 @@ export function ProtectedTicket({
   const [showCoverage, setShowCoverage] = useState(false);
   const [showBracket, setShowBracket] = useState(false);
   const [confirming, setConfirming] = useState(false);
+
+  /**
+   * Whether this browser has been told to stop showing the review step.
+   *
+   * Per-browser, in localStorage, and never a server-side account setting: it
+   * is a convenience for somebody who trades often, not a property of the
+   * account. Read lazily on first use rather than in an effect, so the review
+   * is never skipped on the first render because state has not caught up yet —
+   * erring toward showing it is the safe direction for a screen that opens a
+   * leveraged position.
+   */
+  const [skipReview, setSkipReview] = useState(false);
+
+  useEffect(() => {
+    try {
+      setSkipReview(window.localStorage.getItem(SKIP_REVIEW_KEY) === 'true');
+    } catch {
+      // Private windows and blocked site data both throw. The review stays on,
+      // which is the right way to fail.
+    }
+  }, []);
+
+  function rememberSkip() {
+    setSkipReview(true);
+    try {
+      window.localStorage.setItem(SKIP_REVIEW_KEY, 'true');
+    } catch {
+      // Not being able to remember it is not a reason to fail the order.
+    }
+  }
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -677,7 +710,8 @@ export function ProtectedTicket({
         variant="primary"
         block
         disabled={!ready || locked}
-        onClick={() => setConfirming(true)}
+        onClick={() => (skipReview ? void execute() : setConfirming(true))}
+        loading={skipReview && pending}
       >
         {tt('execute')}
       </Button>
@@ -703,6 +737,10 @@ export function ProtectedTicket({
           pending={pending}
           onCancel={() => setConfirming(false)}
           onConfirm={() => void execute()}
+          onConfirmAlways={() => {
+            rememberSkip();
+            void execute();
+          }}
           t={tt}
         />
       ) : null}
@@ -729,6 +767,7 @@ function ConfirmDialog({
   pending,
   onCancel,
   onConfirm,
+  onConfirmAlways,
   t,
 }: {
   orderType: OrderType;
@@ -749,6 +788,8 @@ function ConfirmDialog({
   pending: boolean;
   onCancel: () => void;
   onConfirm: () => void;
+  /** Confirm, and stop showing this review on this browser. */
+  onConfirmAlways: () => void;
   t: ReturnType<typeof useTranslations<'ticket'>>;
 }) {
   const horizonUnitWords = {
@@ -832,6 +873,22 @@ function ConfirmDialog({
             {t('confirm')}
           </Button>
         </div>
+
+        {/*
+          Offered as a third action rather than a checkbox beside Confirm.
+          A checkbox can be left ticked from a previous order and then silently
+          change what the next click does; this only ever takes effect on the
+          order the reader is looking at, and says in the label that it is
+          permanent for this browser.
+        */}
+        <button
+          type="button"
+          onClick={onConfirmAlways}
+          disabled={pending}
+          className="w-full text-center text-[11px] text-[var(--text-subtle)] underline underline-offset-2 transition-colors hover:text-[var(--text-muted)] disabled:opacity-50"
+        >
+          {t('confirmAndSkip')}
+        </button>
       </div>
     </div>
   );

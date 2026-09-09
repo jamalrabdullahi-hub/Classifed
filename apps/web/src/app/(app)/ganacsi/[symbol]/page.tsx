@@ -9,6 +9,7 @@ import { perpVenues } from '@flt/providers';
 import { entitlementsFor, fromPlan } from '@flt/core/services/entitlements';
 import { currentUser } from '@/server/session';
 import { PerpTerminal } from '@/components/terminal/perp-terminal';
+import { RememberMarket } from '@/components/terminal/remember-market';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,6 +71,9 @@ export default async function PerpMarketPage({
 
   return (
     <div className="space-y-4">
+      {/* Records the market so a bare /ganacsi comes back here. */}
+      <RememberMarket symbol={market.symbol} />
+
       <PerpTerminal
         market={{
           symbol: market.symbol,

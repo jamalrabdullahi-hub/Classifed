@@ -149,8 +149,23 @@ export function AgentSettingsClient() {
           <p className="text-[12px] leading-relaxed text-[var(--text-subtle)]">
             Turning this on lets any eligible account configure and run the AI trading agent —
             real, signed trades on their allocated venues the moment their own agent is active.
-            {!canEnable ? ' Both the encryption key and the DeepSeek key must be set first.' : ''}
           </p>
+
+          {/*
+            Name the one thing still missing, rather than restating both
+            requirements. A disabled button beside "both of these must be set"
+            reads as broken to somebody who has just set one of them and is
+            looking at it marked Configured.
+          */}
+          {!canEnable ? (
+            <Notice tone="warning" title="Cannot be turned on yet">
+              {!settings.encryptionKeyConfigured && !settings.deepSeekKeyConfigured
+                ? 'AGENT_KEY_ENCRYPTION_KEY is missing from the server environment, and no DeepSeek key is saved.'
+                : !settings.encryptionKeyConfigured
+                  ? 'The DeepSeek key is saved. The only thing still missing is AGENT_KEY_ENCRYPTION_KEY in the server environment — generate it on the server, add it to the .env there, and restart. It cannot be set from this panel.'
+                  : 'The server key is in place. Save a DeepSeek API key above and this will turn on.'}
+            </Notice>
+          ) : null}
           <Button
             variant={settings.enabled ? 'danger' : 'primary'}
             size="sm"
