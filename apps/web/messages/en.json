@@ -236,7 +236,15 @@
     "unverified": "unverified",
     "unreviewed": "unreviewed",
     "perpDetail": "{assetClass} perp · up to {leverage}x",
-    "spotDetail": "spot · {chain}"
+    "spotDetail": "spot · {chain}",
+    "group": {
+      "perp": "Perpetuals",
+      "mimic": "Stock mimics",
+      "future": "Futures",
+      "forex": "Forex",
+      "commodity": "Commodities",
+      "spot": "Swap in wallet"
+    }
   },
   "themeToggle": {
     "colourTheme": "Colour theme",

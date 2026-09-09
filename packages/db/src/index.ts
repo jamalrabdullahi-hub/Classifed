@@ -90,4 +90,5 @@ export {
   TradingAgentStatus,
   AgentDecisionAction,
   EvcPaymentStatus,
+  PerpAssetClass,
 } from '@prisma/client';

@@ -1,37 +1,53 @@
 import { getTranslations } from 'next-intl/server';
 import { prisma } from '@flt/db';
 import { env } from '@flt/config';
+import {
+  INSTRUMENT_GROUP_ORDER,
+  displayName,
+  groupForAssetClass,
+  instrumentKey,
+  usesSyntheticNaming,
+  isMajorCryptoSymbol,
+  type InstrumentGroup,
+} from '@flt/core/services/instruments';
 import { perpVenues } from '@flt/providers';
 import { handler } from '@/server/api';
 
 /**
- * One search across everything tradeable.
+ * One search across everything tradeable, grouped by what it is.
  *
- * Spot tokens and perpetual markets live in different tables and trade through
- * different venues, but a person looking for "SOL" does not care which — they
- * want the instrument. So this returns both, labelled, and the interface routes
- * on the label rather than making the user pick a table first.
+ * ## Grouped, because "everything, ranked" was unreadable
  *
- * ## Ranking, not filtering
+ * This used to return one flat ranked list mixing spot tokens and perpetuals.
+ * With 2,600 imported tokens that meant a query for a major ticker came back
+ * as a wall of near-identical rows, and the reader had to decode each one from
+ * a trailing label. Results are now bucketed — perps, mimics, futures, forex,
+ * commodities, then spot — so the shape of the answer is visible before any of
+ * it is read.
  *
- * With 2,600 spot tokens a substring match on "BTC" returns dozens of things
- * before Bitcoin. So results are ranked: exact symbol, then symbol prefix, then
- * name prefix, then contains — and within a rank, verified tokens before
- * recognised ones, because a scanner full of unreviewed lookalikes is how
- * somebody buys the wrong contract.
+ * ## Perps outrank spot, deliberately
  *
- * Perps sort ahead of spot on an equal rank: the perp list is small and
- * deliberately curated, so a match there is more likely to be the thing meant.
+ * Typing "BTC" into a trading platform means the Bitcoin market. It used to
+ * land on the wallet swap screen, which is a different activity entirely. Spot
+ * still appears, below, because buying the asset is a real thing to want — it
+ * just is not the first thing somebody typing a ticker meant.
+ *
+ * ## Curation happens here, not in the registry
+ *
+ * The registry keeps every imported token; this endpoint declines to offer
+ * most of them. A RECOGNIZED token has to be a major ticker to be surfaced at
+ * all — see MAJOR_CRYPTO_SYMBOLS — while VERIFIED tokens always are, because
+ * somebody at FLT actually checked those contracts. Nothing is deleted and an
+ * operator can still enable anything; the search box just stops introducing
+ * strangers.
  */
 export const GET = handler({}, async ({ request }) => {
   const t = await getTranslations('instrumentSearch');
   const url = new URL(request.url);
   const query = (url.searchParams.get('q') ?? '').trim();
-  const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? 20), 1), 50);
+  const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? 24), 1), 50);
 
-  if (query.length < 1) {
-    return { query, results: [] };
-  }
+  if (query.length < 1) return { query, groups: [] };
 
   const needle = query.toUpperCase();
   const config = env();
@@ -54,18 +70,16 @@ export const GET = handler({}, async ({ request }) => {
         verificationTier: true,
         chain: { select: { name: true } },
       },
-      // Bounded before ranking: a two-character query matches hundreds and
-      // there is no reason to pull them all into memory to sort them.
       take: 200,
     }),
     config.PERPS_ENABLED
       ? prisma.perpMarket.findMany({
           where: {
             isEnabled: true,
-            // Only venues this deployment actually offers. Rows left over
-            // from a simulator, or from a venue since switched off, are still
-            // in the table and still enabled — returning them would offer a
-            // market that does not exist anywhere an order could be sent.
+            // Only venues this deployment actually offers. Rows left over from
+            // a simulator, or from a venue since switched off, are still in the
+            // table and still enabled — returning them would offer a market
+            // that does not exist anywhere an order could be sent.
             venueSlug: { in: perpVenues().map((venue) => venue.meta.slug) },
             OR: [
               { symbol: { contains: query, mode: 'insensitive' } },
@@ -77,62 +91,110 @@ export const GET = handler({}, async ({ request }) => {
       : Promise.resolve([]),
   ]);
 
-  /**
-   * Symbols shared by more than one token.
-   *
-   * A bulk import from a public list brings in lookalikes: Base has two tokens
-   * whose symbol is BTC — "Big Tom Coin" and "Bitcoin Base" — and neither is
-   * Bitcoin. Left undistinguished, a search for BTC offers two identical-looking
-   * rows and the person picks one at random. Where a symbol collides, the
-   * contract address is surfaced so the rows can actually be told apart.
-   */
-  const symbolCounts = new Map<string, number>();
-  for (const token of tokens) {
-    const key = token.symbol.toUpperCase();
-    symbolCounts.set(key, (symbolCounts.get(key) ?? 0) + 1);
+  interface Entry {
+    group: InstrumentGroup;
+    kind: 'spot' | 'perp';
+    symbol: string;
+    name: string;
+    href: string;
+    detail: string;
+    tier: string | null;
+    address: string | null;
+    rank: number;
   }
 
-  const results = [
-    ...perps.map((market) => ({
-      kind: 'perp' as const,
+  const entries: Entry[] = [];
+
+  for (const market of perps) {
+    const rank = rankOf(needle, market.symbol, market.name);
+    if (rank >= 90) continue;
+
+    entries.push({
+      group: groupForAssetClass(market.assetClass),
+      kind: 'perp',
       symbol: market.symbol,
-      name: market.name,
+      name: displayName(market.symbol, market.name),
       href: `/ganacsi/${market.symbol}`,
       detail: t('perpDetail', {
         assetClass: market.assetClass.toLowerCase(),
         leverage: Math.min(market.maxLeverage, config.PERP_MAX_LEVERAGE),
       }),
-      assetClass: market.assetClass,
-      tier: null as string | null,
-      address: null as string | null,
-      ambiguous: false,
-      rank: rankOf(needle, market.symbol, market.name) - 0.5,
-    })),
-    ...tokens.map((token) => ({
-      kind: 'spot' as const,
+      tier: null,
+      address: null,
+      rank,
+    });
+  }
+
+  for (const token of tokens) {
+    const rank = rankOf(needle, token.symbol, token.name);
+    if (rank >= 90) continue;
+
+    /**
+     * The curation gate.
+     *
+     * VERIFIED means a person checked the contract, so it is always offered.
+     * Everything else has to be a ticker somebody plausibly meant. Without
+     * this, one bulk import decides what a search for "BTC" looks like.
+     */
+    const offerable =
+      token.verificationTier === 'VERIFIED' || isMajorCryptoSymbol(token.symbol);
+    if (!offerable) continue;
+
+    entries.push({
+      group: 'spot',
+      kind: 'spot',
       symbol: token.symbol,
       name: token.name,
-      // `buy`, because that is the parameter the trade screen actually reads.
-      // This previously emitted `?token=…&chain=…`, which nothing consumed:
-      // the link put a query string in the address bar and pre-selected
-      // nothing, so picking a token from search dropped you on a default pair.
       href: `/iibso?buy=${token.address}`,
       detail: t('spotDetail', { chain: token.chain.name }),
-      address: token.address,
-      /** True when another enabled token shares this symbol. */
-      ambiguous: (symbolCounts.get(token.symbol.toUpperCase()) ?? 0) > 1,
-      assetClass: null as string | null,
       tier: token.verificationTier,
-      rank:
-        rankOf(needle, token.symbol, token.name) +
-        (token.verificationTier === 'VERIFIED' ? 0 : token.verificationTier === 'RECOGNIZED' ? 0.1 : 0.2),
-    })),
-  ]
-    .filter((entry) => entry.rank < 90)
-    .sort((a, b) => a.rank - b.rank || a.symbol.localeCompare(b.symbol))
-    .slice(0, limit);
+      address: token.address,
+      // A verified contract wins a tie against a merely recognised one bearing
+      // the same ticker — which is the whole point of having checked it.
+      rank: rank + (token.verificationTier === 'VERIFIED' ? 0 : 0.1),
+    });
+  }
 
-  return { query, results };
+  /**
+   * One row per instrument.
+   *
+   * Venues decorate the same underlying differently (AAPL, AAPL-USD, sAAPL),
+   * and the same ticker exists as a token on several chains. Both produce
+   * duplicate-looking rows that a reader cannot choose between, so the best
+   * ranked one survives and the rest are dropped. Deduplication is per group,
+   * so a BTC perp and BTC spot both still appear — those are genuinely
+   * different things to do.
+   */
+  const best = new Map<string, Entry>();
+  for (const entry of entries.sort((a, b) => a.rank - b.rank)) {
+    const key = `${entry.group}:${instrumentKey(entry.symbol, {
+      stripSyntheticAffixes: usesSyntheticNaming(entry.group),
+    })}`;
+    if (!best.has(key)) best.set(key, entry);
+  }
+
+  const deduped = [...best.values()];
+
+  const groups = INSTRUMENT_GROUP_ORDER.map((group) => ({
+    key: group,
+    label: t(`group.${group}` as 'group.perp'),
+    results: deduped
+      .filter((entry) => entry.group === group)
+      .sort((a, b) => a.rank - b.rank || a.symbol.localeCompare(b.symbol)),
+  }))
+    .filter((section) => section.results.length > 0);
+
+  // Trimmed across groups in display order, so the cap never empties the
+  // section the reader was most likely looking for.
+  let remaining = limit;
+  const trimmed = [];
+  for (const section of groups) {
+    if (remaining <= 0) break;
+    trimmed.push({ ...section, results: section.results.slice(0, remaining) });
+    remaining -= section.results.length;
+  }
+
+  return { query, groups: trimmed };
 });
 
 /** Lower is a better match. 99 means it does not really match at all. */

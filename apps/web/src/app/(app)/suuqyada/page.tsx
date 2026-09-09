@@ -19,6 +19,7 @@ import {
   ValueDelta,
 } from '@flt/ui';
 import { BASE_CHAIN_ID, explorerTokenUrl } from '@flt/core/chains';
+import { MAJOR_CRYPTO_SYMBOLS } from '@flt/core/services/instruments';
 import { formatUsd } from '@flt/core/domain';
 import { requireUserPage } from '@/server/session';
 import { InstrumentSearch } from '@/components/instrument-search';
@@ -57,17 +58,31 @@ export default async function MarketsPage({
   const query = (q ?? '').trim();
 
   /**
-   * Bounded by default.
+   * Bounded, and curated.
    *
-   * The registry went from seven hand-picked tokens to 2,675 imported ones, and
-   * rendering all of them server-side produces a page nobody scrolls and a
-   * response nobody waits for. Reviewed tokens first, then the rest
-   * alphabetically, capped — and the search box above is how you reach the
-   * long tail.
+   * The registry went from seven hand-picked tokens to 2,675 imported ones.
+   * Two consequences were both wrong. Rendering all of them produces a page
+   * nobody scrolls; and this query had no `isEnabled` filter at all, so a
+   * token an operator had deliberately switched off still appeared in the
+   * scanner — the disable did nothing here.
+   *
+   * Browsing now shows what a person would recognise: reviewed contracts and
+   * major tickers. Typing a query still reaches the whole enabled registry,
+   * because someone who types an exact ticker knows what they are asking for.
    */
   const tokens = await prisma.token.findMany({
     where: {
       chainId: BASE_CHAIN_ID,
+      isEnabled: true,
+      chain: { isEnabled: true },
+      ...(query
+        ? {}
+        : {
+            OR: [
+              { verificationTier: 'VERIFIED' as const },
+              { symbol: { in: [...MAJOR_CRYPTO_SYMBOLS] } },
+            ],
+          }),
       ...(query
         ? {
             OR: [

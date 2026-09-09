@@ -33,7 +33,7 @@ const PLANS = [
   {
     tier: SubscriptionTier.FREE,
     name: 'Free',
-    tagline: 'Spot trading and the basics.',
+    tagline: 'Trading at 2x, and the basics.',
     priceUsd: '0',
     isFeatured: false,
     feeDiscountBps: 0,
@@ -67,8 +67,16 @@ const PLANS = [
      * wearing a pricing tier's clothes.
      */
     dailyTradeLimit: 10,
-    /** Spot only. Leverage is where an ordinary day's move ends a position. */
-    perpsAccess: false,
+    /**
+     * Perpetuals are open to everybody, at 2x.
+     *
+     * `maxLeverage: 2` above is the real safety boundary, and it applies to
+     * every class the venues list — crypto, mimics, futures, forex. Withholding
+     * access entirely made the free tier a brochure for a product nobody could
+     * try; capping the leverage keeps the hazard bounded while letting someone
+     * find out whether they want the thing they would be paying for.
+     */
+    perpsAccess: true,
     agenticTradingAccess: false,
   },
   {

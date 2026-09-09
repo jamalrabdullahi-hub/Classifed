@@ -236,7 +236,15 @@
     "unverified": "aan la xaqiijin",
     "unreviewed": "aan la eegin",
     "perpDetail": "{assetClass} perp · ilaa {leverage}x",
-    "spotDetail": "spot · {chain}"
+    "spotDetail": "spot · {chain}",
+    "group": {
+      "perp": "Perpetuals",
+      "mimic": "Saamiyada la dayday",
+      "future": "Mustaqbalka",
+      "forex": "Sarrifka",
+      "commodity": "Badeecadaha",
+      "spot": "Ku beddel boorsada"
+    }
   },
   "themeToggle": {
     "colourTheme": "Muuqaalka midabka",

@@ -28,8 +28,12 @@ interface Result {
   detail: string;
   tier: string | null;
   address: string | null;
-  /** Another enabled token shares this symbol. */
-  ambiguous: boolean;
+}
+
+interface Group {
+  key: string;
+  label: string;
+  results: Result[];
 }
 
 export function InstrumentSearch({
@@ -44,7 +48,7 @@ export function InstrumentSearch({
   const router = useRouter();
   const t = useTranslations('instrumentSearch');
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<Result[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(0);
   const container = useRef<HTMLDivElement>(null);
@@ -55,24 +59,24 @@ export function InstrumentSearch({
   useEffect(() => {
     const trimmed = query.trim();
     if (!trimmed) {
-      setResults([]);
+      setGroups([]);
       return;
     }
 
     const token = ++latest.current;
     const timer = setTimeout(async () => {
       try {
-        const data = await get<{ results: Result[] }>(
-          `/api/search?q=${encodeURIComponent(trimmed)}&limit=20`,
+        const data = await get<{ groups: Group[] }>(
+          `/api/search?q=${encodeURIComponent(trimmed)}&limit=24`,
         );
         // Out-of-order responses would show results for a query the user has
         // already moved past.
         if (token === latest.current) {
-          setResults(data.results);
+          setGroups(data.groups);
           setHighlighted(0);
         }
       } catch {
-        if (token === latest.current) setResults([]);
+        if (token === latest.current) setGroups([]);
       }
     }, 180);
 
@@ -87,6 +91,15 @@ export function InstrumentSearch({
     document.addEventListener('mousedown', onPointerDown);
     return () => document.removeEventListener('mousedown', onPointerDown);
   }, [open]);
+
+  /**
+   * The grouped results as one sequence.
+   *
+   * Rendering is grouped but arrow-key navigation is not: a reader moving down
+   * the list expects to cross a heading into the next section, not to stop at
+   * it. The headings are labels, not stops.
+   */
+  const flat = groups.flatMap((group) => group.results);
 
   function go(result: Result) {
     setOpen(false);
@@ -110,13 +123,13 @@ export function InstrumentSearch({
             if (event.key === 'ArrowDown') {
               event.preventDefault();
               setOpen(true);
-              setHighlighted((index) => Math.min(index + 1, results.length - 1));
+              setHighlighted((index) => Math.min(index + 1, flat.length - 1));
             } else if (event.key === 'ArrowUp') {
               event.preventDefault();
               setHighlighted((index) => Math.max(index - 1, 0));
             } else if (event.key === 'Enter') {
               event.preventDefault();
-              const chosen = results[highlighted];
+              const chosen = flat[highlighted];
               if (chosen) go(chosen);
             } else if (event.key === 'Escape') {
               setOpen(false);
@@ -131,67 +144,76 @@ export function InstrumentSearch({
         />
       </div>
 
-      {open && query.trim() && results.length === 0 ? (
+      {open && query.trim() && flat.length === 0 ? (
         <div className="absolute right-0 z-40 mt-1 w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--canvas)] px-2.5 py-2 text-[10.5px] text-[var(--text-subtle)] shadow-lg">
           {t('nothingMatches', { query: query.trim() })}
         </div>
       ) : null}
 
-      {open && results.length > 0 ? (
-        <ul
+      {open && flat.length > 0 ? (
+        <div
           id="instrument-search-results"
           role="listbox"
-          className="absolute right-0 z-40 mt-1 max-h-80 w-full min-w-64 overflow-y-auto rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--canvas)] py-1 shadow-lg"
+          className="absolute right-0 z-40 mt-1 max-h-96 w-full min-w-64 overflow-y-auto rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--canvas)] py-1 shadow-lg"
         >
-          {results.map((result, index) => (
-            <li key={`${result.kind}-${result.symbol}-${result.href}`}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={index === highlighted}
-                onMouseEnter={() => setHighlighted(index)}
-                onClick={() => go(result)}
-                className={cn(
-                  'flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left transition-colors',
-                  index === highlighted ? 'bg-[var(--surface-raised)]' : '',
-                )}
+          {groups.map((group) => (
+            <div key={group.key}>
+              {/* A heading, not an option: it names the section and is skipped
+                  by arrow-key navigation. */}
+              <p
+                role="presentation"
+                className="px-2.5 pb-0.5 pt-1.5 text-[9px] font-medium uppercase tracking-[0.08em] text-[var(--text-subtle)]"
               >
-                <span className="flex min-w-0 items-baseline gap-2">
-                  <span className="font-[family-name:var(--font-mono)] text-[11.5px] text-[var(--text)]">
-                    {result.symbol}
-                  </span>
-                  <span className="truncate text-[10px] text-[var(--text-subtle)]">
-                    {result.name}
-                  </span>
-                  {/*
-                    Two tokens on Base are both called BTC and neither is
-                    Bitcoin. Where a symbol collides the address is the only
-                    thing that tells them apart, so it is shown rather than
-                    left for the trade page — by then the choice is made.
-                  */}
-                  {result.ambiguous && result.address ? (
-                    <span className="shrink-0 font-[family-name:var(--font-mono)] text-[9px] text-[var(--text-subtle)]">
-                      {result.address.slice(0, 6)}…{result.address.slice(-4)}
-                    </span>
-                  ) : null}
-                </span>
-                <span className="flex shrink-0 items-center gap-1.5">
-                  {/*
-                    An unreviewed token is flagged here rather than only on the
-                    trade page: the scanner is where somebody picks the wrong
-                    lookalike, and by the trade page they have already chosen.
-                  */}
-                  {result.tier === 'UNVERIFIED' || result.tier === 'RECOGNIZED' ? (
-                    <span className="text-[9px] uppercase tracking-[0.06em] text-[var(--warning)]">
-                      {result.tier === 'UNVERIFIED' ? t('unverified') : t('unreviewed')}
-                    </span>
-                  ) : null}
-                  <span className="text-[9.5px] text-[var(--text-subtle)]">{result.detail}</span>
-                </span>
-              </button>
-            </li>
+                {group.label}
+              </p>
+              <ul>
+                {group.results.map((result) => {
+                  const index = flat.indexOf(result);
+                  return (
+                    <li key={`${result.kind}-${result.href}`}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={index === highlighted}
+                        onMouseEnter={() => setHighlighted(index)}
+                        onClick={() => go(result)}
+                        className={cn(
+                          'flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left transition-colors',
+                          index === highlighted ? 'bg-[var(--surface-raised)]' : '',
+                        )}
+                      >
+                        <span className="flex min-w-0 items-baseline gap-2">
+                          <span className="font-[family-name:var(--font-mono)] text-[11.5px] text-[var(--text)]">
+                            {result.symbol}
+                          </span>
+                          <span className="truncate text-[10px] text-[var(--text-subtle)]">
+                            {result.name}
+                          </span>
+                        </span>
+                        <span className="flex shrink-0 items-center gap-1.5">
+                          {/*
+                            An unreviewed token is flagged here rather than only
+                            on the trade page: the scanner is where somebody
+                            picks the wrong lookalike, and by the trade page they
+                            have already chosen.
+                          */}
+                          {result.tier === 'UNVERIFIED' || result.tier === 'RECOGNIZED' ? (
+                            <span className="text-[9px] uppercase tracking-[0.06em] text-[var(--warning)]">
+                              {result.tier === 'UNVERIFIED' ? t('unverified') : t('unreviewed')}
+                            </span>
+                          ) : null}
+                          <span className="text-[9.5px] text-[var(--text-subtle)]">
+                            {result.detail}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
       ) : null}
     </div>
   );

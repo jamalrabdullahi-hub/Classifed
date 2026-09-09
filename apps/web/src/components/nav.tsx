@@ -42,6 +42,17 @@ const PRIMARY = [
 ] as const;
 
 /**
+ * Wallet is a destination, not a setting.
+ *
+ * It sat in the account dropdown next to Account and Plans, which is where
+ * settings live — but holding, swapping, sending and receiving is the whole
+ * reason a non-custodial platform exists, and on this one it is also where
+ * money arrives before anything can be traded. Somebody who has just signed up
+ * needs to find it without knowing to look under an avatar menu.
+ */
+const WALLET = { href: '/boorso', key: 'wallets', icon: Wallet } as const;
+
+/**
  * The terminal is where trading happens, so it carries the name.
  *
  * The spot swap page still exists at /trade and is reachable from a token's
@@ -65,7 +76,6 @@ const ACCOUNT = [
   { href: '/qorshayaal', key: 'plans', icon: Sparkles },
   { href: '/wakiil', key: 'agent', icon: Bot },
   { href: '/lacag-fadhiya', key: 'passiveCash', icon: PiggyBank },
-  { href: '/boorso', key: 'wallets', icon: Wallet },
   { href: '/akoon', key: 'account', icon: Settings },
 ] as const;
 
@@ -93,7 +103,9 @@ export function TopNav({
   // A signed-out visitor sees only the two public destinations plus a way to
   // sign in — every other tab would just bounce them to /gal, which is a
   // worse first impression than not showing the tab at all.
-  const primary = guest ? [tradeItem, ACCOUNT[0]] : [...PRIMARY, tradeItem, REFERRALS];
+  const primary = guest
+    ? [tradeItem, ACCOUNT[0]]
+    : [...PRIMARY, tradeItem, WALLET, REFERRALS];
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--canvas)]/85 backdrop-blur-md">
