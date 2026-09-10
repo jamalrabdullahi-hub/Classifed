@@ -1,0 +1,11 @@
+[Unit]
+Description=Deploy FLT-Exchange if origin/main has moved
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/flt-exchange/deploy/auto-deploy.sh
+# Root, because the last step restarts systemd services. The script drops to
+# the flt user for every repo command itself.
+User=root

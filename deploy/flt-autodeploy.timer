@@ -1,0 +1,14 @@
+[Unit]
+Description=Check for new FLT-Exchange commits every two minutes
+
+[Timer]
+# A minute after boot, so a reboot picks up anything pushed while it was down.
+OnBootSec=1min
+OnUnitActiveSec=2min
+# Without this a missed window (machine asleep, timer disabled) is skipped
+# entirely rather than run at the next opportunity.
+Persistent=true
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target
