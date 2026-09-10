@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 import { AccountStatus, prisma } from '@flt/db';
 import { BASE_CHAIN_ID } from '@flt/core/chains';
+import { isManagedWallet } from '@flt/providers';
 import { Button, Notice } from '@flt/ui';
 import { MarketPreview } from '@/components/market-preview';
 import { TradeClient } from './trade-client';
@@ -121,6 +122,15 @@ export default async function TradePage({
         address: wallet.address,
         chainId: wallet.chainId,
         isPreferred: wallet.isPreferred,
+        /**
+         * Whether FLT can sign for this wallet, decided here rather than in
+         * the browser.
+         *
+         * `isManagedWallet` is the same predicate the execute routes enforce,
+         * so the screen cannot offer a one-click execution the server will
+         * refuse -- or, worse, hide it on a wallet that does support it.
+         */
+        isManaged: isManagedWallet(wallet),
       }))}
     />
   );

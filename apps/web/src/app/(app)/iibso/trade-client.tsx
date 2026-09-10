@@ -60,6 +60,8 @@ interface WalletView {
   address: string;
   chainId: number;
   isPreferred: boolean;
+  /** FLT can sign for this wallet: it is FLT-provisioned, held at Privy. */
+  isManaged: boolean;
 }
 
 interface Quote {
@@ -158,11 +160,25 @@ export function TradeClient({
   const [submittedTx, setSubmittedTx] = useState<string | null>(null);
 
   const baseUnits = useMemo(() => toBaseUnits(amount, sellToken.decimals), [amount, sellToken]);
+
+  /**
+   * Whether this trade is signed here or by FLT.
+   *
+   * An FLT wallet's key lives at Privy, not in a browser extension, so every
+   * check below about what is connected is not merely unnecessary for it --
+   * it is wrong. Asking somebody to connect a wallet in order to trade from
+   * the wallet FLT holds for them describes a step that does not exist, and
+   * blocks the button behind it.
+   */
+  const managed = preferred.isManaged;
+
   const walletMismatch =
-    isConnected && connectedAddress
+    !managed && isConnected && connectedAddress
       ? connectedAddress.toLowerCase() !== preferred.address.toLowerCase()
       : false;
-  const wrongChain = isConnected && chainId !== SUPPORTED_CHAIN.id;
+  const wrongChain = !managed && isConnected && chainId !== SUPPORTED_CHAIN.id;
+  /** Nothing to connect when FLT signs, so the sign buttons are never gated on it. */
+  const canSign = managed || (isConnected && !walletMismatch);
 
   // ── Indicative pricing, debounced while typing ────────────────────────────
   const priceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -238,6 +254,16 @@ export function TradeClient({
     setPhase('approving');
 
     try {
+      if (managed) {
+        // Server-side: the allowance is derived from the persisted quote, so
+        // the client never names a spender.
+        await post('/api/approvals/execute', { quoteId: quote.id }, idempotencyKey());
+        setQuote(null);
+        setPhase('idle');
+        setError(t('approvalSubmitted'));
+        return;
+      }
+
       const hash = await writeContractAsync({
         address: quote.sellToken.address as `0x${string}`,
         abi: erc20Abi,
@@ -276,6 +302,22 @@ export function TradeClient({
     setPhase('signing');
 
     try {
+      if (managed) {
+        // FLT signs and broadcasts, so the hash comes back rather than being
+        // reported. Same `submitTrade` on the far side either way, so the
+        // trade is recorded and monitored identically however it was signed.
+        const executed = await post<{ txHash: string }>(
+          '/api/trades/execute',
+          { quoteId: quote.id },
+          idempotencyKey(),
+        );
+
+        setSubmittedTx(executed.txHash);
+        setPhase('submitted');
+        router.refresh();
+        return;
+      }
+
       if (wrongChain) await switchChainAsync({ chainId: SUPPORTED_CHAIN.id });
 
       // Exactly the transaction the server quoted and persisted. The monitor
@@ -432,7 +474,11 @@ export function TradeClient({
             </Notice>
           ) : null}
 
-          {!isConnected ? (
+          {managed ? (
+            <Notice tone="info">
+              {t('fltSignsNote', { address: shorten(preferred.address) })}
+            </Notice>
+          ) : !isConnected ? (
             <Notice tone="info">
               {t('connectToSign', { address: shorten(preferred.address) })}
             </Notice>
@@ -456,7 +502,7 @@ export function TradeClient({
               size="lg"
               onClick={approve}
               loading={busy || phase === 'approving'}
-              disabled={!isConnected || walletMismatch}
+              disabled={!canSign}
             >
               {t('approve', { symbol: quote.sellToken.symbol })}
             </Button>
@@ -467,16 +513,18 @@ export function TradeClient({
               size="lg"
               onClick={signAndSubmit}
               loading={busy || phase === 'signing'}
-              disabled={!isConnected || walletMismatch || secondsLeft === 0}
+              disabled={!canSign || secondsLeft === 0}
             >
-              {secondsLeft > 0
-                ? t('signInWallet', { seconds: secondsLeft })
-                : t('quoteExpired')}
+              {secondsLeft === 0
+                ? t('quoteExpired')
+                : managed
+                  ? t('executeTrade', { seconds: secondsLeft })
+                  : t('signInWallet', { seconds: secondsLeft })}
             </Button>
           )}
 
           <p className="text-center text-[11px] leading-relaxed text-[var(--text-subtle)]">
-            {t('walletSignsNote')}
+            {managed ? t('fltSignsFooter') : t('walletSignsNote')}
           </p>
         </CardContent>
       </Card>
