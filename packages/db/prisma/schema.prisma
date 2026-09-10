@@ -2010,9 +2010,12 @@ model LedgerAccount {
   /// optimisation; the entries are the truth.
   balance Decimal @default(0) @db.Decimal(38, 18)
 
-  /// False for every client and omnibus account. True only where a negative
-  /// balance is meaningful — none today, but a fee account that accrues before
-  /// settlement would be the case that needs it.
+  /// Escape hatch from the sign constraint. False everywhere today.
+  ///
+  /// The constraint is per account type, not blanket: asset accounts hold a
+  /// natural debit balance (>= 0) and liability accounts a natural credit
+  /// balance (<= 0). See the 20260910090000 migration for why a single
+  /// "balance >= 0" rule made a deposit impossible to record.
   allowsNegative Boolean @default(false)
 
   createdAt DateTime @default(now())

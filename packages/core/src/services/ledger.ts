@@ -37,6 +37,23 @@ import { Decimal } from '../domain/money';
  * credit exactly once. Those live in the migration deliberately: this service
  * is careful, and the next service somebody writes might not be.
  *
+ * ## The sign convention, stated once
+ *
+ * An entry's amount is signed: debits positive, credits negative, and a
+ * transfer's entries sum to zero. Asset accounts — what FLT holds — carry a
+ * natural debit balance and are stored >= 0. Liability accounts — what FLT
+ * owes — carry a natural credit balance and are stored <= 0.
+ *
+ * This is not decoration. The first version of this file required every
+ * account to be >= 0 alongside the zero-sum rule, and those two cannot both
+ * hold for a deposit: taking money in increases an asset and increases what is
+ * owed, which in double entry is a debit and a credit. A deposit was
+ * unrepresentable, and the unit tests missed it because they mock the database
+ * and never ran the constraint.
+ *
+ * `naturalBalance` is what reading code should use. Nothing outside this
+ * module should have to know that a liability is stored negative.
+ *
  * ## Balances are a cache
  *
  * `LedgerAccount.balance` is maintained in the same transaction as the entries
@@ -177,6 +194,33 @@ export async function accountFor(
   });
 }
 
+/**
+ * True for the accounts that record what FLT owes rather than what it holds.
+ *
+ * FEE_REVENUE sits with the liabilities structurally — revenue is credited,
+ * the same direction as a client balance — even though it is FLT's own money
+ * rather than somebody else's.
+ */
+function isCreditBalance(kind: LedgerAccountKind): boolean {
+  return (
+    kind === LedgerAccountKind.USER_AVAILABLE ||
+    kind === LedgerAccountKind.USER_LOCKED ||
+    kind === LedgerAccountKind.FEE_REVENUE
+  );
+}
+
+/**
+ * The balance as a person would state it: positive means the account has
+ * value, whichever direction it is stored in.
+ */
+export function naturalBalance(account: {
+  kind: LedgerAccountKind;
+  balance: { toString(): string };
+}): Decimal {
+  const raw = new Decimal(account.balance.toString());
+  return isCreditBalance(account.kind) ? raw.negated() : raw;
+}
+
 /** What FLT owes this client in one asset, and what is reserved against it. */
 export async function clientBalance(
   userId: string,
@@ -190,8 +234,10 @@ export async function clientBalance(
     },
   });
 
-  const of = (kind: LedgerAccountKind) =>
-    new Decimal(accounts.find((account) => account.kind === kind)?.balance?.toString() ?? '0');
+  const of = (kind: LedgerAccountKind) => {
+    const account = accounts.find((entry) => entry.kind === kind);
+    return account ? naturalBalance(account) : new Decimal(0);
+  };
 
   const available = of(LedgerAccountKind.USER_AVAILABLE);
   const locked = of(LedgerAccountKind.USER_LOCKED);
@@ -231,7 +277,9 @@ export async function totalClientLiability(asset: string): Promise<Decimal> {
     },
     _sum: { balance: true },
   });
-  return new Decimal(result._sum.balance?.toString() ?? '0');
+  // Client accounts are stored as credit balances, so the raw sum is negative
+  // and the figure anyone wants quoted is its negation.
+  return new Decimal(result._sum.balance?.toString() ?? '0').negated();
 }
 
 /**
@@ -286,9 +334,15 @@ async function moveBetweenClientAccounts(
         kind,
         reference: params.reference,
         memo: params.memo,
+        /**
+         * Both accounts hold credit balances, so locking debits `available`
+         * (making it less negative — less is owed as spendable) and credits
+         * `locked` by the same amount. The pair sums to zero either way; the
+         * direction is what decides which of the two can be spent.
+         */
         entries: [
-          { accountId: available.id, amount: toLocked ? params.amount.negated() : params.amount },
-          { accountId: locked.id, amount: toLocked ? params.amount : params.amount.negated() },
+          { accountId: available.id, amount: toLocked ? params.amount : params.amount.negated() },
+          { accountId: locked.id, amount: toLocked ? params.amount.negated() : params.amount },
         ],
       },
       tx,

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { LedgerTransferKind } from '@flt/db';
+import { LedgerAccountKind, LedgerTransferKind } from '@flt/db';
 import { Decimal } from '../src/domain/money';
 import { ValidationError } from '../src/domain/errors';
-import { postTransfer } from '../src/services/ledger';
+import { naturalBalance, postTransfer } from '../src/services/ledger';
 
 /**
  * The guards that reject a bad transfer before it reaches the database.
@@ -36,6 +36,19 @@ beforeEach(() => {
 });
 
 describe('postTransfer', () => {
+  /**
+   * A client deposit, in the convention the database enforces: debits
+   * positive, credits negative.
+   *
+   * Taking $100 in increases what FLT holds (the omnibus, an asset, debited)
+   * and increases what FLT owes (the client, a liability, credited). Both go
+   * up in plain language; in double entry they carry opposite signs, which is
+   * what lets the pair sum to zero.
+   *
+   * The first version of this ledger required every account to be >= 0 as well
+   * as requiring the sum to be zero, which made this transfer impossible to
+   * record. These tests did not catch it because they mock the database.
+   */
   const balanced = {
     kind: LedgerTransferKind.DEPOSIT,
     reference: 'custodian-tx-1',
@@ -125,5 +138,30 @@ describe('postTransfer', () => {
     await postTransfer(balanced);
     const transfer = created[0] as { reference: string };
     expect(transfer.reference).toBe('custodian-tx-1');
+  });
+});
+
+describe('naturalBalance', () => {
+  it('reads a liability as the positive figure a person would quote', () => {
+    // A client owed 100 is stored as -100, because a liability carries a
+    // natural credit balance. Nothing outside the ledger should have to know
+    // that, which is what this function is for.
+    expect(
+      naturalBalance({ kind: LedgerAccountKind.USER_AVAILABLE, balance: '-100' }).toFixed(),
+    ).toBe('100');
+  });
+
+  it('reads an asset as stored', () => {
+    expect(
+      naturalBalance({ kind: LedgerAccountKind.CLIENT_OMNIBUS, balance: '100' }).toFixed(),
+    ).toBe('100');
+  });
+
+  it('treats revenue as a credit balance, like the client accounts', () => {
+    // Revenue is FLT's own money rather than somebody else's, but it is
+    // credited in the same direction, so it is stored the same way.
+    expect(
+      naturalBalance({ kind: LedgerAccountKind.FEE_REVENUE, balance: '-5' }).toFixed(),
+    ).toBe('5');
   });
 });
