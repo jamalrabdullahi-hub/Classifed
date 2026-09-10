@@ -1078,5 +1078,24 @@
       "REJECTED": "La diiday",
       "CANCELLED": "La joojiyay"
     }
+  },
+  "fltWallet": {
+    "title": "Boorsada FLT",
+    "notCreated": "Lama abuurin",
+    "needsPermission": "Waxay u baahan tahay ogolaansho",
+    "readyToTrade": "Diyaar u ah ganacsi",
+    "pitch": "Boorso FLT kuu abuurto, si aad u ganacsato adigoon waxba rakibin. Furaha waxaa haya Privy, ma aha FLT — waligeen ma dhaqaajin karno lacagtaada ogolaanshaha hoose la'aantiis, oo waqti kasta ayaad u wareejin kartaa cinwaan kasta.",
+    "createCta": "Ii abuur boorsada FLT",
+    "createError": "Boorsada lama abuuri karin. Fadlan mar kale isku day.",
+    "copyAddress": "Koobi cinwaanka",
+    "copied": "La koobiyeeyay",
+    "fundingNote": "Boorsadan waa madhan tahay ilaa aad lacag u dirto. Lacagta boorsooyinkaaga kale meesheeda ayay ku sii jirtaa — tan abuuriddu waxba ma dhaqaajiso.",
+    "permissionBody": "Si FLT ganacsi kuugu sameeyo iyada oo aan mar kasta wax lagu weydiin, waxay u baahan tahay ogolaanshahaaga inay boorsadan hago. Kaliya waxay dirtaa ganacsigii aad codsatay, waqti kastana waad ka noqon kartaa.",
+    "grantCta": "U ogolow FLT inay boorsadan ka ganacsato",
+    "grantedBody": "FLT waxay geli kartaa ganacsiyada aad codsato boorsadan. Lacag-bixintu had iyo jeer waxay tagtaa cinwaan aad adigu dooratay.",
+    "revokeCta": "Ka noqo ogolaanshaha",
+    "grantError": "Ogolaanshaha lama beddeli karin. Fadlan mar kale isku day.",
+    "termsChangedTitle": "Shuruudaha way beddelmeen",
+    "termsChangedBody": "Ogolaanshihii aad bixisay wuxuu ahaa qoraal hore. Fadlan akhri oo aqbal shuruudaha hadda si aad u sii wadato ganacsiga boorsadan."
   }
 }

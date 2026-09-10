@@ -64,27 +64,63 @@ export function autoWalletProvisioningOperational(): boolean {
  * callers should await it (so a failure is logged, not silently lost) but
  * never let it fail the request that triggered it.
  */
-export async function provisionWalletsForUser(user: User): Promise<void> {
-  if (!autoWalletProvisioningOperational()) return;
+export interface ProvisionResult {
+  created: boolean;
+  evmAddress: string;
+  solanaAddress: string;
+  /** Set when nothing was created because wallets already existed. */
+  alreadyExisted: boolean;
+}
 
+/**
+ * Provisions wallets and records them, making the EVM one this account's
+ * trading wallet when asked.
+ *
+ * Shared by the two callers with opposite error expectations: signup, where a
+ * failure must be swallowed, and an explicit request, where it must be
+ * reported. Neither behaviour belongs in here, so this one throws and the
+ * callers decide.
+ */
+async function createManagedWallets(
+  user: User,
+  options: { makePreferred: boolean },
+): Promise<ProvisionResult> {
   const existing = await prisma.wallet.findFirst({
     where: { userId: user.id, connector: 'privy-embedded' },
   });
-  if (existing) return; // Already provisioned.
-
-  let wallets: Awaited<ReturnType<typeof provisionEmbeddedWallets>>;
-  try {
-    wallets = await provisionEmbeddedWallets(user.id);
-  } catch (error) {
-    console.error(`[auto-wallet] provisioning failed for user ${user.id}`, {
-      error: error instanceof Error ? error.message : String(error),
+  if (existing) {
+    const solana = await prisma.wallet.findFirst({
+      where: { userId: user.id, connector: 'privy-embedded', chainId: SOLANA_CHAIN_ID },
     });
-    return;
+    return {
+      created: false,
+      alreadyExisted: true,
+      evmAddress: existing.address,
+      solanaAddress: solana?.address ?? existing.address,
+    };
   }
 
+  const wallets = await provisionEmbeddedWallets(user.id);
   const hasAnyWallet = await prisma.wallet.findFirst({ where: { userId: user.id } });
 
   await prisma.$transaction(async (tx) => {
+    /**
+     * Making this the trading wallet is a demotion of whatever held the
+     * position before.
+     *
+     * `resolveTradingWallet` picks the preferred verified wallet, and two
+     * preferred wallets would make which one trades an accident of row order.
+     * So the others are cleared first, in the same transaction — a window in
+     * which none or two are preferred is a window in which a trade goes to the
+     * wrong address.
+     */
+    if (options.makePreferred) {
+      await tx.wallet.updateMany({
+        where: { userId: user.id, isPreferred: true },
+        data: { isPreferred: false },
+      });
+    }
+
     // Same EVM address applies to every EVM chain FLT recognizes — Base and
     // BNB Chain today — so one pregenerated key becomes two rows.
     for (const chainId of [BASE_CHAIN_ID, BNB_CHAIN_ID]) {
@@ -98,7 +134,8 @@ export async function provisionWalletsForUser(user: User): Promise<void> {
           connector: 'privy-embedded',
           providerWalletId: wallets.evmWalletId,
           verifiedAt: new Date(),
-          isPreferred: !hasAnyWallet && chainId === BASE_CHAIN_ID,
+          isPreferred:
+            chainId === BASE_CHAIN_ID && (options.makePreferred || !hasAnyWallet),
         },
       });
     }
@@ -124,6 +161,48 @@ export async function provisionWalletsForUser(user: User): Promise<void> {
     entityId: user.id,
     actorType: 'SYSTEM',
     actorUserId: user.id,
-    after: { connector: 'privy-embedded', chains: [BASE_CHAIN_ID, BNB_CHAIN_ID, SOLANA_CHAIN_ID] },
+    after: {
+      connector: 'privy-embedded',
+      chains: [BASE_CHAIN_ID, BNB_CHAIN_ID, SOLANA_CHAIN_ID],
+      madePreferred: options.makePreferred,
+    },
   });
+
+  return {
+    created: true,
+    alreadyExisted: false,
+    evmAddress: wallets.evmAddress,
+    solanaAddress: wallets.solanaAddress,
+  };
+}
+
+/**
+ * Provisions wallets for a newly registered user.
+ *
+ * Deliberately best-effort: called after registration has already succeeded,
+ * and a failure here (Privy down, misconfigured, rate limited) must never undo
+ * or block the account creation that already happened.
+ */
+export async function provisionWalletsForUser(user: User): Promise<void> {
+  if (!autoWalletProvisioningOperational()) return;
+
+  try {
+    await createManagedWallets(user, { makePreferred: false });
+  } catch (error) {
+    console.error(`[auto-wallet] provisioning failed for user ${user.id}`, {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
+ * Provisions wallets because the participant asked for them.
+ *
+ * Ignores `AUTO_WALLET_PROVISIONING_ENABLED`: that flag governs whether every
+ * signup gets a wallet automatically, which is a different question from
+ * whether this person may have one now. It throws rather than swallowing,
+ * because somebody who pressed a button is owed the reason it did not work.
+ */
+export async function provisionWalletsOnDemand(user: User): Promise<ProvisionResult> {
+  return createManagedWallets(user, { makePreferred: true });
 }

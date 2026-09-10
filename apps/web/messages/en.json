@@ -1078,5 +1078,24 @@
       "REJECTED": "Refused",
       "CANCELLED": "Cancelled"
     }
+  },
+  "fltWallet": {
+    "title": "FLT wallet",
+    "notCreated": "Not created",
+    "needsPermission": "Needs permission",
+    "readyToTrade": "Ready to trade",
+    "pitch": "A wallet FLT creates for you, so you can trade without installing anything. The key is held by Privy, not by FLT — we can never move your funds without the permission below, and you can withdraw to any address at any time.",
+    "createCta": "Create my FLT wallet",
+    "createError": "Could not create the wallet. Please try again.",
+    "copyAddress": "Copy address",
+    "copied": "Copied",
+    "fundingNote": "This wallet is empty until you send funds to it. Money in your other wallets stays where it is — creating this one moves nothing.",
+    "permissionBody": "To place trades for you without a pop-up each time, FLT needs your permission to instruct this wallet. It only ever sends the trade you asked for, and you can withdraw it at any time.",
+    "grantCta": "Allow FLT to trade from this wallet",
+    "grantedBody": "FLT can place the trades you request from this wallet. Withdrawals always go to an address you choose.",
+    "revokeCta": "Withdraw permission",
+    "grantError": "Could not change the permission. Please try again.",
+    "termsChangedTitle": "Terms have changed",
+    "termsChangedBody": "The permission you gave was for earlier wording. Please read and accept the current terms to keep trading from this wallet."
   }
 }

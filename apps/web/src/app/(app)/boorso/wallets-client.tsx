@@ -16,6 +16,7 @@ import {
   StatusPill,
 } from '@flt/ui';
 import { WalletConnectDialog } from '@/components/wallet-connect';
+import { FltWalletCard } from '@/components/flt-wallet-card';
 import { ApiError, apiFetch, del, get } from '@/lib/api';
 
 interface ChainUsdBalance {
@@ -150,6 +151,10 @@ export function WalletsClient({ wallets }: { wallets: WalletSummary[] }) {
     }
   }
 
+  // The EVM row is the one worth showing: Base and BNB share an address, and
+  // the Solana row is a different address the trade screens cannot use yet.
+  const fltWallet = wallets.find((wallet) => wallet.connector === 'privy-embedded');
+
   const linked = wallets.filter((wallet) => wallet.verified);
   const unlinked = wallets.filter((wallet) => !wallet.verified);
 
@@ -164,6 +169,13 @@ export function WalletsClient({ wallets }: { wallets: WalletSummary[] }) {
             {t('connectWallet')}
           </Button>
         }
+      />
+
+      {/* Above the linked-wallet list: for somebody with no wallet at all,
+          this is the path that does not require installing anything. */}
+      <FltWalletCard
+        hasFltWallet={fltWallet !== undefined}
+        address={fltWallet?.address ?? null}
       />
 
       <UsdBalanceSummaryCard />
