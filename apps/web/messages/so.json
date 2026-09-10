@@ -18,7 +18,8 @@
     "signIn": "Gal",
     "openAccount": "Furo akoon",
     "remittance": "Xawilaad",
-    "remittanceBadge": "-90% raqiis!"
+    "remittanceBadge": "-90% raqiis!",
+    "deposit": "Lacag geli"
   },
   "home": {
     "eyebrow": "Ganacsi aan qofna hayn lacagtaada",
@@ -1097,5 +1098,45 @@
     "grantError": "Ogolaanshaha lama beddeli karin. Fadlan mar kale isku day.",
     "termsChangedTitle": "Shuruudaha way beddelmeen",
     "termsChangedBody": "Ogolaanshihii aad bixisay wuxuu ahaa qoraal hore. Fadlan akhri oo aqbal shuruudaha hadda si aad u sii wadato ganacsiga boorsadan."
+  },
+  "deposit": {
+    "title": "Lacag geli",
+    "description": "Dir lacag caadi ah, waxayna doollar ahaan ugu soo gashaa boorsadaada FLT, diyaar u ah ganacsi.",
+    "needsWalletTitle": "Marka hore samee boorsadaada FLT",
+    "needsWalletBody": "Lacagtaadu waxay ku soo gashaa boorsadaada FLT, markaa u baahan tahay mid ka hor inta aadan waxba dirin.",
+    "goToWallet": "Aad boorsada",
+    "unavailableTitle": "Lacag gelintu weli ma furna",
+    "unavailableBody": "Hadda ma qaadanayno wareejin. Waxba lagaama qaadi doono halkan.",
+    "formTitle": "Imisa ayaad dirayaa?",
+    "intro": "Lacagtaada waxaa loo beddelaa doollar, waxaana loo diraa boorsadaada FLT ({address}). Adigay iska leedahay — FLT waligeed furaha ma hayso.",
+    "method": "Sidee ayaad u diraysaa?",
+    "methods": {
+      "ACH": "Wareejin bangi (ACH)",
+      "WIRE": "Wire transfer",
+      "EVC": "EVC Plus",
+      "CASH": "Lacag caddaan ah"
+    },
+    "amountLabel": "Qadarka",
+    "minimum": "Ugu yaraan {min}.",
+    "belowMinimum": "Lacagta ugu yar ee la geliyo waa {min}.",
+    "feeLabel": "Khidmad ({pct}%)",
+    "youReceive": "Waxaad heli doontaa",
+    "getReference": "I sii tixraaca",
+    "genericError": "Wax baa qaldamay. Fadlan mar kale isku day.",
+    "sendItTitle": "Ku dir tixraacan",
+    "referenceLabel": "Tixraacaaga",
+    "copyReference": "Koobi tixraaca",
+    "copied": "La koobiyeeyay",
+    "amount": "Qadarka",
+    "whereToSend": "Halka aad u dirayso",
+    "pendingTitle": "Hadhaagaagu weli ma iman",
+    "pendingBody": "Tixraaca ku qor wareejintaada si aan kuugu heli karno. Marka aan lacagta aragno oo aan boorsadaada u dirno, hadhaagaagu halkan ayuu ka muuqan doonaa.",
+    "yourDeposits": "Lacagahaaga la geliyey",
+    "status": {
+      "AWAITING_FUNDS": "La sugayo wareejintaada",
+      "FUNDS_RECEIVED": "La helay, waa la dirayaa",
+      "DELIVERED": "Boorsadaada ayay ku jirtaa",
+      "REJECTED": "Lama helin"
+    }
   }
 }

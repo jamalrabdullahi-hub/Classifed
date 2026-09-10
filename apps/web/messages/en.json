@@ -18,7 +18,8 @@
     "signIn": "Sign in",
     "openAccount": "Open an account",
     "remittance": "Remittance",
-    "remittanceBadge": "-90% cheaper!"
+    "remittanceBadge": "-90% cheaper!",
+    "deposit": "Add money"
   },
   "home": {
     "eyebrow": "Non-custodial trading",
@@ -1097,5 +1098,45 @@
     "grantError": "Could not change the permission. Please try again.",
     "termsChangedTitle": "Terms have changed",
     "termsChangedBody": "The permission you gave was for earlier wording. Please read and accept the current terms to keep trading from this wallet."
+  },
+  "deposit": {
+    "title": "Add money",
+    "description": "Send fiat and it arrives as dollars in your FLT wallet, ready to trade.",
+    "needsWalletTitle": "Create your FLT wallet first",
+    "needsWalletBody": "Your money arrives in your own FLT wallet, so you need one before you send anything.",
+    "goToWallet": "Go to wallet",
+    "unavailableTitle": "Deposits are not open yet",
+    "unavailableBody": "We are not accepting transfers at the moment. Nothing you enter here will be charged.",
+    "formTitle": "How much are you sending?",
+    "intro": "Your money is converted to dollars and sent to your FLT wallet ({address}). It stays yours — FLT never holds the key.",
+    "method": "How are you sending it?",
+    "methods": {
+      "ACH": "Bank transfer (ACH)",
+      "WIRE": "Wire transfer",
+      "EVC": "EVC Plus",
+      "CASH": "Cash"
+    },
+    "amountLabel": "Amount",
+    "minimum": "Minimum {min}.",
+    "belowMinimum": "The minimum deposit is {min}.",
+    "feeLabel": "Fee ({pct}%)",
+    "youReceive": "You receive",
+    "getReference": "Get my reference",
+    "genericError": "Something went wrong. Please try again.",
+    "sendItTitle": "Send it with this reference",
+    "referenceLabel": "Your reference",
+    "copyReference": "Copy reference",
+    "copied": "Copied",
+    "amount": "Amount",
+    "whereToSend": "Where to send it",
+    "pendingTitle": "Your balance is not there yet",
+    "pendingBody": "Put the reference on your transfer so we can match it to you. Once we have seen the money and sent the funds to your wallet, your balance appears here.",
+    "yourDeposits": "Your deposits",
+    "status": {
+      "AWAITING_FUNDS": "Waiting for your transfer",
+      "FUNDS_RECEIVED": "Received, sending",
+      "DELIVERED": "In your wallet",
+      "REJECTED": "Not received"
+    }
   }
 }

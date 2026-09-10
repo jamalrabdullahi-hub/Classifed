@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   ArrowLeftRight,
+  Banknote,
   ChevronDown,
   Gauge,
   LayoutGrid,
@@ -51,6 +52,9 @@ const PRIMARY = [
  * needs to find it without knowing to look under an avatar menu.
  */
 const WALLET = { href: '/boorso', key: 'wallets', icon: Wallet } as const;
+
+/** Putting money in. Sits beside the wallet, which is where it lands. */
+const DEPOSIT = { href: '/lacag-gelin', key: 'deposit', icon: Banknote } as const;
 
 /**
  * Sending money home is a destination in its own right, not an account setting.
@@ -114,7 +118,7 @@ export function TopNav({
   // worse first impression than not showing the tab at all.
   const primary = guest
     ? [tradeItem, ACCOUNT[0]]
-    : [...PRIMARY, tradeItem, WALLET, REMITTANCE, REFERRALS];
+    : [...PRIMARY, tradeItem, WALLET, DEPOSIT, REMITTANCE, REFERRALS];
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--canvas)]/85 backdrop-blur-md">

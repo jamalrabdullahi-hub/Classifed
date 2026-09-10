@@ -1,21 +1,28 @@
 import type { Metadata } from 'next';
-import { EvcPaymentStatus, RemittanceStatus } from '@flt/db';
+import { EvcPaymentStatus, FiatDepositStatus, RemittanceStatus } from '@flt/db';
 import { Notice, SectionHeader } from '@flt/ui';
 import { PERMISSIONS, can } from '@flt/core/services/admin';
 import { listEvcPaymentsForReview } from '@flt/core/services/evc';
 import {
   resolveEvcSettings,
   resolveRemittanceSettings,
+  resolveFiatDepositSettings,
 } from '@flt/core/services/platform-settings';
 import {
   listRemittancesForPayout,
   outstandingLiability,
 } from '@flt/core/services/remittance';
+import {
+  listFiatDepositsForReview,
+  outstandingFiatLiability,
+} from '@flt/core/services/fiat-deposits';
 import { requireAdminPage } from '@/server/session';
 import { EvcSettingsForm } from './evc-settings-form';
 import { EvcQueue } from './evc-queue';
 import { RemittanceSettingsForm } from './remittance-settings-form';
 import { RemittanceQueue } from './remittance-queue';
+import { FiatDepositQueue } from './fiat-deposit-queue';
+import { FiatDepositSettingsForm } from './fiat-deposit-settings-form';
 
 export const metadata: Metadata = { title: 'Payments' };
 export const dynamic = 'force-dynamic';
@@ -35,8 +42,19 @@ export default async function PaymentsPage() {
   const canReview = can(admin, PERMISSIONS.MANAGE_SUBSCRIPTIONS);
   const canPayout = can(admin, PERMISSIONS.MANAGE_PAYOUTS);
 
-  const [settings, pending, recent, remittanceSettings, payoutQueue, paidOut, liability] =
-    await Promise.all([
+  const [
+    settings,
+    pending,
+    recent,
+    remittanceSettings,
+    payoutQueue,
+    paidOut,
+    liability,
+    depositsAwaiting,
+    depositsToDeliver,
+    fiatLiability,
+    fiatDepositSettings,
+  ] = await Promise.all([
       resolveEvcSettings(),
       canReview ? listEvcPaymentsForReview(EvcPaymentStatus.AWAITING_REVIEW) : Promise.resolve([]),
       canReview ? listEvcPaymentsForReview(EvcPaymentStatus.CONFIRMED) : Promise.resolve([]),
@@ -48,6 +66,14 @@ export default async function PaymentsPage() {
       canPayout
         ? outstandingLiability()
         : Promise.resolve({ count: 0, usd: '0.00', payout: '0.00', currency: 'USD' }),
+      canPayout
+        ? listFiatDepositsForReview(FiatDepositStatus.AWAITING_FUNDS)
+        : Promise.resolve([]),
+      canPayout
+        ? listFiatDepositsForReview(FiatDepositStatus.FUNDS_RECEIVED)
+        : Promise.resolve([]),
+      canPayout ? outstandingFiatLiability() : Promise.resolve({ count: 0, usd: '0.00' }),
+      resolveFiatDepositSettings(),
     ]);
 
   return (
@@ -88,6 +114,12 @@ export default async function PaymentsPage() {
 
       {canPayout ? (
         <>
+          {canConfigure ? <FiatDepositSettingsForm initial={fiatDepositSettings} /> : null}
+          <FiatDepositQueue
+            awaiting={depositsAwaiting.map(serialiseDeposit)}
+            toDeliver={depositsToDeliver.map(serialiseDeposit)}
+            liability={fiatLiability}
+          />
           <RemittanceSettingsForm initial={remittanceSettings} />
           <RemittanceQueue
             liability={liability}
@@ -103,6 +135,28 @@ export default async function PaymentsPage() {
       )}
     </div>
   );
+}
+
+function serialiseDeposit(
+  deposit: Awaited<ReturnType<typeof listFiatDepositsForReview>>[number],
+) {
+  // The participant's own FLT wallet, so an operator never retypes an address.
+  const wallet = deposit.user.wallets[0];
+
+  return {
+    id: deposit.id,
+    email: deposit.user.email,
+    method: deposit.method as string,
+    currency: deposit.currency,
+    amountFiat: deposit.amountFiat.toString(),
+    netUsd: deposit.netUsd?.toString() ?? null,
+    reference: deposit.reference,
+    status: deposit.status as string,
+    walletAddress: wallet?.address ?? null,
+    walletChainId: wallet?.chainId ?? null,
+    bankReference: deposit.bankReference,
+    createdAt: deposit.createdAt.toISOString(),
+  };
 }
 
 function serialiseRemittance(

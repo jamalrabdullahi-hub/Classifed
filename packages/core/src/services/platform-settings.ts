@@ -33,6 +33,10 @@ export const PLATFORM_SETTING_KEYS = {
   REMITTANCE_MIN_USD: 'remittance_min_usd',
   REMITTANCE_MAX_USD: 'remittance_max_usd',
   REMITTANCE_CURRENCY: 'remittance_currency',
+  FIAT_DEPOSIT_ENABLED: 'fiat_deposit_enabled',
+  FIAT_DEPOSIT_FEE_BPS: 'fiat_deposit_fee_bps',
+  FIAT_DEPOSIT_MIN_USD: 'fiat_deposit_min_usd',
+  FIAT_DEPOSIT_INSTRUCTIONS: 'fiat_deposit_instructions',
 } as const;
 
 /**
@@ -223,4 +227,77 @@ export async function setRemittanceSettings(
   await writeSetting(context, PLATFORM_SETTING_KEYS.REMITTANCE_MAX_USD, input.maxUsd, { secret: false });
   await writeSetting(context, PLATFORM_SETTING_KEYS.REMITTANCE_CURRENCY, input.currency, { secret: false });
   await writeSetting(context, PLATFORM_SETTING_KEYS.REMITTANCE_ENABLED, String(input.enabled), { secret: false });
+}
+
+export interface FiatDepositSettings {
+  enabled: boolean;
+  feeBps: number;
+  minUsd: string;
+  /**
+   * Where to send the money, written by whoever operates the bank account.
+   *
+   * Free text rather than structured fields, because the answer differs per
+   * rail and per country — an ACH routing number, an IBAN, a mobile-money
+   * number — and a form with the wrong boxes is worse than a paragraph with
+   * the right ones. Shown verbatim to the participant.
+   */
+  instructions: string;
+}
+
+export async function resolveFiatDepositSettings(): Promise<FiatDepositSettings> {
+  const [enabled, feeBps, minUsd, instructions] = await Promise.all([
+    readSetting(PLATFORM_SETTING_KEYS.FIAT_DEPOSIT_ENABLED),
+    readSetting(PLATFORM_SETTING_KEYS.FIAT_DEPOSIT_FEE_BPS),
+    readSetting(PLATFORM_SETTING_KEYS.FIAT_DEPOSIT_MIN_USD),
+    readSetting(PLATFORM_SETTING_KEYS.FIAT_DEPOSIT_INSTRUCTIONS),
+  ]);
+
+  return {
+    // Off until an operator has written real instructions. A deposit screen
+    // that appears before anyone has said where the money goes collects
+    // transfers into nowhere.
+    enabled: enabled === 'true',
+    feeBps: feeBps ? Number(feeBps) : 100,
+    minUsd: minUsd ?? '20',
+    instructions: instructions ?? '',
+  };
+}
+
+export async function setFiatDepositSettings(
+  context: AdminActionContext,
+  input: { enabled: boolean; feeBps: number; minUsd: string; instructions: string },
+): Promise<void> {
+  if (!Number.isInteger(input.feeBps) || input.feeBps < 0 || input.feeBps > 1_000) {
+    throw new ValidationError('The deposit fee must be between 0 and 1000 basis points');
+  }
+  if (!/^\d+(\.\d{1,2})?$/.test(input.minUsd.trim())) {
+    throw new ValidationError('The minimum must be an amount like 20 or 20.00');
+  }
+  // Refused rather than saved empty: enabling the rail with nothing to display
+  // would show a participant a deposit screen that cannot tell them where to
+  // send anything.
+  if (input.enabled && input.instructions.trim().length < 20) {
+    throw new ValidationError(
+      'Write the deposit instructions before turning this on — they are what the participant is shown.',
+    );
+  }
+
+  await writeSetting(context, PLATFORM_SETTING_KEYS.FIAT_DEPOSIT_FEE_BPS, String(input.feeBps), {
+    secret: false,
+  });
+  await writeSetting(context, PLATFORM_SETTING_KEYS.FIAT_DEPOSIT_MIN_USD, input.minUsd.trim(), {
+    secret: false,
+  });
+  await writeSetting(
+    context,
+    PLATFORM_SETTING_KEYS.FIAT_DEPOSIT_INSTRUCTIONS,
+    input.instructions.trim(),
+    { secret: false },
+  );
+  await writeSetting(
+    context,
+    PLATFORM_SETTING_KEYS.FIAT_DEPOSIT_ENABLED,
+    String(input.enabled),
+    { secret: false },
+  );
 }
