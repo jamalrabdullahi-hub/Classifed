@@ -1,6 +1,6 @@
 import { PrivyClient } from '@privy-io/node';
 import { env } from '@flt/config';
-import { ProviderNotConfiguredError } from '@flt/core/domain';
+import { ProviderError, ProviderNotConfiguredError } from '@flt/core/domain';
 
 /**
  * Non-custodial wallet provisioning, via Privy.
@@ -70,10 +70,63 @@ export function privyClient(): PrivyClient {
 export async function provisionEmbeddedWallets(userId: string): Promise<ProvisionedWallets> {
   const privy = privyClient();
 
+  /**
+   * Underscore, not a colon.
+   *
+   * Privy constrains `external_id` to `[a-zA-Z0-9_-]`, max 64 characters, and
+   * rejects the whole create otherwise. The first version of this used
+   * `${userId}:evm`, so every provisioning attempt failed at the API before a
+   * wallet was ever made — which surfaced to the participant as an unexplained
+   * error, because a rejected create is not a `DomainError` and the API layer
+   * refuses to leak internal messages.
+   *
+   * A v7 UUID is 36 characters of hex and hyphens, so both ids are inside both
+   * limits with room to spare.
+   */
+  const evmExternalId = `${userId}_evm`;
+  const solanaExternalId = `${userId}_solana`;
+
+  /**
+   * Keyed so a retry is a retry.
+   *
+   * `external_id` is write-once and unique per chain type, so a second create
+   * for the same participant is refused rather than deduped. That matters
+   * because the caller writes FLT's own rows *after* this returns: if that
+   * write fails, the Privy wallets exist, FLT has no record of them, and every
+   * later attempt hits the uniqueness rule — a participant permanently unable
+   * to have a wallet, with two orphans at the provider.
+   *
+   * A deterministic idempotency key makes the retry return the wallet the
+   * first attempt made, instead of failing on it.
+   */
+  /**
+   * A refusal from Privy is reported as one.
+   *
+   * Anything that is not a `DomainError` reaches the participant as "Something
+   * went wrong" with the detail confined to the server log — correct as a
+   * default, since an upstream message can carry internals, but useless for
+   * the one case that actually happens here: the provider rejecting the
+   * request for a reason the operator needs to read. Naming the provider and
+   * keeping its message turns a blank failure into a diagnosis.
+   */
   const [evmWallet, solanaWallet] = await Promise.all([
-    privy.wallets().create({ chain_type: 'ethereum', external_id: `${userId}:evm` }),
-    privy.wallets().create({ chain_type: 'solana', external_id: `${userId}:solana` }),
-  ]);
+    privy.wallets().create({
+      chain_type: 'ethereum',
+      external_id: evmExternalId,
+      idempotency_key: evmExternalId,
+    }),
+    privy.wallets().create({
+      chain_type: 'solana',
+      external_id: solanaExternalId,
+      idempotency_key: solanaExternalId,
+    }),
+  ]).catch((error: unknown) => {
+    throw new ProviderError(
+      'privy',
+      `Privy refused to create a wallet: ${error instanceof Error ? error.message : String(error)}`,
+      { retryable: true },
+    );
+  });
 
   if (!evmWallet.address || !solanaWallet.address) {
     throw new Error('Privy did not return an address for a provisioned wallet');
