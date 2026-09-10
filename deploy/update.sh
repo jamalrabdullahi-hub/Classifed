@@ -80,6 +80,19 @@ MSG
   exit 1
 fi
 
+# Keep the installed units in step with the repo. Without this, a change to
+# the auto-deploy unit can only be picked up by hand -- and if that change is
+# the fix for a broken auto-deploy, it can never be picked up at all.
+if systemctl list-unit-files flt-autodeploy.timer >/dev/null 2>&1   && [[ -f /etc/systemd/system/flt-autodeploy.timer ]]; then
+  if ! cmp -s "$APP_DIR/deploy/flt-autodeploy.service" /etc/systemd/system/flt-autodeploy.service     || ! cmp -s "$APP_DIR/deploy/flt-autodeploy.timer" /etc/systemd/system/flt-autodeploy.timer; then
+    step "Refreshing the auto-deploy units"
+    install -m 0644 "$APP_DIR/deploy/flt-autodeploy.service" /etc/systemd/system/
+    install -m 0644 "$APP_DIR/deploy/flt-autodeploy.timer" /etc/systemd/system/
+    systemctl daemon-reload
+    systemctl restart flt-autodeploy.timer
+  fi
+fi
+
 step "Restarting"
 # shellcheck disable=SC2086
 systemctl restart $SERVICES
