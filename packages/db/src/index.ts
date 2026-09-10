@@ -56,6 +56,7 @@ export type {
   LedgerTransfer,
   LedgerEntry,
   WalletDelegation,
+  FiatDeposit,
 } from '@prisma/client';
 
 export {
@@ -93,4 +94,6 @@ export {
   RemittanceStatus,
   LedgerAccountKind,
   LedgerTransferKind,
+  FiatDepositMethod,
+  FiatDepositStatus,
 } from '@prisma/client';

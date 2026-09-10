@@ -236,6 +236,7 @@ model User {
   remittances        RemittanceOrder[]
   ledgerAccounts     LedgerAccount[]
   walletDelegation   WalletDelegation?
+  fiatDeposits       FiatDeposit[]
   referralCode       ReferralCode?          @relation("ReferralCodeOwner")
   referralsMade      Referral[]             @relation("ReferralsMade")
   referredBy         Referral?              @relation("ReferredBy")
@@ -869,6 +870,8 @@ model AdminUser {
   kycDecisions KycProfile[]
   evcReviews   EvcPayment[]
   payouts      RemittanceOrder[]
+  fiatReceived  FiatDeposit[] @relation("FiatDepositReceived")
+  fiatDelivered FiatDeposit[] @relation("FiatDepositDelivered")
 
   @@map("admin_users")
 }
@@ -2114,4 +2117,100 @@ model WalletDelegation {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("wallet_delegations")
+}
+
+enum FiatDepositMethod {
+  ACH
+  WIRE
+  EVC
+  CASH
+}
+
+enum FiatDepositStatus {
+  /// The participant says money is coming. Nothing has been received.
+  AWAITING_FUNDS
+  /// Cash is in FLT's account. FLT now owes them, and the ledger says so.
+  FUNDS_RECEIVED
+  /// Crypto has landed in their own wallet. The liability is discharged.
+  DELIVERED
+  /// Funds never arrived, or the deposit was refused.
+  REJECTED
+}
+
+/// One fiat deposit, from cash arriving to crypto landing in the participant's
+/// own wallet.
+///
+/// ## Two steps, because there are two facts
+///
+/// "The money arrived" and "the crypto was delivered" are separate events with
+/// a gap between them, and during that gap FLT is holding somebody's money
+/// without having given them anything. That gap is a real liability and the
+/// ledger records it — which is the whole reason this is two statuses and not
+/// a boolean. A single "done" flag would make the exposure invisible exactly
+/// while it exists.
+///
+/// ## Where the crypto goes
+///
+/// To the participant's own FLT wallet, whose key is held by Privy and not by
+/// FLT. So once delivered, FLT is not custodian of it and owes nothing further
+/// — the balance on screen is then their on-chain balance, not a number in
+/// this table. Attribution needs no new mechanism: the wallet already carries
+/// this user's id, both here and at Privy.
+///
+/// ## Neither leg is automatic, and the model does not pretend otherwise
+///
+/// A person watches a bank account, and a person sends the crypto. Both are
+/// recorded with who did it and what reference they matched, because an
+/// operator-confirmed movement with no reference is indistinguishable from a
+/// mistake.
+model FiatDeposit {
+  id     String @id
+  userId String
+
+  method   FiatDepositMethod
+  currency String            @default("USD")
+  /// What the participant said they would send.
+  amountFiat Decimal         @db.Decimal(38, 18)
+
+  /// What actually arrived, set when an operator confirms it. Kept separate
+  /// from `amountFiat` because they differ often enough to matter — bank fees,
+  /// a wrong figure typed at the counter — and silently trusting the claimed
+  /// amount would credit money that never came.
+  amountReceived Decimal? @db.Decimal(38, 18)
+
+  /// FLT's cut, and what the participant is owed after it.
+  feeUsd Decimal? @db.Decimal(38, 18)
+  netUsd Decimal? @db.Decimal(38, 18)
+
+  /// The code the participant is told to put on their transfer, and whatever
+  /// the operator matched it against on the statement.
+  reference      String  @unique
+  bankReference  String?
+
+  status FiatDepositStatus @default(AWAITING_FUNDS)
+
+  /// The address the crypto was sent to, snapshotted. A participant can
+  /// provision a new wallet later, and a report has to say where it actually
+  /// went.
+  deliveryAddress String?
+  deliveryChainId Int?
+  deliveryTxHash  String?
+  deliveredAt     DateTime?
+
+  receivedAt      DateTime?
+  receivedById    String?
+  deliveredById   String?
+  /// Why it was refused, or which statement line matched.
+  note            String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  receivedBy AdminUser? @relation("FiatDepositReceived", fields: [receivedById], references: [id])
+  deliveredBy AdminUser? @relation("FiatDepositDelivered", fields: [deliveredById], references: [id])
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@map("fiat_deposits")
 }
