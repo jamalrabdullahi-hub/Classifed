@@ -12,6 +12,7 @@ import { newId } from '../domain/id';
 import { Decimal } from '../domain/money';
 import { PERMISSIONS, assertCan, recordAdminAction, type AdminActionContext } from './admin';
 import { accountFor, postTransfer } from './ledger';
+import { verifyErc20Transfer } from './onchain-payments';
 
 /**
  * Fiat in, crypto into the participant's own wallet.
@@ -68,7 +69,13 @@ export interface DepositInstructions {
  */
 export async function requestFiatDeposit(
   user: User,
-  input: { method: FiatDepositMethod; amountFiat: string; currency?: string },
+  input: {
+    method: FiatDepositMethod;
+    amountFiat: string;
+    currency?: string;
+    payerName: string;
+    payerPhone: string;
+  },
 ): Promise<DepositInstructions> {
   const amount = new Decimal(input.amountFiat);
   if (!amount.isFinite() || amount.lessThanOrEqualTo(0)) {
@@ -104,6 +111,16 @@ export async function requestFiatDeposit(
     );
   }
 
+  const payerName = input.payerName.trim();
+  const payerPhone = input.payerPhone.trim().replace(/[^\d+]/g, '');
+
+  if (payerName.length < 2) {
+    throw new ValidationError('Give the name on the account the money is coming from');
+  }
+  if (payerPhone.replace(/\D/g, '').length < 7) {
+    throw new ValidationError('Give the number the money is coming from');
+  }
+
   const deposit = await prisma.fiatDeposit.create({
     data: {
       id: newId(),
@@ -111,6 +128,8 @@ export async function requestFiatDeposit(
       method: input.method,
       currency: (input.currency ?? 'USD').toUpperCase(),
       amountFiat: amount.toFixed(),
+      payerName,
+      payerPhone,
       reference: depositReference(),
     },
   });
@@ -259,6 +278,53 @@ export async function confirmFiatReceived(
 }
 
 /**
+ * Records that the transfer has been broadcast.
+ *
+ * Deliberately does not touch the ledger. A transaction in the mempool is not
+ * a delivered one — it can be dropped or replaced — and discharging a debt on
+ * the strength of an operator pressing a button is the shape of the mistake
+ * this whole model exists to avoid. The debt closes at the next step, against
+ * a mined receipt.
+ */
+export async function recordFiatSent(
+  context: AdminActionContext,
+  input: { depositId: string; txHash: string; address: string; chainId: number },
+): Promise<FiatDeposit> {
+  assertCan(context.admin, PERMISSIONS.MANAGE_PAYOUTS);
+
+  const deposit = await prisma.fiatDeposit.findUnique({ where: { id: input.depositId } });
+  if (!deposit) throw new NotFoundError('Deposit');
+  if (deposit.status !== FiatDepositStatus.FUNDS_RECEIVED) {
+    throw new ValidationError('This deposit is not awaiting a transfer', { status: deposit.status });
+  }
+  if (!/^0x[0-9a-fA-F]{64}$/.test(input.txHash.trim())) {
+    throw new ValidationError('Record the transaction hash of the transfer');
+  }
+
+  const updated = await prisma.fiatDeposit.update({
+    where: { id: deposit.id },
+    data: {
+      status: FiatDepositStatus.SENT,
+      deliveryAddress: input.address,
+      deliveryChainId: input.chainId,
+      deliveryTxHash: input.txHash.trim(),
+      sentAt: new Date(),
+      sentById: context.admin.id,
+    },
+  });
+
+  await recordAdminAction(prisma, context, {
+    action: 'fiat_deposit.sent',
+    entityType: 'fiat_deposit',
+    entityId: deposit.id,
+    after: { address: input.address, txHash: input.txHash.trim() },
+    reason: `Sent to ${input.address}`,
+  });
+
+  return updated;
+}
+
+/**
  * Records that stablecoin has landed in the participant's own wallet, and
  * discharges the debt.
  *
@@ -268,23 +334,58 @@ export async function confirmFiatReceived(
  */
 export async function confirmFiatDelivered(
   context: AdminActionContext,
-  input: { depositId: string; txHash: string; address: string; chainId: number },
+  input: { depositId: string; tokenAddress: string; treasuryAddress: string },
 ): Promise<FiatDeposit> {
   assertCan(context.admin, PERMISSIONS.MANAGE_PAYOUTS);
 
   const deposit = await prisma.fiatDeposit.findUnique({ where: { id: input.depositId } });
   if (!deposit) throw new NotFoundError('Deposit');
-  if (deposit.status !== FiatDepositStatus.FUNDS_RECEIVED) {
-    throw new ValidationError('This deposit is not awaiting delivery', { status: deposit.status });
+  if (deposit.status !== FiatDepositStatus.SENT) {
+    throw new ValidationError('This deposit has no transfer awaiting confirmation', {
+      status: deposit.status,
+    });
   }
-  if (!/^0x[0-9a-fA-F]{64}$/.test(input.txHash.trim())) {
-    throw new ValidationError('Record the transaction hash of the transfer');
+  if (!deposit.deliveryTxHash || !deposit.deliveryAddress || !deposit.deliveryChainId) {
+    throw new ValidationError('This deposit has no recorded transfer');
   }
 
   const net = new Decimal(deposit.netUsd?.toString() ?? '0');
   if (net.lessThanOrEqualTo(0)) {
     throw new ValidationError('This deposit has no net amount recorded');
   }
+
+  /**
+   * The step that actually releases the funds, so it checks rather than
+   * trusts.
+   *
+   * The transfer is verified against a mined receipt — token, sender,
+   * recipient and amount — before the debt is discharged. Every earlier step
+   * is somebody asserting something; this one is the chain agreeing. Without
+   * it, "delivered" would mean an operator said so, and a typo in a hash would
+   * close a debt that was never paid.
+   */
+  const token = await prisma.token.findFirst({
+    where: {
+      chainId: deposit.deliveryChainId,
+      address: input.tokenAddress.toLowerCase(),
+    },
+  });
+  if (!token) {
+    throw new ValidationError('That token is not in the registry for this chain');
+  }
+
+  const expected = BigInt(
+    net.times(new Decimal(10).pow(token.decimals)).toDecimalPlaces(0, Decimal.ROUND_DOWN).toFixed(),
+  );
+
+  await verifyErc20Transfer({
+    chainId: deposit.deliveryChainId,
+    txHash: deposit.deliveryTxHash,
+    tokenAddress: input.tokenAddress,
+    from: input.treasuryAddress,
+    to: deposit.deliveryAddress,
+    expectedBaseUnits: expected,
+  });
 
   const updated = await prisma.$transaction(async (tx) => {
     const gateway = await accountFor(
@@ -309,7 +410,7 @@ export async function confirmFiatDelivered(
       {
         kind: LedgerTransferKind.WITHDRAWAL,
         reference: `fiat-delivery:${deposit.id}`,
-        memo: `Delivered ${net.toFixed(2)} to ${input.address} (${input.txHash.trim()})`,
+        memo: `Delivered ${net.toFixed(2)} to ${deposit.deliveryAddress} (${deposit.deliveryTxHash})`,
         createdByAdminId: context.admin.id,
         entries: [
           { accountId: client.id, amount: net },
@@ -323,9 +424,6 @@ export async function confirmFiatDelivered(
       where: { id: deposit.id },
       data: {
         status: FiatDepositStatus.DELIVERED,
-        deliveryAddress: input.address,
-        deliveryChainId: input.chainId,
-        deliveryTxHash: input.txHash.trim(),
         deliveredAt: new Date(),
         deliveredById: context.admin.id,
       },
@@ -336,8 +434,13 @@ export async function confirmFiatDelivered(
     action: 'fiat_deposit.delivered',
     entityType: 'fiat_deposit',
     entityId: deposit.id,
-    after: { net: net.toFixed(), address: input.address, txHash: input.txHash.trim() },
-    reason: `Delivered to ${input.address}`,
+    after: {
+      net: net.toFixed(),
+      address: deposit.deliveryAddress,
+      txHash: deposit.deliveryTxHash,
+      verifiedOnChain: true,
+    },
+    reason: `Verified on-chain and released to ${deposit.deliveryAddress}`,
   });
 
   return updated;
@@ -390,7 +493,12 @@ export async function rejectFiatDeposit(
  */
 export async function outstandingFiatLiability(): Promise<{ count: number; usd: string }> {
   const result = await prisma.fiatDeposit.aggregate({
-    where: { status: FiatDepositStatus.FUNDS_RECEIVED },
+    // SENT counts: a transfer in flight has not arrived, and a figure that
+    // drops the moment somebody presses "sent" understates what is owed for
+    // exactly as long as the risk lasts.
+    where: {
+      status: { in: [FiatDepositStatus.FUNDS_RECEIVED, FiatDepositStatus.SENT] },
+    },
     _count: true,
     _sum: { netUsd: true },
   });

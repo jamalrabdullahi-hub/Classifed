@@ -1137,6 +1137,12 @@
       "FUNDS_RECEIVED": "Received, sending",
       "DELIVERED": "In your wallet",
       "REJECTED": "Not received"
-    }
+    },
+    "payerName": "Name on the sending account",
+    "payerNameHint": "Exactly as it appears where the money is coming from.",
+    "payerPhone": "Number you are sending from",
+    "payerPhoneHint": "We match this against our statement to find your payment.",
+    "dialThis": "Dial this to pay",
+    "supportNote": "This usually takes 1–3 days. Please be patient, and email support@ftlexchange.com if you have any questions or something looks wrong."
   }
 }

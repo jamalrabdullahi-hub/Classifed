@@ -3,6 +3,7 @@ import { PERMISSIONS } from '@flt/core/services/admin';
 import {
   confirmFiatDelivered,
   confirmFiatReceived,
+  recordFiatSent,
   rejectFiatDeposit,
 } from '@flt/core/services/fiat-deposits';
 import { adminHandler } from '@/server/api';
@@ -29,11 +30,17 @@ const schema = z.discriminatedUnion('action', [
     bankReference: z.string().trim().min(3).max(200),
   }),
   z.object({
-    action: z.literal('deliver'),
+    action: z.literal('send'),
     depositId: z.string().trim().min(1),
     txHash: z.string().trim().regex(/^0x[0-9a-fA-F]{64}$/, 'Record the transaction hash'),
     address: z.string().trim().regex(/^0x[a-fA-F0-9]{40}$/, 'Record the destination address'),
     chainId: z.coerce.number().int().positive(),
+  }),
+  z.object({
+    action: z.literal('deliver'),
+    depositId: z.string().trim().min(1),
+    tokenAddress: z.string().trim().regex(/^0x[a-fA-F0-9]{40}$/, 'Which stablecoin was sent'),
+    treasuryAddress: z.string().trim().regex(/^0x[a-fA-F0-9]{40}$/, 'Which wallet it was sent from'),
   }),
   z.object({
     action: z.literal('reject'),
@@ -55,6 +62,11 @@ export const POST = adminHandler<z.infer<typeof schema>, unknown, unknown>(
     if (body.action === 'receive') {
       const deposit = await confirmFiatReceived(actionContext, body);
       return { id: deposit.id, status: deposit.status, netUsd: deposit.netUsd?.toString() ?? null };
+    }
+
+    if (body.action === 'send') {
+      const deposit = await recordFiatSent(actionContext, body);
+      return { id: deposit.id, status: deposit.status };
     }
 
     if (body.action === 'deliver') {

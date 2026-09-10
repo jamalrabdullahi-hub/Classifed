@@ -1137,6 +1137,12 @@
       "FUNDS_RECEIVED": "La helay, waa la dirayaa",
       "DELIVERED": "Boorsadaada ayay ku jirtaa",
       "REJECTED": "Lama helin"
-    }
+    },
+    "payerName": "Magaca koontada wax laga dirayo",
+    "payerNameHint": "Sida saxda ah ee ku qoran meesha lacagtu ka imanayso.",
+    "payerPhone": "Lambarka aad ka dirayso",
+    "payerPhoneHint": "Waxaan kaga raadinaa warbixinta si aan lacagtaada u helno.",
+    "dialThis": "Kan wac si aad u bixiso",
+    "supportNote": "Badanaa waxay qaadataa 1–3 maalmood. Fadlan samir yeelo, oo iimayl u dir support@ftlexchange.com haddii aad su'aal qabto ama wax qaldan u muuqdaan."
   }
 }

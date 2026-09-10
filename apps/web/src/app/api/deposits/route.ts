@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { FiatDepositMethod } from '@flt/db';
+import { evcUssdCode, resolveEvcSettings } from '@flt/core/services/platform-settings';
 import {
   listFiatDepositsForUser,
   requestFiatDeposit,
@@ -40,14 +41,27 @@ export const POST = handler(
       method: z.nativeEnum(FiatDepositMethod),
       amountFiat: z.string().trim().regex(/^\d+(\.\d{1,2})?$/, 'Enter an amount like 1000 or 1000.50'),
       currency: z.string().trim().length(3).optional(),
+      payerName: z.string().trim().min(2).max(120),
+      payerPhone: z.string().trim().min(7).max(24),
     }),
     rateLimit: { rule: RateLimits.WALLET_LINK, scope: 'deposit-request' },
   },
   async ({ user, body }) => {
     const instructions = await requestFiatDeposit(user, body);
 
+    /**
+     * The dial string, for the rail that has one.
+     *
+     * Built from the merchant number in force right now rather than stored on
+     * the deposit: a participant who leaves this screen and comes back should
+     * be told to pay the number FLT currently uses, not the one it used when
+     * they first asked.
+     */
+    const evc = body.method === FiatDepositMethod.EVC ? await resolveEvcSettings() : null;
+
     return {
       ...instructions,
+      ussdCode: evc ? evcUssdCode(evc.merchantNumber, instructions.amountFiat) : null,
       note:
         'Put this reference on your transfer. Your balance appears once we have matched the ' +
         'payment and sent the funds to your FLT wallet.',

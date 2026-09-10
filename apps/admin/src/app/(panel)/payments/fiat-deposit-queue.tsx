@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input, Notice } from '@flt/ui';
+import { DepositTimeline } from './deposit-timeline';
 
-interface Row {
+export interface DepositRow {
   id: string;
   email: string;
   method: string;
@@ -13,34 +14,44 @@ interface Row {
   netUsd: string | null;
   reference: string;
   status: string;
+  payerName: string;
+  payerPhone: string;
   walletAddress: string | null;
   walletChainId: number | null;
   bankReference: string | null;
+  deliveryTxHash: string | null;
   createdAt: string;
+  receivedAt: string | null;
+  sentAt: string | null;
+  deliveredAt: string | null;
 }
 
 /**
- * The two operator steps of a fiat deposit.
+ * A deposit's four operator stages.
  *
- * Split into two queues rather than one list with a mode switch, because they
- * are different jobs done at different times: one is reconciling a bank
- * statement, the other is sending crypto. An operator working through the
- * second queue is holding money that is already owed, which is why the
- * outstanding figure sits above it.
+ * Three queues rather than one list, because they are three different jobs
+ * done at different moments: reconciling a bank statement, sending crypto, and
+ * confirming it landed. An operator working the third queue is releasing money
+ * already owed, which is why the outstanding figure sits above it.
  *
- * The delivery form pre-fills the participant's own wallet address and treats
- * it as read-only. An operator retyping an address is the single most
- * expensive mistake available on this screen, and the address is already known
- * — the wallet was provisioned by FLT and its id is on the row.
+ * Every row carries its timeline, so a deposit stuck for three days does not
+ * look identical to one raised ten minutes ago — which is exactly what a flat
+ * "pending" list does.
  */
 export function FiatDepositQueue({
   awaiting,
-  toDeliver,
+  toSend,
+  toConfirm,
   liability,
+  defaultTokenAddress,
+  defaultTreasuryAddress,
 }: {
-  awaiting: Row[];
-  toDeliver: Row[];
+  awaiting: DepositRow[];
+  toSend: DepositRow[];
+  toConfirm: DepositRow[];
   liability: { count: number; usd: string };
+  defaultTokenAddress: string | null;
+  defaultTreasuryAddress: string | null;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -71,20 +82,65 @@ export function FiatDepositQueue({
     }
   }
 
+  function timelineFor(row: DepositRow) {
+    return (
+      <DepositTimeline
+        reference={row.reference}
+        stages={[
+          { label: 'Deposit initiated', at: row.createdAt },
+          {
+            label: 'Confirm reconciliation',
+            at: row.receivedAt,
+            note: row.bankReference,
+          },
+          {
+            label: 'Confirm movement to Privy',
+            at: row.sentAt,
+            note: row.deliveryTxHash ? `${row.deliveryTxHash.slice(0, 14)}…` : null,
+          },
+          { label: 'Confirm on-chain and enable trading', at: row.deliveredAt },
+        ]}
+      />
+    );
+  }
+
+  function header(row: DepositRow) {
+    return (
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[13px] font-medium text-[var(--text)]">
+            {row.payerName} <span className="num text-[var(--text-muted)]">{row.payerPhone}</span>
+          </p>
+          <p className="truncate text-[11px] text-[var(--text-subtle)]">
+            {row.email} · {row.method}
+          </p>
+        </div>
+        <span className="num shrink-0 text-[14px] font-semibold text-[var(--text)]">
+          {row.netUsd ? `$${row.netUsd}` : `${row.amountFiat} ${row.currency}`}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       {error ? <Notice tone="negative">{error}</Notice> : null}
 
+      {liability.count > 0 ? (
+        <Notice tone="warning" title="Outstanding to participants">
+          FLT has taken ${liability.usd} across {liability.count} deposit
+          {liability.count === 1 ? '' : 's'} that has not yet been confirmed as delivered.
+        </Notice>
+      ) : null}
+
       <Card>
         <CardHeader>
-          <CardTitle>Awaiting funds</CardTitle>
+          <CardTitle>1 · Awaiting funds</CardTitle>
           <Badge tone={awaiting.length > 0 ? 'warning' : 'neutral'}>{awaiting.length}</Badge>
         </CardHeader>
         <CardContent className="space-y-4">
           {awaiting.length === 0 ? (
-            <p className="py-4 text-center text-[13px] text-[var(--text-muted)]">
-              Nothing waiting.
-            </p>
+            <p className="py-4 text-center text-[13px] text-[var(--text-muted)]">Nothing waiting.</p>
           ) : (
             awaiting.map((row) => {
               const amount = (received[row.id] ?? '').trim();
@@ -96,19 +152,8 @@ export function FiatDepositQueue({
                   key={row.id}
                   className="space-y-3 rounded-[var(--radius-md)] border border-[var(--border)] p-3"
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="num text-[13px] font-medium text-[var(--text)]">
-                        {row.reference}
-                      </p>
-                      <p className="truncate text-[11px] text-[var(--text-subtle)]">
-                        {row.email} · {row.method} · {new Date(row.createdAt).toLocaleString()}
-                      </p>
-                    </div>
-                    <span className="num shrink-0 text-[14px] font-semibold text-[var(--text)]">
-                      {row.amountFiat} {row.currency}
-                    </span>
-                  </div>
+                  {header(row)}
+                  {timelineFor(row)}
 
                   <div className="grid gap-2 sm:grid-cols-3">
                     <Input
@@ -138,10 +183,9 @@ export function FiatDepositQueue({
 
                   {/* Stated rather than assumed: the claimed figure and the
                       arrived figure differ often enough that crediting the
-                      wrong one is a live risk, not a theoretical one. */}
+                      wrong one is a live risk. */}
                   <p className="text-[11px] text-[var(--text-subtle)]">
-                    Enter what actually arrived, which may differ from the{' '}
-                    {row.amountFiat} {row.currency} they said they would send.
+                    Enter what actually arrived — they said {row.amountFiat} {row.currency}.
                   </p>
 
                   <div className="flex flex-wrap gap-2">
@@ -159,7 +203,7 @@ export function FiatDepositQueue({
                         })
                       }
                     >
-                      Confirm received
+                      Confirm reconciliation
                     </Button>
                     <Button
                       variant="danger"
@@ -180,27 +224,14 @@ export function FiatDepositQueue({
 
       <Card>
         <CardHeader>
-          <CardTitle>Owed — send the crypto</CardTitle>
-          <Badge tone={liability.count > 0 ? 'negative' : 'neutral'}>
-            {liability.count} · ${liability.usd}
-          </Badge>
+          <CardTitle>2 · Send to Privy</CardTitle>
+          <Badge tone={toSend.length > 0 ? 'negative' : 'neutral'}>{toSend.length}</Badge>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* The figure that matters most on this page: money taken and not
-              yet delivered is the whole exposure this feature carries. */}
-          {liability.count > 0 ? (
-            <Notice tone="warning" title="Outstanding to participants">
-              FLT has taken ${liability.usd} across {liability.count} deposit
-              {liability.count === 1 ? '' : 's'} and not yet delivered it.
-            </Notice>
-          ) : null}
-
-          {toDeliver.length === 0 ? (
-            <p className="py-4 text-center text-[13px] text-[var(--text-muted)]">
-              Nothing owed.
-            </p>
+          {toSend.length === 0 ? (
+            <p className="py-4 text-center text-[13px] text-[var(--text-muted)]">Nothing to send.</p>
           ) : (
-            toDeliver.map((row) => {
+            toSend.map((row) => {
               const hash = (txHash[row.id] ?? '').trim();
               const ready = /^0x[0-9a-fA-F]{64}$/.test(hash) && Boolean(row.walletAddress);
 
@@ -209,21 +240,12 @@ export function FiatDepositQueue({
                   key={row.id}
                   className="space-y-3 rounded-[var(--radius-md)] border border-[var(--border)] p-3"
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="num text-[13px] font-medium text-[var(--text)]">
-                        {row.reference}
-                      </p>
-                      <p className="truncate text-[11px] text-[var(--text-subtle)]">
-                        {row.email}
-                        {row.bankReference ? ` · matched ${row.bankReference}` : ''}
-                      </p>
-                    </div>
-                    <span className="num shrink-0 text-[14px] font-semibold text-[var(--text)]">
-                      ${row.netUsd}
-                    </span>
-                  </div>
+                  {header(row)}
+                  {timelineFor(row)}
 
+                  {/* Read-only. An operator retyping an address is the most
+                      expensive mistake available here, and it is already
+                      known. */}
                   <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-sunken)] p-2">
                     <p className="text-[10px] uppercase tracking-[0.06em] text-[var(--text-subtle)]">
                       Send to
@@ -246,21 +268,76 @@ export function FiatDepositQueue({
                     variant="primary"
                     size="sm"
                     disabled={!ready || busy !== null}
-                    loading={busy === `${row.id}:deliver`}
+                    loading={busy === `${row.id}:send`}
                     onClick={() =>
                       void act(row.id, {
-                        action: 'deliver',
+                        action: 'send',
                         txHash: hash,
                         address: row.walletAddress,
                         chainId: row.walletChainId,
                       })
                     }
                   >
-                    Mark delivered
+                    Confirm movement to Privy
                   </Button>
                 </div>
               );
             })
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>3 · Confirm and enable</CardTitle>
+          <Badge tone={toConfirm.length > 0 ? 'warning' : 'neutral'}>{toConfirm.length}</Badge>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {toConfirm.length === 0 ? (
+            <p className="py-4 text-center text-[13px] text-[var(--text-muted)]">
+              Nothing awaiting confirmation.
+            </p>
+          ) : (
+            toConfirm.map((row) => (
+              <div
+                key={row.id}
+                className="space-y-3 rounded-[var(--radius-md)] border border-[var(--border)] p-3"
+              >
+                {header(row)}
+                {timelineFor(row)}
+
+                {/* This is the only step the chain verifies rather than an
+                    operator asserting. It reads the receipt and refuses if the
+                    token, sender, recipient or amount does not match. */}
+                <p className="text-[11px] leading-relaxed text-[var(--text-subtle)]">
+                  Checks the transaction against the chain before releasing. Refuses if the token,
+                  sender, recipient or amount does not match what is owed.
+                </p>
+
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={!defaultTokenAddress || !defaultTreasuryAddress || busy !== null}
+                  loading={busy === `${row.id}:deliver`}
+                  onClick={() =>
+                    void act(row.id, {
+                      action: 'deliver',
+                      tokenAddress: defaultTokenAddress,
+                      treasuryAddress: defaultTreasuryAddress,
+                    })
+                  }
+                >
+                  Verify on-chain and enable trading
+                </Button>
+
+                {!defaultTokenAddress || !defaultTreasuryAddress ? (
+                  <Notice tone="warning">
+                    Set the payment token and the fee wallet under Protection first — they are what
+                    the on-chain check compares against.
+                  </Notice>
+                ) : null}
+              </div>
+            ))
           )}
         </CardContent>
       </Card>

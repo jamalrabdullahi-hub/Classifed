@@ -871,6 +871,7 @@ model AdminUser {
   evcReviews   EvcPayment[]
   payouts      RemittanceOrder[]
   fiatReceived  FiatDeposit[] @relation("FiatDepositReceived")
+  fiatSent      FiatDeposit[] @relation("FiatDepositSent")
   fiatDelivered FiatDeposit[] @relation("FiatDepositDelivered")
 
   @@map("admin_users")
@@ -2129,9 +2130,16 @@ enum FiatDepositMethod {
 enum FiatDepositStatus {
   /// The participant says money is coming. Nothing has been received.
   AWAITING_FUNDS
-  /// Cash is in FLT's account. FLT now owes them, and the ledger says so.
+  /// Cash is in FLT's account, matched to this request. FLT now owes them,
+  /// and the ledger says so.
   FUNDS_RECEIVED
-  /// Crypto has landed in their own wallet. The liability is discharged.
+  /// Stablecoin has been sent to their wallet and the transaction is in
+  /// flight. Still owed: a broadcast transaction is not a delivered one, and
+  /// collapsing this into DELIVERED would discharge a debt on the strength of
+  /// an operator pressing a button.
+  SENT
+  /// The transfer is confirmed in a mined receipt. The liability is
+  /// discharged and the funds are theirs to trade.
   DELIVERED
   /// Funds never arrived, or the deposit was refused.
   REJECTED
@@ -2172,6 +2180,14 @@ model FiatDeposit {
   /// What the participant said they would send.
   amountFiat Decimal         @db.Decimal(38, 18)
 
+  /// The name and number on the account the money is coming from.
+  ///
+  /// This is what an operator matches against a bank or EVC statement. The
+  /// reference code is the primary key of that match, but people forget to
+  /// include it, and a name and number are what make a line findable anyway.
+  payerName  String
+  payerPhone String
+
   /// What actually arrived, set when an operator confirms it. Kept separate
   /// from `amountFiat` because they differ often enough to matter — bank fees,
   /// a wrong figure typed at the counter — and silently trusting the claimed
@@ -2199,6 +2215,9 @@ model FiatDeposit {
 
   receivedAt      DateTime?
   receivedById    String?
+  /// When the transfer was broadcast, as distinct from when it confirmed.
+  sentAt          DateTime?
+  sentById        String?
   deliveredById   String?
   /// Why it was refused, or which statement line matched.
   note            String?
@@ -2208,6 +2227,7 @@ model FiatDeposit {
 
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   receivedBy AdminUser? @relation("FiatDepositReceived", fields: [receivedById], references: [id])
+  sentBy      AdminUser? @relation("FiatDepositSent", fields: [sentById], references: [id])
   deliveredBy AdminUser? @relation("FiatDepositDelivered", fields: [deliveredById], references: [id])
 
   @@index([status, createdAt])

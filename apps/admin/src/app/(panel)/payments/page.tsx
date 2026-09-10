@@ -16,6 +16,7 @@ import {
   listFiatDepositsForReview,
   outstandingFiatLiability,
 } from '@flt/core/services/fiat-deposits';
+import { resolveProtectionSettings } from '@flt/core/services/protection-settings';
 import { requireAdminPage } from '@/server/session';
 import { EvcSettingsForm } from './evc-settings-form';
 import { EvcQueue } from './evc-queue';
@@ -51,9 +52,11 @@ export default async function PaymentsPage() {
     paidOut,
     liability,
     depositsAwaiting,
-    depositsToDeliver,
+    depositsToSend,
+    depositsToConfirm,
     fiatLiability,
     fiatDepositSettings,
+    protectionSettings,
   ] = await Promise.all([
       resolveEvcSettings(),
       canReview ? listEvcPaymentsForReview(EvcPaymentStatus.AWAITING_REVIEW) : Promise.resolve([]),
@@ -72,8 +75,10 @@ export default async function PaymentsPage() {
       canPayout
         ? listFiatDepositsForReview(FiatDepositStatus.FUNDS_RECEIVED)
         : Promise.resolve([]),
+      canPayout ? listFiatDepositsForReview(FiatDepositStatus.SENT) : Promise.resolve([]),
       canPayout ? outstandingFiatLiability() : Promise.resolve({ count: 0, usd: '0.00' }),
       resolveFiatDepositSettings(),
+      resolveProtectionSettings(),
     ]);
 
   return (
@@ -117,8 +122,14 @@ export default async function PaymentsPage() {
           {canConfigure ? <FiatDepositSettingsForm initial={fiatDepositSettings} /> : null}
           <FiatDepositQueue
             awaiting={depositsAwaiting.map(serialiseDeposit)}
-            toDeliver={depositsToDeliver.map(serialiseDeposit)}
+            toSend={depositsToSend.map(serialiseDeposit)}
+            toConfirm={depositsToConfirm.map(serialiseDeposit)}
             liability={fiatLiability}
+            /* What the on-chain check compares against: the stablecoin FLT
+               pays in, and the wallet it pays from. Both already configured
+               under Protection, so an operator never retypes them. */
+            defaultTokenAddress={protectionSettings.premiumTokenAddress}
+            defaultTreasuryAddress={protectionSettings.operatorAddress}
           />
           <RemittanceSettingsForm initial={remittanceSettings} />
           <RemittanceQueue
@@ -152,6 +163,12 @@ function serialiseDeposit(
     netUsd: deposit.netUsd?.toString() ?? null,
     reference: deposit.reference,
     status: deposit.status as string,
+    payerName: deposit.payerName,
+    payerPhone: deposit.payerPhone,
+    deliveryTxHash: deposit.deliveryTxHash,
+    receivedAt: deposit.receivedAt?.toISOString() ?? null,
+    sentAt: deposit.sentAt?.toISOString() ?? null,
+    deliveredAt: deposit.deliveredAt?.toISOString() ?? null,
     walletAddress: wallet?.address ?? null,
     walletChainId: wallet?.chainId ?? null,
     bankReference: deposit.bankReference,

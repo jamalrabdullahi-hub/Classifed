@@ -35,6 +35,8 @@ interface Instructions {
   amountFiat: string;
   currency: string;
   method: string;
+  /** Present for EVC: exactly what to dial. */
+  ussdCode?: string | null;
 }
 
 const METHODS = ['ACH', 'WIRE', 'EVC', 'CASH'] as const;
@@ -69,8 +71,10 @@ export function DepositClient({
 }) {
   const t = useTranslations('deposit');
 
-  const [method, setMethod] = useState<(typeof METHODS)[number]>('WIRE');
+  const [method, setMethod] = useState<(typeof METHODS)[number]>('EVC');
   const [amount, setAmount] = useState('');
+  const [payerName, setPayerName] = useState('');
+  const [payerPhone, setPayerPhone] = useState('');
   const [issued, setIssued] = useState<Instructions | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -91,7 +95,14 @@ export function DepositClient({
     setError(null);
     setBusy(true);
     try {
-      setIssued(await post<Instructions>('/api/deposits', { method, amountFiat: amount.trim() }));
+      setIssued(
+        await post<Instructions>('/api/deposits', {
+          method,
+          amountFiat: amount.trim(),
+          payerName: payerName.trim(),
+          payerPhone: payerPhone.trim(),
+        }),
+      );
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : t('genericError'));
     } finally {
@@ -141,6 +152,17 @@ export function DepositClient({
               />
             </div>
 
+            {issued.ussdCode ? (
+              <div className="rounded-[var(--radius-md)] border border-[var(--border-strong)] bg-[var(--surface-sunken)] p-4 text-center">
+                <p className="text-[11px] uppercase tracking-[0.08em] text-[var(--text-subtle)]">
+                  {t('dialThis')}
+                </p>
+                <p className="num mt-1 select-all break-all font-mono text-[20px] font-semibold text-[var(--text)]">
+                  {issued.ussdCode}
+                </p>
+              </div>
+            ) : null}
+
             {instructions ? (
               <div className="rounded-[var(--radius-md)] border border-[var(--border)] p-3">
                 <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-subtle)]">
@@ -157,6 +179,12 @@ export function DepositClient({
             <Notice tone="warning" icon={<Clock className="size-4" />} title={t('pendingTitle')}>
               {t('pendingBody')}
             </Notice>
+
+            {/* The timeframe and a way to reach a person, on the screen they
+                are looking at when they have just parted with money. */}
+            <p className="text-center text-[11.5px] leading-relaxed text-[var(--text-subtle)]">
+              {t('supportNote')}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -193,6 +221,31 @@ export function DepositClient({
             )}
           </Field>
 
+          <Field label={t('payerName')} description={t('payerNameHint')}>
+            {(props) => (
+              <Input
+                {...props}
+                value={payerName}
+                onChange={(event) => setPayerName(event.target.value)}
+                autoComplete="name"
+              />
+            )}
+          </Field>
+
+          <Field label={t('payerPhone')} description={t('payerPhoneHint')}>
+            {(props) => (
+              <Input
+                {...props}
+                value={payerPhone}
+                onChange={(event) => setPayerPhone(event.target.value)}
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="6xxxxxxx"
+                className="num"
+              />
+            )}
+          </Field>
+
           <Field label={t('amountLabel')} description={t('minimum', { min: minUsd })}>
             {(props) => (
               <Input
@@ -220,7 +273,13 @@ export function DepositClient({
             block
             size="lg"
             loading={busy}
-            disabled={!available || !amount || belowMinimum}
+            disabled={
+              !available ||
+              !amount ||
+              belowMinimum ||
+              payerName.trim().length < 2 ||
+              payerPhone.trim().length < 7
+            }
             onClick={() => void submit()}
           >
             <Building2 className="size-4" />
