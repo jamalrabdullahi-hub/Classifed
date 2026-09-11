@@ -29,6 +29,17 @@ bash deploy/update.sh
 #     A failed build stops before restarting — the site stays on the old build.
 
 
+--- STEP 1.5: make sure the chain + token rows exist (idempotent upserts) -----
+
+ssh root@204.168.254.41
+cd /opt/flt-exchange
+sudo -u flt pnpm --filter @flt/db seed
+#     Upserts Base (8453), BNB (56) and Solana (1399811149) chains, the tokens,
+#     and the demo admin. A MISSING chain row makes wallet provisioning fail at
+#     the FK with a generic 500 ("Something went wrong") — this is the usual
+#     cause of that error. Safe to re-run.
+
+
 --- STEP 2: set the custody env on the server ---------------------------------
 
 ssh root@204.168.254.41
@@ -107,4 +118,56 @@ NOTES / GOTCHAS
 - Email is still not configured if MAIL_PROVIDER=console — with custody on,
   that only affects signup/reset, not money. Set MAIL_PROVIDER=resend + key to
   close it.
+
+===============================================================================
+TROUBLESHOOTING: "Create FLT wallet" → "Something went wrong"
+===============================================================================
+
+That generic message is the API's 500 fallback — the error was NOT one of our
+DomainError types (those render their real message). The real cause is in the
+web log:
+
+  ssh root@204.168.254.41 'journalctl -u flt-web -n 80 --no-pager'
+
+Causes, most likely first:
+
+  1. Chain/token rows missing  →  run STEP 1.5 (pnpm db:seed). Provisioning
+     inserts wallet rows that reference `chains`; a missing row fails the
+     foreign key, which is a raw Prisma error → the generic 500.
+
+  2. PRIVY_APP_ID / PRIVY_APP_SECRET not set  →  set them (STEP 2). Without
+     them the adapter reports "not configured" (a real message), so if you see
+     the *generic* 500 instead, suspect the code is old — deploy (STEP 1).
+
+Verify provisioning works after fixing, from the server:
+
+  sudo -u flt bash -c 'set -a; source /opt/flt-exchange/.env; set +a; \
+    cd /opt/flt-exchange && pnpm --filter @flt/providers exec tsx \
+    scripts/provision-test.ts'
+  #  Expect: OK { evmAddress: '0x…', solanaAddress: '…', … }
+  #  A FAILED line prints the real error.
+
+
+===============================================================================
+WHERE THE DEPOSIT / WITHDRAWAL WALLETS ACTUALLY LIVE (custody)
+===============================================================================
+
+There is no "deposit wallet / withdrawal wallet" setting to configure — the
+money side is the omnibus + per-user deposit addresses, both driven by the env:
+
+  - DEPOSIT: each account's OWN FLT (Privy) wallet address, created by
+    provisioning (STEP 1.5 + PRIVY creds). Shown on the Wallets page (/boorso).
+    A user sends USDC **to that address** — NOT to the omnibus. The worker
+    detects it, sweeps it to the omnibus, and credits the ledger.
+
+  - WITHDRAW: the omnibus sends (OMNIBUS_EVM_ADDRESS / OMNIBUS_EVM_WALLET_ID).
+    A participant names a destination address; the worker sends from the omnibus
+    and debits the ledger on confirmation.
+
+  So "configuring them" = the custody env (STEP 2) + provisioning working.
+
+  IMPORTANT: funds sent to the OMNIBUS directly (not to a deposit address) are
+  NOT credited — nothing attributes them to a user. That is what happened to
+  0x65f1687… 1.0 USDC (a transfer *from* it to the omnibus). The only repair is
+  an operator ADJUSTMENT (not built yet), or sending it back.
 ===============================================================================
