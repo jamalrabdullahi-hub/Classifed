@@ -13,12 +13,12 @@
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "reset": "prisma migrate reset --force",
-    "seed": "tsx prisma/seed.ts",
+    "seed": "tsx --env-file-if-exists=../../.env prisma/seed.ts",
     "studio": "prisma studio",
     "typecheck": "tsc --noEmit"
   },
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx --env-file-if-exists=../../.env prisma/seed.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",
