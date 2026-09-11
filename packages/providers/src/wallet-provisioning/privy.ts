@@ -56,16 +56,18 @@ export function privyClient(): PrivyClient {
 }
 
 /**
- * Provisions one EVM wallet and one Solana wallet, both tagged with
- * `userId` as their `external_id` (Privy's write-once mapping to an
- * external system's identifier).
+ * Provisions one EVM wallet and one Solana wallet, both tagged with `userId` as
+ * their `external_id` (Privy's write-once mapping to an external system's
+ * identifier).
  *
- * Not itself idempotent against Privy — calling this twice for the same
- * user creates two more wallets, since `external_id` uniqueness is
- * per-wallet-chain-type on Privy's side, not a natural dedupe key this
- * function checks. The caller (`provisionWalletsForUser`) is what actually
- * guards against a duplicate call by checking FLT's own `Wallet` table
- * first.
+ * Idempotent against Privy by construction, not by hoping a duplicate create is
+ * deduped. `external_id` is write-once — a create for an id that already exists
+ * is refused. That matters because the caller writes FLT's own rows *after*
+ * this returns, so a failure in that write leaves wallets at the provider that
+ * FLT has no record of, and every later attempt would then collide with the
+ * write-once rule forever. So each wallet is looked up by `external_id` first
+ * and reused when present: a retry adopts the orphan instead of being refused
+ * by it.
  */
 export async function provisionEmbeddedWallets(userId: string): Promise<ProvisionedWallets> {
   const privy = privyClient();
@@ -86,47 +88,10 @@ export async function provisionEmbeddedWallets(userId: string): Promise<Provisio
   const evmExternalId = `${userId}_evm`;
   const solanaExternalId = `${userId}_solana`;
 
-  /**
-   * Keyed so a retry is a retry.
-   *
-   * `external_id` is write-once and unique per chain type, so a second create
-   * for the same participant is refused rather than deduped. That matters
-   * because the caller writes FLT's own rows *after* this returns: if that
-   * write fails, the Privy wallets exist, FLT has no record of them, and every
-   * later attempt hits the uniqueness rule — a participant permanently unable
-   * to have a wallet, with two orphans at the provider.
-   *
-   * A deterministic idempotency key makes the retry return the wallet the
-   * first attempt made, instead of failing on it.
-   */
-  /**
-   * A refusal from Privy is reported as one.
-   *
-   * Anything that is not a `DomainError` reaches the participant as "Something
-   * went wrong" with the detail confined to the server log — correct as a
-   * default, since an upstream message can carry internals, but useless for
-   * the one case that actually happens here: the provider rejecting the
-   * request for a reason the operator needs to read. Naming the provider and
-   * keeping its message turns a blank failure into a diagnosis.
-   */
   const [evmWallet, solanaWallet] = await Promise.all([
-    privy.wallets().create({
-      chain_type: 'ethereum',
-      external_id: evmExternalId,
-      idempotency_key: evmExternalId,
-    }),
-    privy.wallets().create({
-      chain_type: 'solana',
-      external_id: solanaExternalId,
-      idempotency_key: solanaExternalId,
-    }),
-  ]).catch((error: unknown) => {
-    throw new ProviderError(
-      'privy',
-      `Privy refused to create a wallet: ${error instanceof Error ? error.message : String(error)}`,
-      { retryable: true },
-    );
-  });
+    getOrCreateWallet(privy, 'ethereum', evmExternalId),
+    getOrCreateWallet(privy, 'solana', solanaExternalId),
+  ]);
 
   if (!evmWallet.address || !solanaWallet.address) {
     throw new Error('Privy did not return an address for a provisioned wallet');
@@ -144,6 +109,76 @@ export async function provisionEmbeddedWallets(userId: string): Promise<Provisio
     evmWalletId: evmWallet.id,
     solanaWalletId: solanaWallet.id,
   };
+}
+
+/** The parts of a Privy wallet this module needs: its id and its address. */
+interface PrivyWallet {
+  id: string;
+  address: string;
+}
+
+/**
+ * The wallet already tagged with `external_id`, if one exists.
+ *
+ * Write-once means there is at most one per chain type, so the first item of a
+ * filtered list is the answer. `include_archived` because an attempt that
+ * half-failed can have left the wallet archived while still owning the id a
+ * create would collide with.
+ */
+async function findWalletByExternalId(
+  privy: PrivyClient,
+  externalId: string,
+): Promise<PrivyWallet | undefined> {
+  for await (const wallet of privy.wallets().list({
+    external_id: externalId,
+    include_archived: true,
+  })) {
+    return wallet;
+  }
+  return undefined;
+}
+
+/**
+ * Returns the wallet for `external_id`, creating it only when none exists.
+ *
+ * The lookup has to come first: a create for an `external_id` that already
+ * exists is refused (write-once), which is exactly the state a participant
+ * lands in after a provisioning attempt whose FLT row write failed. The second
+ * lookup after a failed create covers the narrower race where a concurrent
+ * request created the wallet between our check and our create — if so, the
+ * wallet exists now and we adopt it.
+ *
+ * A refusal from Privy is re-thrown as a `ProviderError` (naming the provider,
+ * keeping its message): a raw upstream error reaches the participant as
+ * "Something went wrong" with the detail confined to the log, and this is the
+ * one path where the operator needs to read that detail.
+ */
+async function getOrCreateWallet(
+  privy: PrivyClient,
+  chainType: 'ethereum' | 'solana',
+  externalId: string,
+): Promise<PrivyWallet> {
+  const existing = await findWalletByExternalId(privy, externalId);
+  if (existing) return existing;
+
+  try {
+    // No idempotency key: it moved between SDK versions (body `idempotency_key`
+    // vs header `privy-idempotency-key`), and the get-or-create above already
+    // makes a retry safe — a duplicate create is refused by the write-once
+    // `external_id`, caught, and the existing wallet adopted.
+    return await privy.wallets().create({
+      chain_type: chainType,
+      external_id: externalId,
+    });
+  } catch (error) {
+    const raced = await findWalletByExternalId(privy, externalId).catch(() => undefined);
+    if (raced) return raced;
+    throw new ProviderError(
+      'privy',
+      `Privy refused to create a wallet: ${error instanceof Error ? error.message : String(error)}`,
+      { retryable: true },
+    );
+  }
 }
 
 /** Resets the cached client — test-only, mirrors the pattern in `registry.ts`. */

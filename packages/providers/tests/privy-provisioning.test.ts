@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * What Privy is actually asked for when a wallet is provisioned.
@@ -12,11 +12,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
  */
 
 const create = vi.fn();
+const list = vi.fn();
 
 vi.mock('@privy-io/node', () => ({
   PrivyClient: class {
     wallets() {
-      return { create };
+      return { create, list };
     }
   },
 }));
@@ -35,12 +36,32 @@ async function subject() {
 
 afterEach(() => {
   create.mockReset();
+  list.mockReset();
   vi.resetModules();
 });
 
 function wallet(id: string, address: string) {
   return { id, address };
 }
+
+/** The async-iterable shape `wallets().list()` returns. */
+function page(...items: Array<{ id: string; address: string }>) {
+  return {
+    async *[Symbol.asyncIterator]() {
+      for (const item of items) yield item;
+    },
+  };
+}
+
+/** Wallets Privy already holds, keyed by external_id, for the mocked lookup. */
+let existing: Map<string, Array<{ id: string; address: string }>>;
+
+beforeEach(() => {
+  existing = new Map();
+  list.mockImplementation((query: { external_id?: string } = {}) =>
+    page(...(query.external_id ? existing.get(query.external_id) ?? [] : [])),
+  );
+});
 
 describe('provisionEmbeddedWallets', () => {
   it('sends an external_id Privy will accept', async () => {
@@ -60,17 +81,35 @@ describe('provisionEmbeddedWallets', () => {
     }
   });
 
-  it('keys the create so a retry returns the same wallet', async () => {
-    create
-      .mockResolvedValueOnce(wallet('evm-1', '0xabc'))
-      .mockResolvedValueOnce(wallet('sol-1', 'So1abc'));
+  it('reuses a wallet Privy already has for the external_id, instead of creating one', async () => {
+    existing.set(`${USER_ID}_evm`, [wallet('evm-existing', '0xexisting')]);
+    existing.set(`${USER_ID}_solana`, [wallet('sol-existing', 'So1existing')]);
 
     const { provisionEmbeddedWallets } = await subject();
-    await provisionEmbeddedWallets(USER_ID);
+    const result = await provisionEmbeddedWallets(USER_ID);
 
-    for (const [params] of create.mock.calls) {
-      expect(params.idempotency_key).toBe(params.external_id);
-    }
+    expect(create).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      evmAddress: '0xexisting',
+      solanaAddress: 'So1existing',
+      evmWalletId: 'evm-existing',
+      solanaWalletId: 'sol-existing',
+    });
+  });
+
+  it('adopts the wallet when a create is refused for an already-taken external_id', async () => {
+    // The write-once rule bites: a wallet appears for the id, then our create is
+    // refused by it. The re-lookup has to recover rather than surface a failure.
+    create.mockImplementation(({ external_id }: { external_id: string }) => {
+      existing.set(external_id, [wallet(`raced-${external_id}`, '0xraced')]);
+      return Promise.reject(new Error('external_id already exists'));
+    });
+
+    const { provisionEmbeddedWallets } = await subject();
+    const result = await provisionEmbeddedWallets(USER_ID);
+
+    expect(result.evmWalletId).toBe(`raced-${USER_ID}_evm`);
+    expect(result.solanaWalletId).toBe(`raced-${USER_ID}_solana`);
   });
 
   it('reports a refusal from Privy instead of failing blankly', async () => {
