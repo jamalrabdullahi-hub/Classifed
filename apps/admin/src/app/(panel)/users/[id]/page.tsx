@@ -21,6 +21,7 @@ import {
   truncateMiddle,
 } from '@flt/ui';
 import { explorerAddressUrl, explorerTxUrl } from '@flt/core/chains';
+import { Decimal } from '@flt/core/domain';
 import { PERMISSIONS, can } from '@flt/core/services/admin';
 import { UserControls } from './user-controls';
 import { TierControl } from '@/components/tier-control';
@@ -29,6 +30,14 @@ import { requireAdminPage } from '@/server/session';
 
 export const metadata: Metadata = { title: 'User' };
 export const dynamic = 'force-dynamic';
+
+const CREDIT_KINDS = new Set(['USER_AVAILABLE', 'USER_LOCKED', 'FEE_REVENUE']);
+
+/** The balance as a person states it: liabilities are stored negative. */
+function natural(kind: string, balance: string): string {
+  const value = new Decimal(balance);
+  return (CREDIT_KINDS.has(kind) ? value.negated() : value).toString();
+}
 
 /**
  * One user, everything about them.
@@ -59,6 +68,11 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
   });
 
   if (!user) notFound();
+
+  const balances = await prisma.ledgerAccount.findMany({
+    where: { userId: id },
+    orderBy: [{ asset: 'asc' }, { kind: 'asc' }],
+  });
 
   return (
     <div className="space-y-6">
@@ -134,6 +148,26 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                       )}
                     </div>
                   </div>
+                ))}
+              </CardContent>
+            )}
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Custody balances</CardTitle>
+              <Badge tone="neutral">{balances.length}</Badge>
+            </CardHeader>
+            {balances.length === 0 ? (
+              <EmptyState title="No balance" description="This account holds nothing in custody." />
+            ) : (
+              <CardContent className="divide-y divide-[var(--border)]">
+                {balances.map((account) => (
+                  <DetailRow
+                    key={account.id}
+                    label={`${account.asset} · ${account.kind.toLowerCase().replace(/_/g, ' ')}`}
+                    value={natural(account.kind, account.balance.toString())}
+                  />
                 ))}
               </CardContent>
             )}

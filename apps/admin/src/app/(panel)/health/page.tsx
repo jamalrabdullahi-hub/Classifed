@@ -11,7 +11,7 @@ import {
   SectionHeader,
   StatusPill,
 } from '@flt/ui';
-import { dexRouter, marketDataProvider } from '@flt/providers';
+import { custodyProvider, dexRouter, marketDataProvider, perpVenue } from '@flt/providers';
 import { requireAdminPage } from '@/server/session';
 
 export const metadata: Metadata = { title: 'System health' };
@@ -28,7 +28,10 @@ export default async function HealthPage() {
   await requireAdminPage();
   const config = env();
 
-  const [database, router, market, staleQuotes, openTransactions, lastMarketFetch] =
+  const custody = custodyProvider();
+  const perps = config.PERPS_ENABLED ? perpVenue() : null;
+
+  const [database, router, market, perpsHealth, staleQuotes, openTransactions, lastMarketFetch] =
     await Promise.all([
       checkDatabase(),
       dexRouter()
@@ -37,6 +40,9 @@ export default async function HealthPage() {
       marketDataProvider()
         .health()
         .catch((error: unknown) => ({ ok: false, detail: String(error) })),
+      perps
+        ? perps.health().catch((error: unknown) => ({ ok: false, detail: String(error) }))
+        : Promise.resolve({ ok: true, detail: 'Perpetuals disabled' }),
       prisma.quote.count({ where: { status: 'ACTIVE', expiresAt: { lt: new Date() } } }),
       prisma.transaction.count({ where: { status: { in: ['SUBMITTED', 'PENDING'] } } }),
       prisma.marketDataCache.findFirst({
@@ -69,6 +75,22 @@ export default async function HealthPage() {
           detail={market.detail}
         />
         <HealthCard
+          name={`Custody · ${config.CUSTODY_PROVIDER}`}
+          ok={custody !== null}
+          detail={
+            custody
+              ? `omnibus ${config.OMNIBUS_EVM_ADDRESS ?? 'not configured'}`
+              : 'not configured — no omnibus, no custody'
+          }
+        />
+        {perps ? (
+          <HealthCard
+            name={`Perps venue · ${config.PERP_VENUE}`}
+            ok={perpsHealth.ok}
+            detail={perpsHealth.detail}
+          />
+        ) : null}
+        <HealthCard
           name="Worker"
           ok={workerHealthy}
           detail={workerHealthy ? 'Sweeping normally' : `${staleQuotes} expired quotes not swept`}
@@ -84,6 +106,13 @@ export default async function HealthPage() {
         </CardHeader>
         <CardContent className="divide-y divide-[var(--border)]">
           <DetailRow label="DEX router" value={config.DEX_ROUTER} />
+          <DetailRow label="Custody provider" value={config.CUSTODY_PROVIDER} />
+          <DetailRow
+            label="Omnibus"
+            value={config.OMNIBUS_EVM_ADDRESS ?? 'Not configured'}
+            hint={config.OMNIBUS_EVM_ADDRESS ? undefined : 'Custody cannot operate without one'}
+          />
+          <DetailRow label="Perpetuals" value={config.PERPS_ENABLED ? `on · ${config.PERP_VENUE}` : 'off'} />
           <DetailRow label="Market data provider" value={config.MARKET_DATA_PROVIDER} />
           <DetailRow label="KYC provider" value={config.KYC_PROVIDER} />
           <DetailRow label="Mail provider" value={config.MAIL_PROVIDER} />

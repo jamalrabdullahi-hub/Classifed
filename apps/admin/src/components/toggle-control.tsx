@@ -33,7 +33,7 @@ import {
 const DESCRIPTIONS: Record<'token' | 'provider' | 'fee', { enable: string; disable: string }> = {
   token: {
     disable:
-      'This token disappears from markets and new quotes for it are refused. Existing on-chain balances are unaffected — FLT does not hold them.',
+      'This token disappears from markets and new quotes for it are refused. Existing client balances in it are unaffected — they remain on the ledger.',
     enable: 'This token becomes tradeable again and reappears in markets.',
   },
   provider: {
