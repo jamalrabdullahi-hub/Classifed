@@ -1,0 +1,110 @@
+===============================================================================
+FLT EXCHANGE — DEPLOY THE CUSTODY SWITCH TO THE SERVER
+===============================================================================
+Server: root@204.168.254.41   ·   app dir: /opt/flt-exchange   ·   env: /opt/flt-exchange/.env
+
+TWO things are needed, and they are independent:
+
+  1. Deploy the CODE  — pull + build + migrate. The auto-deploy timer does this
+     on its own within ~2 min of `origin/main` moving. If you want it now, run
+     the manual pass below.
+  2. Set the CUSTODY ENV — `deploy/update.sh` does NOT touch `.env`. Without
+     this the new code ships but custody is `disabled` and silently no-ops.
+
+Do step 1, then step 2, then restart.
+===============================================================================
+
+--- STEP 1: deploy the code ---------------------------------------------------
+
+# (a) Just watch the auto-deploy pick up the push:
+ssh root@204.168.254.41 'journalctl -u flt-autodeploy -f'
+#     Ctrl-C to stop watching. You want to see "Deploying <sha> -> <sha>".
+
+# (b) OR force it now:
+ssh root@204.168.254.41
+cd /opt/flt-exchange
+bash deploy/update.sh
+#     Pulls, builds, runs `prisma migrate deploy` (applies custody_deposits,
+#     withdrawals, venue_margin_enum, venue_margin_sign), restarts the services.
+#     A failed build stops before restarting — the site stays on the old build.
+
+
+--- STEP 2: set the custody env on the server ---------------------------------
+
+ssh root@204.168.254.41
+cd /opt/flt-exchange
+
+# First, see what is already there (avoid duplicate keys):
+grep -nE '^(CUSTODY_PROVIDER|OMNIBUS_|PRIVY_|AUTO_WALLET|DEX_ROUTER|ZEROEX_|FLT_FEE_RECIPIENT|PERPS_ENABLED|PERP_VENUE)=' .env
+
+# Append what is missing. EDIT THE VALUES (from GO-LIVE-ENV.txt). If a key is
+# already present above, change it in place with an editor instead of appending,
+# so it is not defined twice.
+cat >> .env <<'EOF'
+
+# --- Custody (ADR 0004) ---
+CUSTODY_PROVIDER=privy
+OMNIBUS_EVM_ADDRESS=0x338Ba5f427905c2c00cAc5595DaC13CD828d8d61
+OMNIBUS_EVM_WALLET_ID=q8m5o8fw50fb9co2o2ciic07
+PRIVY_APP_ID=<PRIVY_APP_ID>
+PRIVY_APP_SECRET=<PRIVY_APP_SECRET>
+AUTO_WALLET_PROVISIONING_ENABLED=true
+
+# --- DEX (real) ---
+DEX_ROUTER=zeroex
+ZEROEX_API_KEY=<ZEROEX_API_KEY>
+# MUST equal OMNIBUS_EVM_ADDRESS
+FLT_FEE_RECIPIENT_ADDRESS=0x338Ba5f427905c2c00cAc5595DaC13CD828d8d61
+
+# --- Perps under custody (ADR 0005) ---
+PERPS_ENABLED=true
+PERP_VENUE=hyperliquid
+EOF
+
+# The file is read by the services as the `flt` user — make sure it is readable
+# only by the ones that need it:
+chown flt:flt .env && chmod 600 .env
+
+
+--- STEP 3: restart so the new env is read ------------------------------------
+
+systemctl restart flt-web flt-admin flt-worker
+
+
+--- STEP 4: verify ------------------------------------------------------------
+
+systemctl --no-pager --lines=0 status flt-web flt-admin flt-worker | grep -E 'flt-|Active:'
+
+# The worker banner must say custody is ON (if it says "disabled", the env did
+# not take):
+journalctl -u flt-worker -n 40 --no-pager | grep -E 'custody|perpetuals|venue|database'
+
+# Expect a line like:
+#     custody       every 30000ms
+#     perpetuals    hyperliquid, every 20000ms
+#     database      connected
+
+# Then, from the admin panel (https://admin.ftlexchange.com → Custody → Ledger),
+# the ledger should render and Health should show "Custody · privy" healthy.
+
+
+===============================================================================
+NOTES / GOTCHAS
+===============================================================================
+
+- The auto-deploy and the manual `update.sh` both `git pull` as the `flt` user
+  and both run `prisma migrate deploy`. Do not run two deploys at once.
+
+- If a migration failed on an earlier run, Prisma refuses every later one until
+  the record is cleared (update.sh prints the exact `prisma migrate resolve`
+  command). Use `--rolled-back` unless you have checked the schema and the
+  changes genuinely landed.
+
+- Going to production values: this env still has dev-shaped URLs/secrets if you
+  copied from the laptop. Set NODE_ENV=production and the real https WEB_APP_URL
+  / ADMIN_APP_URL before launch, and rotate APP_SECRET / ENCRYPTION_KEY.
+
+- Email is still not configured if MAIL_PROVIDER=console — with custody on,
+  that only affects signup/reset, not money. Set MAIL_PROVIDER=resend + key to
+  close it.
+===============================================================================

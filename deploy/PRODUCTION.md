@@ -4,6 +4,28 @@ What is actually live, as of 2026-09-06. No secrets here — those live only in
 `/opt/flt-exchange/.env` on the server and in whichever secrets manager you
 choose later.
 
+## Custody is live (ADR 0004)
+
+FLT is a **custodian** as of this revision. Client funds pool in a single
+FLT-controlled Privy wallet (the *omnibus*); the double-entry ledger is the
+source of truth for participant balances, and FLT signs from the omnibus. This
+**reverses ADR 0001** (non-custodial), which is superseded.
+
+- **Ledger-as-truth**: buying power, deposits and withdrawals are ledger
+  movements, not chain balances.
+- **Reconciliation is mandatory** (`docs/adr/0004-custodial-omnibus.md`): the
+  worker compares the omnibus's holdings against total client liability and the
+  venue's margin, and alerts on a shortfall. It never auto-adjusts.
+- **Perps are custodial too** (ADR 0005/0006) — see the Perpetual futures
+  section below.
+- The custody path is **a no-op unless `CUSTODY_PROVIDER=privy`** and the
+  `OMNIBUS_*` / `PRIVY_*` vars are set on the server. **The deploy does not set
+  them** — see "Deploying the custody config".
+
+> The sections below predate custody and still describe a non-custodial
+deployment ("FLT never holds collateral, never signs, never submits"). Where
+they conflict with the custody model, **the custody model wins**.
+
 ## Topology
 
 - **Server**: Hetzner VPS, Ubuntu 22.04, `204.168.254.41`. 2 vCPU / 3.7 GiB RAM
@@ -75,6 +97,25 @@ treating the feature as finished.
   highest-value control on the whole deployment" and should be turned on —
   either an IP allow-list or Cloudflare Access — before real users exist.
 
+## Deploying the custody config
+
+`deploy/update.sh` pulls, installs, builds and migrates — it does **not** touch
+`/opt/flt-exchange/.env`. The custody variables live there and must be set on the
+server **once**, or the custody path silently no-ops (`CUSTODY_PROVIDER`
+defaults to `disabled`). Values are in `GO-LIVE-ENV.txt`. At minimum:
+
+    CUSTODY_PROVIDER=privy
+    OMNIBUS_EVM_ADDRESS=0x...
+    OMNIBUS_EVM_WALLET_ID=...
+    PRIVY_APP_ID=...  PRIVY_APP_SECRET=...
+    AUTO_WALLET_PROVISIONING_ENABLED=true
+    DEX_ROUTER=zeroex  ZEROEX_API_KEY=...
+    FLT_FEE_RECIPIENT_ADDRESS=<the omnibus>
+    PERPS_ENABLED=true  PERP_VENUE=hyperliquid
+
+Then restart `flt-web flt-admin flt-worker`. Copy-paste commands are in
+`deploy/CUSTODY-DEPLOY.txt`.
+
 ## Redeploying
 
 ```bash
@@ -92,12 +133,18 @@ No CI/CD is wired up yet — this is a manual pull-and-rebuild, which is fine at
 this stage but is the next real gap once deploys become routine.
 
 
-## Perpetual futures
+## Perpetual futures — now custodial
 
-Leveraged perpetuals are routed to an external venue (Hyperliquid) rather than
-operated by FLT. Margin is posted by the user's own wallet to the venue; FLT
-prepares orders, applies its own limits, and records what it prepared. It never
-holds collateral, never signs, and never submits.
+Leveraged perpetuals are routed to the external venue (Hyperliquid). Under the
+custody model (ADR 0005/0006), FLT funds the venue from the omnibus, holds a
+**server-held agent key** authorised by the omnibus, and places orders **for the
+omnibus** on the participant's behalf. The participant's margin is reserved on
+the ledger before broadcast and settled on the fill; the participant connects no
+wallet and signs nothing.
+
+> The non-custodial description that used to head this section — "margin is
+> posted by the user's own wallet; FLT never holds collateral, never signs, and
+> never submits" — is **no longer true**. It is kept in spirit below for history.
 
 ### Off by default, on here
 
