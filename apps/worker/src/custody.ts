@@ -111,15 +111,30 @@ async function detectDeposits(): Promise<number> {
     const to = [...addresses.keys()] as Address[];
 
     for (const token of chainTokens) {
-      const logs = await client.getLogs({
-        address: checksumAddress(token.address) as Address,
-        event: TRANSFER_EVENT,
-        // Filtered to our deposit addresses at the node, so a busy token does
-        // not return the whole chain's transfers for us to discard.
-        args: { to },
-        fromBlock,
-        toBlock: latest,
-      });
+      /**
+       * One chain's node refusing a log query must not stop the others. The
+       * pass sweeps and credits on every chain, so a single unreachable or
+       * rate-limited node would otherwise block all of them — the BNB public
+       * RPC, for one, rejects a 2,000-block `getLogs` with "limit exceeded".
+       * Detection for that chain is skipped this pass and retried on the next.
+       */
+      let logs;
+      try {
+        logs = await client.getLogs({
+          address: checksumAddress(token.address) as Address,
+          event: TRANSFER_EVENT,
+          // Filtered to our deposit addresses at the node, so a busy token does
+          // not return the whole chain's transfers for us to discard.
+          args: { to },
+          fromBlock,
+          toBlock: latest,
+        });
+      } catch (error) {
+        console.error(`[custody] detection failed on chain ${chainId}`, {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        continue;
+      }
 
       for (const log of logs) {
         const recipient = log.args.to?.toLowerCase();
