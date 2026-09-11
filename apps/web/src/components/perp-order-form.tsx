@@ -112,6 +112,13 @@ interface Quote {
   sellable: boolean;
 }
 
+/**
+ * The venue's minimum order value, in USD. Used as the floor of the size hint,
+ * so the ticket never advertises a minimum the venue will refuse — its own
+ * minimum *size* is a contract count worth far less than this on cheap markets.
+ */
+const MIN_ORDER_VALUE_USD = 10;
+
 /** The presets, as σ-bands people recognise. */
 const PRESETS = [
   { value: 0.68, label: '68%' },
@@ -296,7 +303,7 @@ export function PerpOrderForm({
               // "Minimum 0.00001 BTC" makes the reader do the conversion the
               // dollar-denominated ticket exists to remove.
               markPrice
-              ? `Minimum ${money(Number(minSize) * Number(markPrice))}`
+              ? `Minimum ${money(Math.max(Number(minSize) * Number(markPrice), MIN_ORDER_VALUE_USD))}`
               : `Minimum ${minSize} ${symbol}`
         }
       >

@@ -34,6 +34,15 @@ const decimalString = z
   .trim()
   .regex(/^\d+(\.\d+)?$/, 'Must be a positive decimal number');
 
+/**
+ * Hyperliquid's minimum order value, in USD.
+ *
+ * The venue refuses any order below this, and rounding the contract count DOWN
+ * (which the ticket does, so a position is never larger than the dollars the
+ * user approved) can put an order sized at exactly the minimum just under it.
+ */
+const MIN_ORDER_VALUE_USD = new Decimal(10);
+
 const schema = z.object({
   action: z.enum(['open', 'close']),
   symbol: z.string().trim().min(1).max(24),
@@ -147,11 +156,26 @@ async function sizeFromUsd(venue: PerpVenue, symbol: string, usd: string): Promi
   if (!market.markPrice) {
     throw new ValidationError('The venue is not quoting this market', { symbol });
   }
-  return contractsForUsd(
-    new Decimal(usd),
-    new Decimal(market.markPrice),
-    market.sizeDecimals,
-  ).toFixed();
+
+  const price = new Decimal(market.markPrice);
+  const contracts = contractsForUsd(new Decimal(usd), price, market.sizeDecimals);
+
+  /**
+   * Say the venue's minimum here, with the number that will satisfy it, rather
+   * than let the venue's opaque rejection be the first the user hears of it.
+   * The minimum is a *value* ($10), so the dollar figure that clears it is one
+   * contract's worth above it — `ceil(minimum / price) * price`.
+   */
+  const notional = contracts.times(price);
+  if (venue.meta.slug === 'hyperliquid' && notional.lessThan(MIN_ORDER_VALUE_USD)) {
+    const minimumUsd = MIN_ORDER_VALUE_USD.dividedBy(price).ceil().times(price);
+    throw new ValidationError(
+      `${venue.meta.name} needs a minimum order value of $${MIN_ORDER_VALUE_USD.toFixed(2)}. Increase the size to at least $${minimumUsd.toFixed(2)}.`,
+      { minimumUsd: minimumUsd.toFixed(2), notional: notional.toFixed(2) },
+    );
+  }
+
+  return contracts.toFixed();
 }
 
 
