@@ -111,7 +111,12 @@ export default async function PortfolioPage() {
                     <span className="block text-[11px] text-[var(--text-subtle)]">{holding.name}</span>
                   ) : null}
                 </TD>
-                <TD numeric>{formatHolding(holding.available, holding.decimals)}</TD>
+                <TD numeric>
+                  {formatHolding(
+                    new Decimal(holding.available).plus(holding.locked).toFixed(),
+                    holding.decimals,
+                  )}
+                </TD>
                 <TD numeric>{formatUsd(holding.priceUsd)}</TD>
                 <TD numeric>
                   {holding.valueUsd ? (
