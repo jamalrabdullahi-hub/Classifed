@@ -1,8 +1,13 @@
 import { CustodyDepositStatus, prisma, type CustodyDeposit } from '@flt/db';
-import { custodyProvider, sweepErc20ToOmnibus } from '@flt/providers';
-import { creditCryptoDeposit } from '@flt/core/services/custody-deposits';
+import { custodyProvider, ensureWalletGas, sweepErc20ToOmnibus } from '@flt/providers';
+import {
+  MIN_CRYPTO_DEPOSIT_USD,
+  chargeCryptoDepositGasFee,
+  creditCryptoDeposit,
+  cryptoDepositGasFeeBaseUnits,
+} from '@flt/core/services/custody-deposits';
 import { publicClient } from '@flt/core/chains';
-import { checksumAddress, newId } from '@flt/core/domain';
+import { Decimal, checksumAddress, newId } from '@flt/core/domain';
 import { parseAbiItem, type Address } from 'viem';
 
 /**
@@ -181,9 +186,17 @@ async function detectDeposits(): Promise<number> {
 }
 
 /** Sweeps detected deposits into the omnibus, recording each sweep hash. */
+/** Below this many attempts, a failed sweep is retried; after it, it is left. */
+const MAX_SWEEP_ATTEMPTS = 3;
+
 async function sweepDetected(): Promise<number> {
   const rows = await prisma.custodyDeposit.findMany({
-    where: { status: CustodyDepositStatus.DETECTED },
+    where: {
+      OR: [
+        { status: CustodyDepositStatus.DETECTED },
+        { status: CustodyDepositStatus.FAILED, attempts: { lt: MAX_SWEEP_ATTEMPTS } },
+      ],
+    },
     orderBy: { createdAt: 'asc' },
     take: BATCH,
   });
@@ -191,6 +204,13 @@ async function sweepDetected(): Promise<number> {
   let swept = 0;
 
   for (const row of rows) {
+    /**
+     * Below the minimum, the gas to move it costs more than it is worth. Left
+     * on-chain at the deposit address — not lost — until more arrives.
+     */
+    const worth = new Decimal(row.amountBaseUnits).div(new Decimal(10).pow(row.decimals));
+    if (worth.lessThan(MIN_CRYPTO_DEPOSIT_USD)) continue;
+
     const token = await prisma.token.findFirst({
       where: { chainId: row.chainId, symbol: row.asset, isEnabled: true },
     });
@@ -204,6 +224,18 @@ async function sweepDetected(): Promise<number> {
     }
 
     try {
+      /**
+       * The deposit address holds only stablecoin, so the sweep cannot pay its
+       * own gas. Fund it from the omnibus first; a failure here is logged and
+       * the sweep still runs (and retries on the next pass).
+       */
+      await ensureWalletGas({ chainId: row.chainId, address: wallet.address }).catch((error) => {
+        console.error('[custody] gas top-up failed', {
+          id: row.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+
       const hash = await sweepErc20ToOmnibus({
         wallet,
         tokenAddress: token.address,
@@ -277,10 +309,25 @@ async function creditConfirmed(): Promise<{ credited: number; failed: number }> 
     if (!readyToCredit || !row.sweepTxHash) continue;
 
     try {
+      const gasFeeBaseUnits = cryptoDepositGasFeeBaseUnits(row.amountBaseUnits, row.decimals);
+
       const { credited: didCredit } = await creditCryptoDeposit({
         userId: row.userId,
         asset: row.asset,
         amountBaseUnits: row.amountBaseUnits,
+        decimals: row.decimals,
+        reference: row.sweepTxHash,
+      });
+
+      /**
+       * The participant funds their own gas out of this deposit — the omnibus
+       * fronted it to make the sweep possible, and this recovers it, capped at
+       * 1% of the deposit.
+       */
+      await chargeCryptoDepositGasFee({
+        userId: row.userId,
+        asset: row.asset,
+        gasFeeBaseUnits,
         decimals: row.decimals,
         reference: row.sweepTxHash,
       });
@@ -290,6 +337,7 @@ async function creditConfirmed(): Promise<{ credited: number; failed: number }> 
         data: {
           status: CustodyDepositStatus.CREDITED,
           creditedAt: new Date(),
+          gasCostBaseUnits: gasFeeBaseUnits,
           ledgerReference: `crypto-deposit:${row.sweepTxHash}`,
         },
       });
@@ -315,6 +363,10 @@ async function creditConfirmed(): Promise<{ credited: number; failed: number }> 
 async function fail(row: Pick<CustodyDeposit, 'id'>, reason: string): Promise<void> {
   await prisma.custodyDeposit.update({
     where: { id: row.id },
-    data: { status: CustodyDepositStatus.FAILED, failureReason: reason },
+    data: {
+      status: CustodyDepositStatus.FAILED,
+      failureReason: reason,
+      attempts: { increment: 1 },
+    },
   });
 }

@@ -2291,6 +2291,18 @@ model CustodyDeposit {
   /// that must not lose precision.
   amountBaseUnits String
 
+  /// The network (gas) fee charged against this deposit, in base units.
+  ///
+  /// The sweep is a transaction *from* the deposit address, which holds only
+  /// stablecoin — so the omnibus fronts the gas, and the fee is recovered from
+  /// the deposit (capped at 1%). Recorded so the credited amount reconciles
+  /// against the amount the chain actually delivered.
+  gasCostBaseUnits String @default("0")
+
+  /// How many times the sweep has been attempted, so a transient failure heals
+  /// itself and a permanent one stops instead of looping forever.
+  attempts Int @default(0)
+
   depositAddress String
   depositTxHash  String
   logIndex       Int

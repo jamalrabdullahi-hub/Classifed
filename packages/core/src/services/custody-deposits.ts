@@ -98,3 +98,79 @@ export async function creditCryptoDeposit(
     throw error;
   }
 }
+
+/**
+ * The least a crypto deposit must be worth to be swept and credited.
+ *
+ * Below this, the gas to sweep and credit it costs more than the deposit is
+ * worth, and the participant would receive a fraction of what they sent. A
+ * smaller deposit is left on-chain at the deposit address — not lost — and
+ * reaches the floor when more is sent to the same address.
+ */
+export const MIN_CRYPTO_DEPOSIT_USD = 5;
+
+/** The network fee charged on a crypto deposit, in USD. */
+const DEPOSIT_GAS_FEE_USD = new Decimal('0.02');
+/** …and never more than this share of the deposit. */
+const DEPOSIT_GAS_FEE_CAP = new Decimal('0.01');
+
+/**
+ * The gas fee to charge against a deposit, in base units.
+ *
+ * A flat fee — Base gas is a few cents — bounded by 1% of the deposit, so a
+ * deposit at the minimum still pays well under the cap and a large one is not
+ * charged more than the gas actually costs.
+ */
+export function cryptoDepositGasFeeBaseUnits(amountBaseUnits: string, decimals: number): string {
+  const amount = new Decimal(amountBaseUnits).div(new Decimal(10).pow(decimals));
+  const capped = DEPOSIT_GAS_FEE_USD.lessThan(amount.times(DEPOSIT_GAS_FEE_CAP))
+    ? DEPOSIT_GAS_FEE_USD
+    : amount.times(DEPOSIT_GAS_FEE_CAP);
+  return capped.times(new Decimal(10).pow(decimals)).toFixed(0, Decimal.ROUND_DOWN);
+}
+
+/**
+ * Charges a deposit's gas fee to FLT's revenue, reducing the participant's
+ * available balance by that much — the participant funds their own gas out of
+ * the deposit they just made.
+ *
+ * Idempotent on the sweep hash, so a re-run does not charge twice.
+ */
+export async function chargeCryptoDepositGasFee(input: {
+  userId: string;
+  asset: string;
+  gasFeeBaseUnits: string;
+  decimals: number;
+  reference: string;
+}): Promise<void> {
+  const asset = input.asset.trim().toUpperCase();
+  const fee = new Decimal(input.gasFeeBaseUnits).div(new Decimal(10).pow(input.decimals));
+  if (fee.lessThanOrEqualTo(0)) return;
+
+  const reference = `crypto-gas-fee:${input.reference.trim()}`;
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const user = await accountFor(
+        { kind: LedgerAccountKind.USER_AVAILABLE, userId: input.userId, asset },
+        tx,
+      );
+      const revenue = await accountFor({ kind: LedgerAccountKind.FEE_REVENUE, asset }, tx);
+
+      await postTransfer(
+        {
+          kind: LedgerTransferKind.FEE,
+          reference,
+          memo: `Network fee for crypto deposit ${input.reference.trim()}`,
+          entries: [
+            { accountId: user.id, amount: fee },
+            { accountId: revenue.id, amount: fee.negated() },
+          ],
+        },
+        tx,
+      );
+    });
+  } catch (error) {
+    if (!isUniqueViolation(error)) throw error;
+  }
+}
