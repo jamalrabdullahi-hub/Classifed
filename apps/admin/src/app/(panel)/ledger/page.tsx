@@ -35,7 +35,7 @@ export const dynamic = 'force-dynamic';
  * to prevent.
  */
 
-const CREDIT_KINDS = new Set(['USER_AVAILABLE', 'USER_LOCKED', 'FEE_REVENUE']);
+const CREDIT_KINDS = new Set(['USER_AVAILABLE', 'USER_LOCKED', 'FEE_REVENUE', 'PLATFORM_EQUITY']);
 
 /** The balance as a person states it: liabilities are stored negative. */
 function natural(kind: string, balance: string): string {
@@ -48,6 +48,7 @@ const KIND_TONE: Record<string, 'positive' | 'negative' | 'info' | 'accent' | 'w
   USER_LOCKED: 'warning',
   CLIENT_OMNIBUS: 'positive',
   VENUE_MARGIN: 'accent',
+  PLATFORM_EQUITY: 'neutral',
   FEE_REVENUE: 'positive',
   FIAT_GATEWAY: 'neutral',
 };

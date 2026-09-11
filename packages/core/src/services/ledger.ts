@@ -205,7 +205,8 @@ function isCreditBalance(kind: LedgerAccountKind): boolean {
   return (
     kind === LedgerAccountKind.USER_AVAILABLE ||
     kind === LedgerAccountKind.USER_LOCKED ||
-    kind === LedgerAccountKind.FEE_REVENUE
+    kind === LedgerAccountKind.FEE_REVENUE ||
+    kind === LedgerAccountKind.PLATFORM_EQUITY
   );
 }
 

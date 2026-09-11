@@ -1995,6 +1995,11 @@ enum LedgerAccountKind {
   /// and venue margin live in different places and fail separately. See
   /// docs/adr/0005-perps-custody.md.
   VENUE_MARGIN
+  /// FLT's own capital, held alongside client funds. Liability-side (stored
+  /// <= 0). Absorbs the residual between what the platform holds and what it
+  /// owes, so a client balance is never socialized to cover it. See
+  /// docs/adr/0006-perps-accounting.md (P8).
+  PLATFORM_EQUITY
 }
 
 enum LedgerTransferKind {
