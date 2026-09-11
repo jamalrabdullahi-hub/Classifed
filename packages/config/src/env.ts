@@ -76,6 +76,33 @@ const schema = z.object({
   PRIVY_APP_ID: z.string().optional(),
   PRIVY_APP_SECRET: z.string().optional(),
 
+  // ── Custody (omnibus) ─────────────────────────────────────────────────────
+  /**
+   * Whether client funds are pooled in an FLT-controlled wallet. See
+   * docs/adr/0004-custodial-omnibus.md.
+   *
+   * `disabled` is the safe default: nothing can hold client funds and every
+   * custody-dependent job no-ops. `privy` turns on the custodial path and
+   * requires the omnibus wallet to be named below — there is no fallback,
+   * because a custody adapter with no wallet would silently refuse every
+   * deposit and settle nothing.
+   */
+  CUSTODY_PROVIDER: z.enum(['disabled', 'privy']).default('disabled'),
+
+  /**
+   * The omnibus wallet FLT controls and through which every trade and
+   * withdrawal is signed. Its key lives in Privy; these are the *public*
+   * address and Privy's own wallet id — signing is addressed by id, not by
+   * address.
+   *
+   * The address is the same across every EVM chain, so one entry covers Base
+   * and BNB. Solana is separate because it is a different curve entirely.
+   */
+  OMNIBUS_EVM_ADDRESS: optionalAddress,
+  OMNIBUS_EVM_WALLET_ID: z.string().optional(),
+  OMNIBUS_SOLANA_ADDRESS: z.string().optional(),
+  OMNIBUS_SOLANA_WALLET_ID: z.string().optional(),
+
   // ── DEX routing ──────────────────────────────────────────────────────────
   DEX_ROUTER: z.enum(['mock', 'zeroex']).default('mock'),
   ZEROEX_API_KEY: z.string().optional(),
@@ -310,6 +337,19 @@ function load(): Env {
     // request — neither is acceptable for something this consequential.
     if (value.AUTO_WALLET_PROVISIONING_ENABLED && (!value.PRIVY_APP_ID || !value.PRIVY_APP_SECRET)) {
       problems.push('AUTO_WALLET_PROVISIONING_ENABLED requires PRIVY_APP_ID and PRIVY_APP_SECRET');
+    }
+    // Custody without a named omnibus wallet is a deployment that would take
+    // deposits it cannot sweep and quote trades it cannot sign. Refuse to boot.
+    if (
+      value.CUSTODY_PROVIDER === 'privy' &&
+      (!value.OMNIBUS_EVM_ADDRESS || !value.OMNIBUS_EVM_WALLET_ID)
+    ) {
+      problems.push(
+        'CUSTODY_PROVIDER=privy requires OMNIBUS_EVM_ADDRESS and OMNIBUS_EVM_WALLET_ID',
+      );
+    }
+    if (value.CUSTODY_PROVIDER !== 'disabled' && (!value.PRIVY_APP_ID || !value.PRIVY_APP_SECRET)) {
+      problems.push('a custody provider requires PRIVY_APP_ID and PRIVY_APP_SECRET');
     }
     if (value.WEB_APP_URL.startsWith('http://')) {
       problems.push('WEB_APP_URL must use https in production (cookies are set Secure)');

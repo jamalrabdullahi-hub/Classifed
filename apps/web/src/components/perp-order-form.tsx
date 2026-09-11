@@ -616,20 +616,15 @@ function ReviewPanel({
           </Notice>
         ))}
 
-        {prepared.action.kind === 'venue-order' ? (
-          <PerpSubmit
-            orderId={prepared.orderId}
-            order={prepared.action.order}
-            venueName={venueName}
-            builderMaxFeeRate={builderMaxFeeRate}
-            onDone={onSubmitted}
-          />
-        ) : (
-          <Notice tone="warning" title="This venue needs a different signing step">
-            The order was prepared but this build cannot submit it to {venueName}. Nothing has been
-            sent and no margin has moved.
-          </Notice>
-        )}
+        <PerpSubmit
+          symbol={symbol}
+          side={side}
+          usdNotional={prepared.preview.notional}
+          leverage={leverage}
+          venueName={venueName}
+          builderMaxFeeRate={builderMaxFeeRate}
+          onDone={onSubmitted}
+        />
 
         <Button variant="secondary" block onClick={onBack}>
           Back

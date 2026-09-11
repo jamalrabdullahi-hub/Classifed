@@ -18,6 +18,8 @@ import type { PerpVenue } from './perps/types';
 import { ConsoleMailProvider } from './mail/console';
 import { ResendMailProvider } from './mail/resend';
 import type { MailProvider } from './mail/types';
+import { PrivyCustodyProvider } from './custody/privy-custody';
+import type { CustodyProvider } from './custody/types';
 
 /**
  * The ONLY module in the codebase permitted to name a concrete vendor.
@@ -39,6 +41,7 @@ interface Registry {
   history: PriceHistoryProvider;
   kyc: KycProvider;
   mail: MailProvider;
+  custody: CustodyProvider | null;
   risk: RiskEngine;
 }
 
@@ -118,11 +121,30 @@ function build(): Registry {
     }
   })();
 
+  /**
+   * The omnibus custodian, or null when custody is switched off.
+   *
+   * Null is a real answer: with CUSTODY_PROVIDER=disabled the platform holds no
+   * client funds, and callers that would touch the omnibus must no-op rather
+   * than run against a wallet that does not exist. See
+   * docs/adr/0004-custodial-omnibus.md.
+   */
+  const custody: CustodyProvider | null = (() => {
+    switch (config.CUSTODY_PROVIDER) {
+      case 'privy':
+        return new PrivyCustodyProvider();
+      case 'disabled':
+        return null;
+      default:
+        throw new Error(`Unknown CUSTODY_PROVIDER: ${config.CUSTODY_PROVIDER satisfies never}`);
+    }
+  })();
+
   // Phase 2 replaces this one line. Everything on the quote path already calls
   // through the interface, so nothing else has to change. See ADR 0003.
   const risk: RiskEngine = new NoopRiskEngine();
 
-  return { dex, perps, market, history, kyc, mail, risk };
+  return { dex, perps, market, history, kyc, mail, custody, risk };
 }
 
 function registry(): Registry {
@@ -184,6 +206,16 @@ export function kycProvider(): KycProvider {
 
 export function mailProvider(): MailProvider {
   return registry().mail;
+}
+
+/**
+ * The omnibus custodian, or null when custody is disabled.
+ *
+ * Callers must treat null as "do nothing": a job that keeps going without a
+ * custodian is the failure mode this nullable return is shaped to prevent.
+ */
+export function custodyProvider(): CustodyProvider | null {
+  return registry().custody;
 }
 
 export function riskEngine(): RiskEngine {

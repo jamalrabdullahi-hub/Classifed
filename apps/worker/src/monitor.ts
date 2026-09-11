@@ -139,12 +139,20 @@ async function checkTransaction(
     return tampered ? 'TAMPERED' : 'REVERTED';
   }
 
+  /**
+   * Who the fill landed with. Under custody the swap executes from the
+   * omnibus, so the bought tokens arrive there — reading the participant's own
+   * wallet would find nothing and the trade would never settle.
+   */
+  const omnibus = env().CUSTODY_PROVIDER === 'privy' ? env().OMNIBUS_EVM_ADDRESS : undefined;
+  const takerAddress = omnibus || transaction.wallet.address;
+
   const amountOut =
     transaction.kind === TransactionKind.SWAP
       ? extractAmountReceived(
           receipt.logs,
           transaction.quote?.buyTokenAddress ?? transaction.buyTokenAddress,
-          transaction.wallet.address,
+          takerAddress,
         )
       : null;
 

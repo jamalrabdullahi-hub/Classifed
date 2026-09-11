@@ -23,6 +23,7 @@ import { transactionStateMachine } from '../domain/state';
 import { AuditAction, audit } from './audit';
 import { loadActiveQuote } from './quotes';
 import { getWallet } from './wallets';
+import { settleCustodyTradeAfterConfirm, releaseCustodyTradeLock } from './custody-trades';
 
 /**
  * Trade submission.
@@ -286,6 +287,41 @@ export async function transitionTransaction(
         quoteId: quote.id,
       });
     }
+  }
+
+  /**
+   * Custody settlement, once the swap is confirmed. No-ops unless custody is
+   * on, so the pre-custody confirmed path is unchanged. The amount is the one
+   * the monitor read off the mined receipt — see
+   * `settleCustodyTradeAfterConfirm` for why it is not the quote's promise.
+   */
+  if (
+    next === TransactionStatus.CONFIRMED &&
+    current.quoteId &&
+    current.kind === TransactionKind.SWAP
+  ) {
+    await settleCustodyTradeAfterConfirm(db, {
+      transactionId,
+      userId: current.userId,
+      quoteId: current.quoteId,
+      receivedBaseUnits: extra.amountOutActual ?? null,
+    });
+  }
+
+  /**
+   * A swap that did not land moved nothing, so the reservation taken at execute
+   * is given back. No-ops unless custody is on.
+   */
+  if (
+    (next === TransactionStatus.REVERTED || next === TransactionStatus.DROPPED) &&
+    current.quoteId &&
+    current.kind === TransactionKind.SWAP
+  ) {
+    await releaseCustodyTradeLock(db, {
+      transactionId,
+      userId: current.userId,
+      quoteId: current.quoteId,
+    });
   }
 }
 

@@ -13,7 +13,8 @@
     "./kyc": "./src/kyc/index.ts",
     "./mail": "./src/mail/index.ts",
     "./perps/*": "./src/perps/*.ts",
-    "./wallet-provisioning": "./src/wallet-provisioning/index.ts"
+    "./wallet-provisioning": "./src/wallet-provisioning/index.ts",
+    "./custody": "./src/custody/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

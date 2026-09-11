@@ -1,102 +1,127 @@
-import { prisma } from '@flt/db';
+import { LedgerAccountKind, prisma } from '@flt/db';
 import { Decimal } from '../domain/money';
-import { readBalances } from '../chains/balances';
-import { SUPPORTED_CHAINS } from '../chains/registry';
+import { BASE_CHAIN_ID } from '../chains';
+import { naturalBalance } from './ledger';
 
 /**
- * A combined USD figure across every wallet FLT knows about — the auto-
- * provisioned embedded wallet and any manually linked ones — so a
- * low-information user can see "how much can I trade with" without knowing
- * which chain or token their balance happens to sit in.
+ * A participant's balance, read from the custody ledger.
  *
- * Display only. Trading itself still executes on whichever specific
- * chain/wallet actually holds the funds — this does not move, bridge, or
- * convert anything. See the "screw that, just autoconvert" conversation this
- * came out of: the heavier version (auto-bridge funds behind the scenes to
- * execute a trade) is a real, separate cross-chain integration, not this.
+ * Under custody the ledger is the source of truth: what a participant holds is
+ * the value FLT owes them, held as `USER_AVAILABLE` (spendable) and
+ * `USER_LOCKED` (reserved against an open trade). The chain is consulted only
+ * to *price* those holdings, never to decide what they are — reading a wallet
+ * would show nothing, because the funds are pooled in the omnibus. See
+ * `docs/adr/0004-custodial-omnibus.md`.
  *
- * A stablecoin balance is treated as worth exactly $1 per unit. That is the
- * assumption every part of this platform's fee and pricing code already
- * makes about USDC/USDT (see e.g. Subscription.pricePaidUsd), not a new one
- * introduced here.
+ * ## Two figures, because two questions
+ *
+ * `totalUsd` is what the whole account is worth — every asset, valued. That is
+ * the portfolio. `buyingPowerUsd` is only the stablecoin that can actually be
+ * spent right now, which is the number a participant checks before opening a
+ * trade. Conflating them would either overstate what is spendable or understate
+ * what is held.
+ *
+ * ## Estimation, labelled as such
+ *
+ * A stablecoin is worth its face value. Any other asset takes whatever price
+ * the market-data cache last recorded, and is marked `complete: false` when
+ * there is none — a holding we could not price shows as unknown rather than as
+ * zero, because "we could not value this" and "this is worth nothing" are
+ * different statements.
  */
 
-/** Symbols treated as USD-equivalent for this summary. Case-sensitive; must match the seeded Token.symbol exactly. */
-const USD_SYMBOLS = new Set(['USDC', 'USDT']);
+/** Symbols treated as $1 face value, matching the rest of the platform. */
+const STABLECOINS = new Set(['USDC', 'USDT']);
 
-export interface ChainUsdBalance {
-  chainId: number;
-  chainName: string;
-  usd: string;
-  /** False if any token read on this chain failed — the total may understate. */
+export interface CustodyHolding {
+  /** Symbol, e.g. "USDC". The ledger's asset key. */
+  asset: string;
+  /** Display name from the registry, when the asset is known there. */
+  name: string | null;
+  /** Whole units, as a decimal string. */
+  available: string;
+  locked: string;
+  /** Decimals for formatting, when the asset is in the registry. */
+  decimals: number | null;
+  priceUsd: string | null;
+  valueUsd: string | null;
+  /** False when the holding could not be valued (no price available). */
   complete: boolean;
 }
 
-export interface UsdBalanceSummary {
+export interface CustodyPortfolio {
   totalUsd: string;
-  chains: ChainUsdBalance[];
-  /** Wallets FLT holds an address for but cannot read a balance on yet. */
-  unsupportedChainIds: number[];
+  buyingPowerUsd: string;
+  holdings: CustodyHolding[];
 }
 
-export async function usdBalanceSummary(userId: string): Promise<UsdBalanceSummary> {
-  const wallets = await prisma.wallet.findMany({ where: { userId } });
-  if (wallets.length === 0) {
-    return { totalUsd: '0', chains: [], unsupportedChainIds: [] };
-  }
-
-  const chainIds = [...new Set(wallets.map((wallet) => wallet.chainId))];
-  const supportedChainIds = new Set(SUPPORTED_CHAINS.map((chain) => chain.chainId));
-  const unsupportedChainIds = chainIds.filter((id) => !supportedChainIds.has(id));
-
-  const stablecoins = await prisma.token.findMany({
-    where: { chainId: { in: chainIds }, symbol: { in: [...USD_SYMBOLS] }, isEnabled: true },
+export async function custodyPortfolio(userId: string): Promise<CustodyPortfolio> {
+  const accounts = await prisma.ledgerAccount.findMany({
+    where: {
+      userId,
+      kind: { in: [LedgerAccountKind.USER_AVAILABLE, LedgerAccountKind.USER_LOCKED] },
+    },
   });
 
-  const chainResults = await Promise.all(
-    SUPPORTED_CHAINS.filter((chain) => chainIds.includes(chain.chainId)).map(
-      async (chain): Promise<ChainUsdBalance> => {
-        const walletsOnChain = wallets.filter((wallet) => wallet.chainId === chain.chainId);
-        const tokensOnChain = stablecoins.filter((token) => token.chainId === chain.chainId);
+  // One entry per asset, available and locked folded together.
+  const byAsset = new Map<string, { available: Decimal; locked: Decimal }>();
+  for (const account of accounts) {
+    const entry = byAsset.get(account.asset) ?? {
+      available: new Decimal(0),
+      locked: new Decimal(0),
+    };
+    const natural = naturalBalance(account);
+    if (account.kind === LedgerAccountKind.USER_AVAILABLE) entry.available = natural;
+    else entry.locked = natural;
+    byAsset.set(account.asset, entry);
+  }
 
-        if (tokensOnChain.length === 0 || walletsOnChain.length === 0) {
-          return { chainId: chain.chainId, chainName: chain.name, usd: '0', complete: true };
-        }
+  if (byAsset.size === 0) {
+    return { totalUsd: '0.00', buyingPowerUsd: '0.00', holdings: [] };
+  }
 
-        let usd = new Decimal(0);
-        let complete = true;
+  const tokens = await prisma.token.findMany({
+    where: { chainId: BASE_CHAIN_ID, symbol: { in: [...byAsset.keys()] } },
+    include: { marketData: true },
+  });
+  const tokenBySymbol = new Map(tokens.map((token) => [token.symbol, token]));
 
-        for (const wallet of walletsOnChain) {
-          try {
-            const result = await readBalances(
-              chain.chainId,
-              wallet.address,
-              tokensOnChain.map((token) => ({ address: token.address as `0x${string}`, decimals: token.decimals })),
-            );
-            for (const tokenBalance of result.tokens) {
-              if (!tokenBalance.ok) {
-                complete = false;
-                continue;
-              }
-              const token = tokensOnChain.find(
-                (each) => each.address.toLowerCase() === tokenBalance.tokenAddress.toLowerCase(),
-              );
-              if (!token) continue;
-              usd = usd.plus(new Decimal(tokenBalance.balance).div(new Decimal(10).pow(token.decimals)));
-            }
-          } catch {
-            complete = false;
-          }
-        }
+  let total = new Decimal(0);
+  let buyingPower = new Decimal(0);
+  const holdings: CustodyHolding[] = [];
 
-        return { chainId: chain.chainId, chainName: chain.name, usd: usd.toFixed(2), complete };
-      },
-    ),
-  );
+  for (const [asset, balance] of byAsset) {
+    const token = tokenBySymbol.get(asset);
+    const isStable = STABLECOINS.has(asset);
 
-  const totalUsd = chainResults
-    .reduce((sum, chain) => sum.plus(new Decimal(chain.usd)), new Decimal(0))
-    .toFixed(2);
+    const price = isStable
+      ? new Decimal(1)
+      : token?.marketData?.priceUsd
+        ? new Decimal(token.marketData.priceUsd.toString())
+        : null;
 
-  return { totalUsd, chains: chainResults, unsupportedChainIds };
+    const amount = balance.available.plus(balance.locked);
+    const value = price ? amount.times(price) : null;
+    if (value) total = total.plus(value);
+    if (isStable) buyingPower = buyingPower.plus(balance.available);
+
+    holdings.push({
+      asset,
+      name: token?.name ?? null,
+      available: balance.available.toFixed(),
+      locked: balance.locked.toFixed(),
+      decimals: token?.decimals ?? null,
+      priceUsd: price ? price.toFixed() : null,
+      valueUsd: value ? value.toFixed(2) : null,
+      complete: value !== null,
+    });
+  }
+
+  holdings.sort((a, b) => Number(b.valueUsd ?? 0) - Number(a.valueUsd ?? 0));
+
+  return {
+    totalUsd: total.toFixed(2),
+    buyingPowerUsd: buyingPower.toFixed(2),
+    holdings,
+  };
 }

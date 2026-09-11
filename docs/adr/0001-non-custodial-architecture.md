@@ -1,6 +1,10 @@
 # ADR 0001 — Non-custodial architecture
 
-**Status:** Accepted · **Date:** 2026-09-05
+**Status:** Superseded by ADR 0004 (custodial omnibus) · **Date:** 2026-09-05
+
+> **This ADR no longer governs the architecture.** The operator has chosen a
+> custodial omnibus model; see `docs/adr/0004-custodial-omnibus.md`. The
+> reasoning below is kept as the record of the model we left.
 
 ## Context
 

@@ -17,6 +17,8 @@ import {
   outstandingFiatLiability,
 } from '@flt/core/services/fiat-deposits';
 import { resolveProtectionSettings } from '@flt/core/services/protection-settings';
+import { env } from '@flt/config';
+import { BASE_CHAIN_ID } from '@flt/core/chains';
 import { requireAdminPage } from '@/server/session';
 import { EvcSettingsForm } from './evc-settings-form';
 import { EvcQueue } from './evc-queue';
@@ -42,6 +44,11 @@ export default async function PaymentsPage() {
   const canConfigure = can(admin, PERMISSIONS.MANAGE_PLATFORM_SETTINGS);
   const canReview = can(admin, PERMISSIONS.MANAGE_SUBSCRIPTIONS);
   const canPayout = can(admin, PERMISSIONS.MANAGE_PAYOUTS);
+
+  // The omnibus the converted stablecoin is sent to under custody. Read once
+  // here so the queue can show the operator the exact destination rather than
+  // make them retype it.
+  const omnibusAddress = env().OMNIBUS_EVM_ADDRESS ?? null;
 
   const [
     settings,
@@ -121,9 +128,9 @@ export default async function PaymentsPage() {
         <>
           {canConfigure ? <FiatDepositSettingsForm initial={fiatDepositSettings} /> : null}
           <FiatDepositQueue
-            awaiting={depositsAwaiting.map(serialiseDeposit)}
-            toSend={depositsToSend.map(serialiseDeposit)}
-            toConfirm={depositsToConfirm.map(serialiseDeposit)}
+            awaiting={depositsAwaiting.map((deposit) => serialiseDeposit(deposit, omnibusAddress))}
+            toSend={depositsToSend.map((deposit) => serialiseDeposit(deposit, omnibusAddress))}
+            toConfirm={depositsToConfirm.map((deposit) => serialiseDeposit(deposit, omnibusAddress))}
             liability={fiatLiability}
             /* What the on-chain check compares against: the stablecoin FLT
                pays in, and the wallet it pays from. Both already configured
@@ -150,10 +157,8 @@ export default async function PaymentsPage() {
 
 function serialiseDeposit(
   deposit: Awaited<ReturnType<typeof listFiatDepositsForReview>>[number],
+  omnibusAddress: string | null,
 ) {
-  // The participant's own FLT wallet, so an operator never retypes an address.
-  const wallet = deposit.user.wallets[0];
-
   return {
     id: deposit.id,
     email: deposit.user.email,
@@ -169,8 +174,11 @@ function serialiseDeposit(
     receivedAt: deposit.receivedAt?.toISOString() ?? null,
     sentAt: deposit.sentAt?.toISOString() ?? null,
     deliveredAt: deposit.deliveredAt?.toISOString() ?? null,
-    walletAddress: wallet?.address ?? null,
-    walletChainId: wallet?.chainId ?? null,
+    // The omnibus, not the participant's wallet: under custody the converted
+    // stablecoin lands in the pooled wallet FLT controls, so that is what an
+    // operator sends to and what the on-chain check expects.
+    omnibusAddress,
+    omnibusChainId: BASE_CHAIN_ID,
     bankReference: deposit.bankReference,
     createdAt: deposit.createdAt.toISOString(),
   };

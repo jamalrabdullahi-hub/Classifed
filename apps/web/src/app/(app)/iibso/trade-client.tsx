@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAccount, useSendTransaction, useSwitchChain, useWriteContract } from 'wagmi';
-import { erc20Abi } from 'viem';
 import { AlertTriangle, ArrowDown, Check, ExternalLink, Info, Wallet } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import {
@@ -24,7 +22,7 @@ import {
   cn,
 } from '@flt/ui';
 import { MarketChart } from '@/components/market-chart';
-import { ApiError, idempotencyKey, post } from '@/lib/api';
+import { ApiError, get, idempotencyKey, post } from '@/lib/api';
 import { SUPPORTED_CHAIN } from '@/lib/wagmi';
 
 /**
@@ -109,10 +107,6 @@ export function TradeClient({
 }) {
   const router = useRouter();
   const t = useTranslations('tradeClient');
-  const { address: connectedAddress, isConnected, chainId } = useAccount();
-  const { switchChainAsync } = useSwitchChain();
-  const { sendTransactionAsync } = useSendTransaction();
-  const { writeContractAsync } = useWriteContract();
 
   const preferred = wallets.find((wallet) => wallet.isPreferred) ?? wallets[0]!;
 
@@ -158,27 +152,14 @@ export function TradeClient({
   const [busy, setBusy] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [submittedTx, setSubmittedTx] = useState<string | null>(null);
+  const [buyingPowerUsd, setBuyingPowerUsd] = useState<string | null>(null);
 
   const baseUnits = useMemo(() => toBaseUnits(amount, sellToken.decimals), [amount, sellToken]);
 
   /**
-   * Whether this trade is signed here or by FLT.
-   *
-   * An FLT wallet's key lives at Privy, not in a browser extension, so every
-   * check below about what is connected is not merely unnecessary for it --
-   * it is wrong. Asking somebody to connect a wallet in order to trade from
-   * the wallet FLT holds for them describes a step that does not exist, and
-   * blocks the button behind it.
+   * FLT signs every trade from the omnibus — there is no wallet to connect and
+   * no browser signature to collect. See docs/adr/0004-custodial-omnibus.md.
    */
-  const managed = preferred.isManaged;
-
-  const walletMismatch =
-    !managed && isConnected && connectedAddress
-      ? connectedAddress.toLowerCase() !== preferred.address.toLowerCase()
-      : false;
-  const wrongChain = !managed && isConnected && chainId !== SUPPORTED_CHAIN.id;
-  /** Nothing to connect when FLT signs, so the sign buttons are never gated on it. */
-  const canSign = managed || (isConnected && !walletMismatch);
 
   // ── Indicative pricing, debounced while typing ────────────────────────────
   const priceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -220,6 +201,22 @@ export function TradeClient({
     return () => clearInterval(interval);
   }, [quote, phase]);
 
+  // Buying power, from the custody ledger, so a trade can be sized against what
+  // the account can actually spend.
+  useEffect(() => {
+    let cancelled = false;
+    get<{ buyingPowerUsd: string }>('/api/wallets/usd-balance')
+      .then((result) => {
+        if (!cancelled) setBuyingPowerUsd(result.buyingPowerUsd);
+      })
+      .catch(() => {
+        if (!cancelled) setBuyingPowerUsd(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const swapTokens = useCallback(() => {
     setSellToken(buyToken);
     setBuyToken(sellToken);
@@ -254,41 +251,14 @@ export function TradeClient({
     setPhase('approving');
 
     try {
-      if (managed) {
-        // Server-side: the allowance is derived from the persisted quote, so
-        // the client never names a spender.
-        await post('/api/approvals/execute', { quoteId: quote.id }, idempotencyKey());
-        setQuote(null);
-        setPhase('idle');
-        setError(t('approvalSubmitted'));
-        return;
-      }
-
-      const hash = await writeContractAsync({
-        address: quote.sellToken.address as `0x${string}`,
-        abi: erc20Abi,
-        functionName: 'approve',
-        // Exact amount rather than unlimited. An unlimited approval is more
-        // convenient and strictly worse for the user: it leaves a standing
-        // permission on a contract long after the trade is done.
-        args: [quote.allowance.spender as `0x${string}`, BigInt(quote.sellAmount)],
-      });
-
-      await post('/api/approvals', {
-        walletId: preferred.id,
-        chainId: SUPPORTED_CHAIN.id,
-        txHash: hash,
-        tokenAddress: quote.sellToken.address,
-        spenderAddress: quote.allowance.spender,
-      });
-
-      // The approval must confirm before the swap can be quoted against it, so
-      // the user re-quotes rather than signing a swap that would revert.
+      // The allowance is granted by the omnibus and read off the persisted
+      // quote, so the client never names a spender and signs nothing.
+      await post('/api/approvals/execute', { quoteId: quote.id }, idempotencyKey());
       setQuote(null);
       setPhase('idle');
       setError(t('approvalSubmitted'));
     } catch (caught) {
-      setError(describeWalletError(caught, t));
+      setError(caught instanceof ApiError ? caught.message : t('genericWalletError'));
       setPhase('quoted');
     } finally {
       setBusy(false);
@@ -302,48 +272,20 @@ export function TradeClient({
     setPhase('signing');
 
     try {
-      if (managed) {
-        // FLT signs and broadcasts, so the hash comes back rather than being
-        // reported. Same `submitTrade` on the far side either way, so the
-        // trade is recorded and monitored identically however it was signed.
-        const executed = await post<{ txHash: string }>(
-          '/api/trades/execute',
-          { quoteId: quote.id },
-          idempotencyKey(),
-        );
-
-        setSubmittedTx(executed.txHash);
-        setPhase('submitted');
-        router.refresh();
-        return;
-      }
-
-      if (wrongChain) await switchChainAsync({ chainId: SUPPORTED_CHAIN.id });
-
-      // Exactly the transaction the server quoted and persisted. The monitor
-      // compares what lands on-chain against this.
-      const hash = await sendTransactionAsync({
-        to: quote.transaction.to as `0x${string}`,
-        data: quote.transaction.data as `0x${string}`,
-        value: BigInt(quote.transaction.value),
-        ...(quote.transaction.gas ? { gas: BigInt(quote.transaction.gas) } : {}),
-      });
-
-      await post(
-        '/api/trades',
-        { quoteId: quote.id, txHash: hash },
+      // FLT signs and broadcasts from the omnibus, so the hash comes back
+      // rather than being reported. Same `submitTrade` on the far side, so the
+      // trade is recorded and monitored identically.
+      const executed = await post<{ txHash: string }>(
+        '/api/trades/execute',
+        { quoteId: quote.id },
         idempotencyKey(),
       );
 
-      setSubmittedTx(hash);
+      setSubmittedTx(executed.txHash);
       setPhase('submitted');
       router.refresh();
     } catch (caught) {
-      if (caught instanceof ApiError) {
-        setError(caught.message);
-      } else {
-        setError(describeWalletError(caught, t));
-      }
+      setError(caught instanceof ApiError ? caught.message : t('genericWalletError'));
       setPhase('quoted');
     } finally {
       setBusy(false);
@@ -428,6 +370,12 @@ export function TradeClient({
             excludeAddress={buyToken.address}
           />
 
+          {buyingPowerUsd !== null ? (
+            <p className="text-right text-[11px] text-[var(--text-subtle)]">
+              {t('buyingPowerLine', { amount: buyingPowerUsd })}
+            </p>
+          ) : null}
+
           <div className="flex justify-center">
             <button
               type="button"
@@ -465,24 +413,9 @@ export function TradeClient({
             <Notice tone={error === t('approvalSubmitted') ? 'info' : 'negative'}>{error}</Notice>
           ) : null}
 
-          {walletMismatch ? (
-            <Notice tone="warning" title={t('differentWalletTitle')}>
-              {t('differentWalletBody', {
-                connected: shorten(connectedAddress!),
-                preferred: shorten(preferred.address),
-              })}
-            </Notice>
-          ) : null}
-
-          {managed ? (
-            <Notice tone="info">
-              {t('fltSignsNote', { address: shorten(preferred.address) })}
-            </Notice>
-          ) : !isConnected ? (
-            <Notice tone="info">
-              {t('connectToSign', { address: shorten(preferred.address) })}
-            </Notice>
-          ) : null}
+          <Notice tone="info">
+            {t('fltSignsNote', { address: shorten(preferred.address) })}
+          </Notice>
 
           {!quote ? (
             <Button
@@ -502,7 +435,6 @@ export function TradeClient({
               size="lg"
               onClick={approve}
               loading={busy || phase === 'approving'}
-              disabled={!canSign}
             >
               {t('approve', { symbol: quote.sellToken.symbol })}
             </Button>
@@ -513,18 +445,14 @@ export function TradeClient({
               size="lg"
               onClick={signAndSubmit}
               loading={busy || phase === 'signing'}
-              disabled={!canSign || secondsLeft === 0}
+              disabled={secondsLeft === 0}
             >
-              {secondsLeft === 0
-                ? t('quoteExpired')
-                : managed
-                  ? t('executeTrade', { seconds: secondsLeft })
-                  : t('signInWallet', { seconds: secondsLeft })}
+              {secondsLeft === 0 ? t('quoteExpired') : t('executeTrade', { seconds: secondsLeft })}
             </Button>
           )}
 
           <p className="text-center text-[11px] leading-relaxed text-[var(--text-subtle)]">
-            {managed ? t('fltSignsFooter') : t('walletSignsNote')}
+            {t('fltSignsFooter')}
           </p>
         </CardContent>
       </Card>
@@ -932,22 +860,4 @@ function formatAmount(value: string, decimals: number): string {
 
 function shorten(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
-}
-
-function describeWalletError(
-  error: unknown,
-  t: ReturnType<typeof useTranslations<'tradeClient'>>,
-): string {
-  const message = error instanceof Error ? error.message : String(error);
-
-  if (/user rejected|user denied|rejected the request/i.test(message)) {
-    return t('declinedNoFunds');
-  }
-  if (/insufficient funds/i.test(message)) {
-    return t('insufficientFunds');
-  }
-  if (/already pending/i.test(message)) {
-    return t('pendingRequest');
-  }
-  return t('genericWalletError');
 }

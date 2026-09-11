@@ -1,4 +1,4 @@
-import { base, bsc } from 'viem/chains';
+import { base, bsc, arbitrum } from 'viem/chains';
 import type { Chain as ViemChain } from 'viem';
 import { env } from '@flt/config';
 import { UnsupportedChainError } from '../domain/errors';
@@ -80,7 +80,30 @@ const BNB: ChainDefinition = {
   },
 };
 
-export const SUPPORTED_CHAINS: readonly ChainDefinition[] = [BASE, BNB];
+export const ARBITRUM_CHAIN_ID = 42161;
+
+/**
+ * Added for the custodial perps venue funding rail (ADR 0005).
+ *
+ * HyperCore's USDC does not come from Base — the only USDC deposit rail is the
+ * Hyperliquid bridge on Arbitrum (and Circle CCTP). So perp venue funding needs
+ * Arbitrum registered here, even though no spot route uses it.
+ */
+const ARBITRUM: ChainDefinition = {
+  chainId: ARBITRUM_CHAIN_ID,
+  name: 'Arbitrum One',
+  shortName: 'arbitrum',
+  nativeSymbol: 'ETH',
+  nativeDecimals: 18,
+  explorerUrl: 'https://arbiscan.io',
+  viemChain: arbitrum,
+  wrappedNativeAddress: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
+  multicallAddress: '0xcA11bde05977b3631167028862bE2a173976CA11',
+  rpcUrl: () => env().ARBITRUM_RPC_URL,
+  fallbackRpcUrl: () => undefined,
+};
+
+export const SUPPORTED_CHAINS: readonly ChainDefinition[] = [BASE, BNB, ARBITRUM];
 
 export function findChain(chainId: number): ChainDefinition | undefined {
   return SUPPORTED_CHAINS.find((chain) => chain.chainId === chainId);

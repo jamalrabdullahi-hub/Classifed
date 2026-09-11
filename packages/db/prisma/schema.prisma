@@ -237,6 +237,8 @@ model User {
   ledgerAccounts     LedgerAccount[]
   walletDelegation   WalletDelegation?
   fiatDeposits       FiatDeposit[]
+  custodyDeposits    CustodyDeposit[]
+  withdrawals        Withdrawal[]
   referralCode       ReferralCode?          @relation("ReferralCodeOwner")
   referralsMade      Referral[]             @relation("ReferralsMade")
   referredBy         Referral?              @relation("ReferredBy")
@@ -524,6 +526,8 @@ model Chain {
 
   tokens  Token[]
   wallets Wallet[]
+  custodyDeposits CustodyDeposit[]
+  withdrawals Withdrawal[]
 
   @@map("chains")
 }
@@ -1986,6 +1990,11 @@ enum LedgerAccountKind {
   FEE_REVENUE
   /// Fiat received and not yet converted, or vice versa.
   FIAT_GATEWAY
+  /// Perpetual margin held at the venue — the pooled Hyperliquid USDC. An
+  /// asset, like CLIENT_OMNIBUS, and kept separate from it: spot collateral
+  /// and venue margin live in different places and fail separately. See
+  /// docs/adr/0005-perps-custody.md.
+  VENUE_MARGIN
 }
 
 enum LedgerTransferKind {
@@ -2233,4 +2242,137 @@ model FiatDeposit {
   @@index([status, createdAt])
   @@index([userId, createdAt])
   @@map("fiat_deposits")
+}
+
+enum CustodyDepositStatus {
+  /// A stablecoin transfer to a participant's deposit address has been seen
+  /// on-chain. Nothing has moved yet; the funds are still theirs, on-chain.
+  DETECTED
+  /// A sweep into the omnibus has been broadcast. Not yet confirmed, and
+  /// therefore not yet credited — a broadcast is not a mined transfer.
+  SWEEPING
+  /// The sweep is confirmed in a mined receipt. Ready to credit.
+  SWEPT
+  /// The ledger has credited the participant's available balance. Terminal.
+  CREDITED
+  /// The sweep failed (reverted, or the address could not be swept). Nothing
+  /// was credited; the funds remain where they are.
+  FAILED
+}
+
+/// A crypto deposit into custody: stablecoin arriving at a participant's own
+/// FLT deposit address, and being swept into the omnibus.
+///
+/// ## Why this is a record and not just a ledger entry
+///
+/// The credit must happen only once the sweep is confirmed in a mined receipt —
+/// crediting on a broadcast would credit a transfer that could still revert,
+/// which is the exact failure `fiat-deposits.ts` is shaped to avoid. So
+/// detection, the sweep and the credit are three facts separated by time, and
+/// each has to survive a worker restart in between. This row is where that
+/// state lives, so the pipeline is safe to run over and over.
+///
+/// ## The detection identity
+///
+/// `(chainId, depositTxHash, logIndex)` is one inbound transfer, unique, so
+/// re-scanning the same block credits the same deposit once rather than minting
+/// a second. `depositAddress` is snapshotted because a participant can
+/// provision a different address later, and a report has to say where the funds
+/// actually landed.
+model CustodyDeposit {
+  id     String @id
+  userId String
+
+  asset    String
+  chainId  Int
+  decimals Int
+  /// The exact amount, in base units, as the chain reported it. A string,
+  /// because a uint256 fits no numeric type and the amount is the one number
+  /// that must not lose precision.
+  amountBaseUnits String
+
+  depositAddress String
+  depositTxHash  String
+  logIndex       Int
+
+  /// Set when the sweep is broadcast, and set again (`sweptAt`) when it
+  /// confirms.
+  sweepTxHash String?
+  sweptAt     DateTime?
+
+  /// The ledger reference the credit was posted under, so the balance a
+  /// participant sees can be traced back to the transfer that created it.
+  ledgerReference String?
+
+  status        CustodyDepositStatus @default(DETECTED)
+  failureReason String?
+
+  creditedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chain Chain @relation(fields: [chainId], references: [chainId])
+
+  @@unique([chainId, depositTxHash, logIndex])
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@map("custody_deposits")
+}
+
+enum WithdrawalStatus {
+  /// Requested and the funds are locked, but nothing has been broadcast yet.
+  PENDING
+  /// A transfer from the omnibus has been broadcast. Not yet confirmed.
+  SENT
+  /// Confirmed in a mined receipt. The ledger has been debited. Terminal.
+  COMPLETED
+  /// The broadcast failed or reverted. The lock has been released. Terminal.
+  FAILED
+}
+
+/// A withdrawal: a participant asking to take funds out of custody.
+///
+/// ## Why funds are locked first
+///
+/// Between the request and the on-chain transfer the participant still holds the
+/// balance on the ledger. Left spendable, they could commit it to a trade and to
+/// a withdrawal at once and only one would be honourable. So the request moves
+/// the amount from available to locked, and this is the only thing that can
+/// spend it.
+///
+/// ## The debit is on a mined receipt, never a broadcast
+///
+/// A broadcast can revert or be dropped. Debiting on the strength of having sent
+/// it would book money as gone that never left — the discipline the deposit and
+/// fiat rails keep, for the same reason.
+model Withdrawal {
+  id     String @id
+  userId String
+
+  asset    String
+  chainId  Int
+  decimals Int
+  /// The amount, in base units, as the chain needs it.
+  amountBaseUnits String
+
+  destinationAddress String
+
+  /// The omnibus transfer, once broadcast.
+  txHash String?
+
+  status        WithdrawalStatus @default(PENDING)
+  failureReason String?
+
+  sentAt      DateTime?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chain Chain @relation(fields: [chainId], references: [chainId])
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@map("withdrawals")
 }

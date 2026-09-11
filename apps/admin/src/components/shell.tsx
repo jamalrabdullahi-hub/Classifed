@@ -11,6 +11,8 @@ import {
   LogOut,
   Percent,
   Banknote,
+  BookText,
+  CandlestickChart,
   Sparkles,
   Shield,
   TrendingUp,
@@ -60,6 +62,13 @@ const SECTIONS: { label: string; items: { href: string; label: string; icon: typ
       { href: '/protection', label: 'Protection', icon: Shield },
       { href: '/market-making', label: 'Market making', icon: TrendingUp },
       { href: '/payments', label: 'Payments', icon: Banknote },
+    ],
+  },
+  {
+    label: 'Custody',
+    items: [
+      { href: '/ledger', label: 'Ledger', icon: BookText },
+      { href: '/perps', label: 'Perpetuals', icon: CandlestickChart },
     ],
   },
   {

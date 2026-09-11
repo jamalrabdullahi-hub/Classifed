@@ -16,8 +16,8 @@ export interface DepositRow {
   status: string;
   payerName: string;
   payerPhone: string;
-  walletAddress: string | null;
-  walletChainId: number | null;
+  omnibusAddress: string | null;
+  omnibusChainId: number;
   bankReference: string | null;
   deliveryTxHash: string | null;
   createdAt: string;
@@ -30,9 +30,10 @@ export interface DepositRow {
  * A deposit's four operator stages.
  *
  * Three queues rather than one list, because they are three different jobs
- * done at different moments: reconciling a bank statement, sending crypto, and
- * confirming it landed. An operator working the third queue is releasing money
- * already owed, which is why the outstanding figure sits above it.
+ * done at different moments: reconciling a bank statement, converting the cash
+ * into the custodied stablecoin, and confirming it landed in the omnibus. An
+ * operator working the third queue is crediting money already owed, which is
+ * why the outstanding figure sits above it.
  *
  * Every row carries its timeline, so a deposit stuck for three days does not
  * look identical to one raised ten minutes ago — which is exactly what a flat
@@ -94,11 +95,11 @@ export function FiatDepositQueue({
             note: row.bankReference,
           },
           {
-            label: 'Confirm movement to Privy',
+            label: 'Confirm conversion into the omnibus',
             at: row.sentAt,
             note: row.deliveryTxHash ? `${row.deliveryTxHash.slice(0, 14)}…` : null,
           },
-          { label: 'Confirm on-chain and enable trading', at: row.deliveredAt },
+          { label: 'Confirm on-chain and credit the balance', at: row.deliveredAt },
         ]}
       />
     );
@@ -224,7 +225,7 @@ export function FiatDepositQueue({
 
       <Card>
         <CardHeader>
-          <CardTitle>2 · Send to Privy</CardTitle>
+          <CardTitle>2 · Convert into the omnibus</CardTitle>
           <Badge tone={toSend.length > 0 ? 'negative' : 'neutral'}>{toSend.length}</Badge>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -233,7 +234,7 @@ export function FiatDepositQueue({
           ) : (
             toSend.map((row) => {
               const hash = (txHash[row.id] ?? '').trim();
-              const ready = /^0x[0-9a-fA-F]{64}$/.test(hash) && Boolean(row.walletAddress);
+              const ready = /^0x[0-9a-fA-F]{64}$/.test(hash) && Boolean(row.omnibusAddress);
 
               return (
                 <div
@@ -248,10 +249,10 @@ export function FiatDepositQueue({
                       known. */}
                   <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-sunken)] p-2">
                     <p className="text-[10px] uppercase tracking-[0.06em] text-[var(--text-subtle)]">
-                      Send to
+                      Send converted stablecoin to
                     </p>
                     <p className="num break-all font-mono text-[12px] text-[var(--text)]">
-                      {row.walletAddress ?? 'No FLT wallet on this account'}
+                      {row.omnibusAddress ?? 'Custody is not configured — no omnibus wallet'}
                     </p>
                   </div>
 
@@ -273,12 +274,12 @@ export function FiatDepositQueue({
                       void act(row.id, {
                         action: 'send',
                         txHash: hash,
-                        address: row.walletAddress,
-                        chainId: row.walletChainId,
+                        address: row.omnibusAddress,
+                        chainId: row.omnibusChainId,
                       })
                     }
                   >
-                    Confirm movement to Privy
+                    Confirm conversion
                   </Button>
                 </div>
               );
@@ -289,7 +290,7 @@ export function FiatDepositQueue({
 
       <Card>
         <CardHeader>
-          <CardTitle>3 · Confirm and enable</CardTitle>
+          <CardTitle>3 · Confirm and credit</CardTitle>
           <Badge tone={toConfirm.length > 0 ? 'warning' : 'neutral'}>{toConfirm.length}</Badge>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -310,8 +311,8 @@ export function FiatDepositQueue({
                     operator asserting. It reads the receipt and refuses if the
                     token, sender, recipient or amount does not match. */}
                 <p className="text-[11px] leading-relaxed text-[var(--text-subtle)]">
-                  Checks the transaction against the chain before releasing. Refuses if the token,
-                  sender, recipient or amount does not match what is owed.
+                  Checks the transaction against the chain before crediting. Refuses if the token,
+                  sender, omnibus recipient or amount does not match what is owed.
                 </p>
 
                 <Button
@@ -327,7 +328,7 @@ export function FiatDepositQueue({
                     })
                   }
                 >
-                  Verify on-chain and enable trading
+                  Verify on-chain and credit
                 </Button>
 
                 {!defaultTokenAddress || !defaultTreasuryAddress ? (

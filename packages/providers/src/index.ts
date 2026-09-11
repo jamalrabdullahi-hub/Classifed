@@ -7,6 +7,7 @@ export {
   priceHistoryProvider,
   kycProvider,
   mailProvider,
+  custodyProvider,
   riskEngine,
   resetProviders,
 } from './registry';
@@ -17,4 +18,5 @@ export * from './market/index';
 export * from './history/index';
 export * from './kyc/index';
 export * from './mail/index';
+export * from './custody/index';
 export * from './wallet-provisioning/index';

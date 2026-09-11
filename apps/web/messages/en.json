@@ -19,7 +19,8 @@
     "openAccount": "Open an account",
     "remittance": "Remittance",
     "remittanceBadge": "-90% cheaper!",
-    "deposit": "Add money"
+    "deposit": "Add money",
+    "withdraw": "Withdraw money"
   },
   "home": {
     "eyebrow": "Non-custodial trading",
@@ -601,7 +602,8 @@
     "title": "Wallets",
     "description": "Self-custody wallets linked to your account. Your keys never leave your device, and FLT cannot move your funds.",
     "totalBalanceLabel": "Total available",
-    "totalBalanceHint": "USDC/USDT across every wallet on your account, added together. Trading still uses whichever wallet actually holds the funds.",
+    "buyingPowerLabel": "Buying power",
+    "totalBalanceHint": "Everything in your FLT account, valued in USD. Buying power is the stablecoin you can spend right now.",
     "unsupportedChainsNote": "+{count} chain(s) not yet balance-readable",
     "connectWallet": "Connect a wallet",
     "noWalletTitle": "No wallet linked",
@@ -678,6 +680,7 @@
     "newTrade": "New trade",
     "trade": "Trade",
     "youPay": "You pay",
+    "buyingPowerLine": "Buying power: ${amount}",
     "youReceive": "You receive",
     "swapPairAria": "Swap the pair",
     "approvalSubmitted": "Approval submitted. Once it confirms on-chain, request a new quote to complete the trade.",
@@ -968,7 +971,7 @@
     },
     "portfolio": {
       "title": "Portfolio",
-      "description": "Read directly from the chain. FLT does not hold these assets and cannot move them.",
+      "description": "Your FLT account balance, held by FLT on your behalf. The chain is used only to estimate value.",
       "noWalletTitle": "No wallet linked",
       "noWalletBody": "Link a self-custody wallet to see your balances. FLT reads them from the chain and never holds your assets.",
       "connectWallet": "Connect a wallet",
@@ -980,11 +983,15 @@
       "thirdPartyPricesHint": "Third-party prices",
       "assetsHeld": "Assets held",
       "nonZeroHint": "With a non-zero balance",
+      "buyingPower": "Buying power",
+      "buyingPowerHint": "Stablecoin available to trade",
+      "balance": "Balance",
+      "custodyBadge": "Custody",
       "wallets": "Wallets",
       "linkedVerifiedHint": "Linked and verified",
       "holdings": "Holdings",
       "noBalancesTitle": "No balances found",
-      "noBalancesBody": "This wallet holds none of the tokens in FLT's registry on Base. Balances are read from the chain, so anything you hold elsewhere is unaffected.",
+      "noBalancesBody": "You have no balance yet. Money appears here once a deposit has been confirmed.",
       "asset": "Asset",
       "contract": "Contract",
       "onChainBalance": "On-chain balance",
@@ -992,7 +999,7 @@
       "unverified": "Unverified",
       "wallet": "Wallet",
       "couldNotBeRead": "Could not be read",
-      "footerNote": "On-chain balances are exact and read live from Base. Estimated values apply third-party prices to those balances and will differ from what a trade actually realises. A dash means the value is unknown, never that it is zero."
+      "footerNote": "The balance is FLT's record of what it holds for you. Estimated values apply third-party prices and will differ from what a trade actually realises. A dash means the value is unknown, never that it is zero."
     },
     "referrals": {
       "title": "Referrals",
@@ -1102,16 +1109,40 @@
     "termsChangedTitle": "Terms have changed",
     "termsChangedBody": "The permission you gave was for earlier wording. Please read and accept the current terms to keep trading from this wallet."
   },
+  "withdrawPage": {
+    "title": "Withdraw",
+    "description": "Take money out of your FLT account. A request reserves the amount; the transfer is sent from the omnibus and your balance moves when it confirms on-chain.",
+    "formTitle": "Request a withdrawal",
+    "asset": "Asset",
+    "amountLabel": "Amount",
+    "available": "Available: {amount}",
+    "destination": "Destination address",
+    "destinationHint": "The wallet to send to. Check it carefully — a withdrawal cannot be reversed.",
+    "overBalance": "That is more than your available balance.",
+    "badAddress": "Enter a valid wallet address.",
+    "requestWithdrawal": "Request withdrawal",
+    "timingNote": "Your balance moves when the transfer confirms on-chain. You can follow it in Activity.",
+    "submitted": "Withdrawal requested. It will be sent shortly, and your balance updates when it confirms.",
+    "noAssets": "You have nothing to withdraw yet.",
+    "genericError": "Could not request that withdrawal.",
+    "historyTitle": "Recent withdrawals",
+    "status": {
+      "PENDING": "Pending",
+      "SENT": "Sending",
+      "COMPLETED": "Sent",
+      "FAILED": "Failed"
+    }
+  },
   "deposit": {
     "title": "Add money",
-    "description": "Send fiat and it arrives as dollars in your FLT wallet, ready to trade.",
+    "description": "Send fiat and it is credited to your FLT balance, ready to trade.",
     "needsWalletTitle": "Create your FLT wallet first",
     "needsWalletBody": "Your money arrives in your own FLT wallet, so you need one before you send anything.",
     "goToWallet": "Go to wallet",
     "unavailableTitle": "Deposits are not open yet",
     "unavailableBody": "We are not accepting transfers at the moment. Nothing you enter here will be charged.",
     "formTitle": "How much are you sending?",
-    "intro": "Your money is converted to dollars and sent to your FLT wallet ({address}). It stays yours — FLT never holds the key.",
+    "intro": "Your money is converted to dollars and credited to your FLT balance. It stays yours.",
     "method": "How are you sending it?",
     "methods": {
       "ACH": "Bank transfer (ACH)",
@@ -1133,12 +1164,12 @@
     "amount": "Amount",
     "whereToSend": "Where to send it",
     "pendingTitle": "Your balance is not there yet",
-    "pendingBody": "Put the reference on your transfer so we can match it to you. Once we have seen the money and sent the funds to your wallet, your balance appears here.",
+    "pendingBody": "Put the reference on your transfer so we can match it to you. Once we have seen the money and converted it into your balance, your balance appears here.",
     "yourDeposits": "Your deposits",
     "status": {
       "AWAITING_FUNDS": "Waiting for your transfer",
       "FUNDS_RECEIVED": "Received, sending",
-      "DELIVERED": "In your wallet",
+      "DELIVERED": "In your balance",
       "REJECTED": "Not received"
     },
     "payerName": "Name on the sending account",

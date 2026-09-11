@@ -104,6 +104,25 @@ export {
   assertSubmittable,
   type SubmitTradeInput,
 } from './trades';
+export { creditCryptoDeposit, type CryptoDepositInput } from './custody-deposits';
+export { settleSpotTrade, type SettleSpotTradeInput } from './custody-trades';
+export {
+  requestWithdrawal,
+  markWithdrawalSent,
+  confirmWithdrawal,
+  failWithdrawal,
+  listWithdrawalsForUser,
+  type WithdrawalView,
+} from './withdrawals';
+export {
+  compareCustodyBalances,
+  clientLiabilities,
+  ledgerIntegrityReport,
+  type ReconciliationReport,
+  type ReconciliationLine,
+  type LedgerIntegrityIssue,
+} from './custody-reconciliation';
+export { fundVenueMargin, settlePerpRealized } from './perps-ledger';
 export {
   ADMIN_SESSION_COOKIE,
   PERMISSIONS,

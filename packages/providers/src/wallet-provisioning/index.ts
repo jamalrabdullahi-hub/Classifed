@@ -11,4 +11,5 @@ export {
   isManagedWallet,
   managedAccountFor,
   sendManagedTransaction,
+  sendDepositSweepTransaction,
 } from './signer';

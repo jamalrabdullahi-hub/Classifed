@@ -7,6 +7,7 @@ import {
   type FiatDeposit,
   type User,
 } from '@flt/db';
+import { env } from '@flt/config';
 import { NotFoundError, ValidationError } from '../domain/errors';
 import { newId } from '../domain/id';
 import { Decimal } from '../domain/money';
@@ -15,37 +16,40 @@ import { accountFor, postTransfer } from './ledger';
 import { verifyErc20Transfer } from './onchain-payments';
 
 /**
- * Fiat in, crypto into the participant's own wallet.
+ * Fiat in, converted into the participant's custodial balance.
  *
  * ## The shape of it
  *
  * A participant says money is coming and is given a reference. Cash arrives in
  * FLT's bank or EVC account; an operator matches the reference against the
- * statement and confirms it. FLT then owes them — that is a real debt, and the
- * ledger records it. An operator converts and sends stablecoin to the
- * participant's own FLT wallet, and the debt is discharged.
+ * statement and confirms it. FLT then owes them — a real debt, recorded in the
+ * ledger. An operator converts that cash into the custodied stablecoin and it
+ * lands in the omnibus; the fiat liability is discharged and the participant's
+ * stablecoin balance goes up. See docs/adr/0004-custodial-omnibus.md.
  *
  * ## Why the liability window is modelled at all
  *
- * Between "cash arrived" and "crypto delivered", FLT is holding somebody's
- * money and has given them nothing. That is the exposure this whole feature
- * carries, and it must be visible while it exists rather than reconstructed
- * afterwards. `outstandingFiatLiability` answers "what do we owe right now",
- * which is the question an operator, an auditor and a regulator all ask first.
+ * Between "cash arrived" and "stablecoin credited", FLT is holding somebody's
+ * money and has given them nothing they can trade. That is the exposure this
+ * feature carries, and it must be visible while it exists rather than
+ * reconstructed afterwards. `outstandingFiatLiability` answers "what do we owe
+ * right now", which is the question an operator, an auditor and a regulator all
+ * ask first.
  *
- * ## What FLT is, and is not, at the end
+ * ## What changes at the end, under custody
  *
- * The stablecoin lands in a wallet whose key Privy holds and FLT does not. So
- * after delivery FLT is not custodian of it and the participant's balance is
- * their on-chain balance — not a figure in this table. That is the difference
- * between this and running an exchange, and it is why the ledger nets to zero
- * for them once the deposit completes.
+ * The stablecoin lands in the omnibus, not in a wallet the participant controls,
+ * so it is not discharged by a transfer out — it becomes a balance FLT owes and
+ * records on the ledger. The conversion is therefore two ledger movements
+ * against two assets: the USD liability is closed (as the pre-custody rail did),
+ * and a stablecoin balance is opened against the omnibus. What the participant
+ * holds afterwards is that ledger balance, and it is what the trade path spends.
  *
  * ## Neither leg is automatic
  *
- * A person watches a bank account and a person sends the crypto. Both actions
- * demand a reference, because an operator-confirmed movement with nothing to
- * match it against is indistinguishable from a mistake.
+ * A person watches a bank account and a person runs the conversion. Both demand
+ * a reference, because an operator-confirmed movement with nothing to match it
+ * against is indistinguishable from a mistake.
  */
 
 /** The unit the ledger records fiat liabilities in. */
@@ -325,12 +329,14 @@ export async function recordFiatSent(
 }
 
 /**
- * Records that stablecoin has landed in the participant's own wallet, and
- * discharges the debt.
+ * Records that the converted stablecoin has landed in the omnibus, and credits
+ * the participant's balance.
  *
- * The transaction hash is required. FLT is asserting that somebody else's
- * money left its control, and an assertion of that kind with nothing to check
- * it against is the shape of every custody scandal worth naming.
+ * The transaction hash is required, and the destination checked is the omnibus
+ * address from configuration — not the operator's input. FLT is asserting that
+ * somebody else's money is now held for the participant, and an assertion of
+ * that kind with nothing to check it against is the shape of every custody
+ * scandal worth naming.
  */
 export async function confirmFiatDelivered(
   context: AdminActionContext,
@@ -367,11 +373,24 @@ export async function confirmFiatDelivered(
   const token = await prisma.token.findFirst({
     where: {
       chainId: deposit.deliveryChainId,
-      address: input.tokenAddress.toLowerCase(),
+      address: { equals: input.tokenAddress, mode: 'insensitive' },
     },
   });
   if (!token) {
     throw new ValidationError('That token is not in the registry for this chain');
+  }
+
+  /**
+   * The destination is the omnibus, read from configuration rather than from
+   * the operator's input. The check that matters is "did the stablecoin land in
+   * the pooled wallet", and letting the operator name the destination would let
+   * a typo satisfy a check that exists to catch typos.
+   */
+  const omnibusAddress = env().OMNIBUS_EVM_ADDRESS;
+  if (!omnibusAddress) {
+    throw new ValidationError(
+      'Custody is not configured, so there is no omnibus for the converted funds to arrive at.',
+    );
   }
 
   const expected = BigInt(
@@ -383,7 +402,7 @@ export async function confirmFiatDelivered(
     txHash: deposit.deliveryTxHash,
     tokenAddress: input.tokenAddress,
     from: input.treasuryAddress,
-    to: deposit.deliveryAddress,
+    to: omnibusAddress,
     expectedBaseUnits: expected,
   });
 
@@ -392,29 +411,55 @@ export async function confirmFiatDelivered(
       { kind: LedgerAccountKind.FIAT_GATEWAY, asset: LEDGER_ASSET },
       tx,
     );
-    const client = await accountFor(
+    const clientUsd = await accountFor(
       { kind: LedgerAccountKind.USER_AVAILABLE, userId: deposit.userId, asset: LEDGER_ASSET },
+      tx,
+    );
+    const omnibus = await accountFor(
+      { kind: LedgerAccountKind.CLIENT_OMNIBUS, asset: token.symbol },
+      tx,
+    );
+    const clientStable = await accountFor(
+      { kind: LedgerAccountKind.USER_AVAILABLE, userId: deposit.userId, asset: token.symbol },
       tx,
     );
 
     /**
-     * Delivery discharges the debt: what FLT owes goes down, and so does the
-     * fiat it was holding against it.
+     * Two transfers, not one, because USD and the stablecoin are different
+     * assets and a single transfer's entries must stay within one — summing
+     * dollars and USDC as though fungible is the shortcut that makes a ledger
+     * unreadable.
      *
-     * The participant's ledger balance returns to zero, which is correct and
-     * is the point — the value is now in a wallet FLT does not control, so
-     * there is nothing left to owe. What remains in the gateway account is the
-     * fee, matched by the revenue credited when the cash arrived.
+     * First the fiat liability is discharged: the USD FLT owed this participant
+     * is closed against the fiat it was holding, exactly as the pre-custody rail
+     * did. Then the custodial balance is opened: the stablecoin is in the omnibus
+     * and owed to the participant. Together they leave the gateway holding only
+     * the fee, the participant owing nothing in USD and holding `net` of the
+     * stablecoin.
      */
     await postTransfer(
       {
-        kind: LedgerTransferKind.WITHDRAWAL,
-        reference: `fiat-delivery:${deposit.id}`,
-        memo: `Delivered ${net.toFixed(2)} to ${deposit.deliveryAddress} (${deposit.deliveryTxHash})`,
+        kind: LedgerTransferKind.TRADE_SETTLEMENT,
+        reference: `fiat-convert-usd:${deposit.id}`,
+        memo: `Fiat deposit ${deposit.reference}: closed the USD liability on conversion`,
         createdByAdminId: context.admin.id,
         entries: [
-          { accountId: client.id, amount: net },
+          { accountId: clientUsd.id, amount: net },
           { accountId: gateway.id, amount: net.negated() },
+        ],
+      },
+      tx,
+    );
+
+    await postTransfer(
+      {
+        kind: LedgerTransferKind.TRADE_SETTLEMENT,
+        reference: `fiat-convert-${token.symbol.toLowerCase()}:${deposit.id}`,
+        memo: `Fiat deposit ${deposit.reference}: ${net.toFixed(2)} ${token.symbol} credited into custody (${deposit.deliveryTxHash})`,
+        createdByAdminId: context.admin.id,
+        entries: [
+          { accountId: omnibus.id, amount: net },
+          { accountId: clientStable.id, amount: net.negated() },
         ],
       },
       tx,
@@ -424,6 +469,7 @@ export async function confirmFiatDelivered(
       where: { id: deposit.id },
       data: {
         status: FiatDepositStatus.DELIVERED,
+        deliveryAddress: omnibusAddress,
         deliveredAt: new Date(),
         deliveredById: context.admin.id,
       },
@@ -436,11 +482,12 @@ export async function confirmFiatDelivered(
     entityId: deposit.id,
     after: {
       net: net.toFixed(),
-      address: deposit.deliveryAddress,
+      asset: token.symbol,
+      omnibus: omnibusAddress,
       txHash: deposit.deliveryTxHash,
       verifiedOnChain: true,
     },
-    reason: `Verified on-chain and released to ${deposit.deliveryAddress}`,
+    reason: `Verified ${net.toFixed(2)} ${token.symbol} arrived in the omnibus and credited it`,
   });
 
   return updated;

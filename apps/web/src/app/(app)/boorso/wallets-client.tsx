@@ -19,33 +19,34 @@ import { WalletConnectDialog } from '@/components/wallet-connect';
 import { FltWalletCard } from '@/components/flt-wallet-card';
 import { ApiError, apiFetch, del, get } from '@/lib/api';
 
-interface ChainUsdBalance {
-  chainId: number;
-  chainName: string;
-  usd: string;
+interface CustodyHolding {
+  asset: string;
+  name: string | null;
+  available: string;
+  locked: string;
+  priceUsd: string | null;
+  valueUsd: string | null;
   complete: boolean;
 }
 
-interface UsdBalanceSummary {
+interface CustodyPortfolio {
   totalUsd: string;
-  chains: ChainUsdBalance[];
-  unsupportedChainIds: number[];
+  buyingPowerUsd: string;
+  holdings: CustodyHolding[];
 }
 
 /**
- * One combined $ number across every wallet the account has, in USDC/USDT
- * terms. Purely a display aggregate — see the module doc on
- * `usdBalanceSummary` (packages/core/src/services/portfolio-usd.ts) for why
- * this doesn't move or convert anything itself.
+ * The account's balance, from the custody ledger — the participant's total
+ * value and what is spendable right now. Display only; see `custodyPortfolio`.
  */
 function UsdBalanceSummaryCard() {
   const t = useTranslations('walletsPage');
-  const [summary, setSummary] = useState<UsdBalanceSummary | null>(null);
+  const [summary, setSummary] = useState<CustodyPortfolio | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    get<UsdBalanceSummary>('/api/wallets/usd-balance')
+    get<CustodyPortfolio>('/api/wallets/usd-balance')
       .then((result) => {
         if (!cancelled) setSummary(result);
       })
@@ -71,22 +72,24 @@ function UsdBalanceSummaryCard() {
           </p>
           <p className="mt-1 text-[11px] text-[var(--text-subtle)]">{t('totalBalanceHint')}</p>
         </div>
-        {summary && summary.chains.length > 0 ? (
-          <div className="flex flex-wrap gap-2 border-t border-[var(--border)] pt-3">
-            {summary.chains.map((chain) => (
+        {summary ? (
+          <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-3">
+            <span className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-sunken)] px-2.5 py-1 text-[11px] text-[var(--text-muted)]">
+              {t('buyingPowerLabel')}:{' '}
+              <span className="num tabular-nums text-[var(--text)]">${summary.buyingPowerUsd}</span>
+            </span>
+            {summary.holdings.map((holding) => (
               <span
-                key={chain.chainId}
+                key={holding.asset}
                 className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-sunken)] px-2.5 py-1 text-[11px] text-[var(--text-muted)]"
               >
-                {chain.chainName}: <span className="num tabular-nums text-[var(--text)]">${chain.usd}</span>
-                {!chain.complete ? ' *' : ''}
+                {holding.asset}:{' '}
+                <span className="num tabular-nums text-[var(--text)]">
+                  {holding.valueUsd ? `$${holding.valueUsd}` : '—'}
+                </span>
+                {!holding.complete ? ' *' : ''}
               </span>
             ))}
-            {summary.unsupportedChainIds.length > 0 ? (
-              <span className="self-center text-[11px] text-[var(--text-subtle)]">
-                {t('unsupportedChainsNote', { count: summary.unsupportedChainIds.length })}
-              </span>
-            ) : null}
           </div>
         ) : null}
       </CardContent>

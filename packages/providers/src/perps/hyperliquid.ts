@@ -504,9 +504,13 @@ export class HyperliquidPerpVenue implements PerpVenue {
       symbol: market.symbol,
       isBuy,
       size,
-      limitPrice: restsAsLimit
-        ? this.roundPrice(reference, market)
-        : boundPrice(reference, isBuy, intent.slippageBps),
+      // Both a resting limit and a market order's IOC bound reach the venue as
+      // a price, and the venue rejects one that is off its tick — so the bound
+      // is rounded here too, not only the limit.
+      limitPrice: this.roundPrice(
+        restsAsLimit ? reference : boundPrice(reference, isBuy, intent.slippageBps),
+        market,
+      ),
       // A market order goes out as immediate-or-cancel at a bounded price,
       // never as an unbounded market order.
       timeInForce: restsAsLimit ? 'GTC' : 'IOC',
@@ -576,7 +580,7 @@ export class HyperliquidPerpVenue implements PerpVenue {
       // Market on trigger: a protective stop that rests as a limit can be
       // skipped straight past in a fast move, which is the one case it exists
       // for. Bounded by slippage rather than unbounded.
-      limitPrice: boundPrice(triggerPrice, isBuy, Math.max(intent.slippageBps, 100)),
+      limitPrice: this.roundPrice(boundPrice(triggerPrice, isBuy, Math.max(intent.slippageBps, 100)), market),
       timeInForce: 'IOC',
       reduceOnly: true,
       trigger: {
@@ -624,7 +628,7 @@ export class HyperliquidPerpVenue implements PerpVenue {
         symbol: market.symbol,
         isBuy,
         size: this.roundSize(size, market),
-        limitPrice: boundPrice(market.markPrice, isBuy, request.slippageBps),
+        limitPrice: this.roundPrice(boundPrice(market.markPrice, isBuy, request.slippageBps), market),
         timeInForce: 'IOC',
         reduceOnly: true,
         trigger: null,

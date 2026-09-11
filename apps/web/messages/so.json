@@ -19,7 +19,8 @@
     "openAccount": "Furo akoon",
     "remittance": "Xawilaad",
     "remittanceBadge": "-90% raqiis!",
-    "deposit": "Lacag geli"
+    "deposit": "Lacag geli",
+    "withdraw": "Lacag qaado"
   },
   "home": {
     "eyebrow": "Ganacsi aan qofna hayn lacagtaada",
@@ -601,7 +602,8 @@
     "title": "Boorsooyinka",
     "description": "Boorsooyinka iskood u maamusha ee akoonkaaga ku xidhan. Furayaashaadu waligood ka bixi maayaan qalabkaaga, FLT-na ma dhaqaajin karto lacagtaada.",
     "totalBalanceLabel": "Wadarta hadda diyaarka ah",
-    "totalBalanceHint": "USDC/USDT oo laga soo ururiyay boorsad kasta oo akoonkaaga leeyahay. Ganacsigu wuxuu weli isticmaalaa boorsadda dhabta ah ee haysata lacagta.",
+    "buyingPowerLabel": "Awoodda iibsiga",
+    "totalBalanceHint": "Wax kasta oo akoonkaaga FLT ku jira, oo lagu qiimeeyay dollarka. Awoodda iibsigu waa stablecoin-ka aad hadda isticmaali karto.",
     "unsupportedChainsNote": "+{count} shabakad oo aan weli la akhrin karin",
     "connectWallet": "Ku xidh boorsad",
     "noWalletTitle": "Boorsad lama xidhin",
@@ -678,6 +680,7 @@
     "newTrade": "Ganacsi cusub",
     "trade": "Ganacsi",
     "youPay": "Waxaad bixinaysaa",
+    "buyingPowerLine": "Awoodda iibsiga: ${amount}",
     "youReceive": "Waxaad heli doontaa",
     "swapPairAria": "Isbeddel labada dhinac",
     "approvalSubmitted": "Ogolaanshaha waa la gudbiyay. Marka uu ku xaqiiqmo chain-ka, codso qiime cusub si aad u dhammaystirto ganacsiga.",
@@ -968,7 +971,7 @@
     },
     "portfolio": {
       "title": "Hantida",
-      "description": "Toos ka akhri chain-ka. FLT ma haysto hantidan mana dhaqaajin karto.",
+      "description": "Hadhaaga akoonkaaga FLT, oo FLT kuu hayo. Silsiladda waxaa loo isticmaalaa oo keliya qiimeynta.",
       "noWalletTitle": "Boorsad lama xidhin",
       "noWalletBody": "Ku xidh boorsad iskood u maamusha si aad u aragto haraaga. FLT wuxuu ka akhriyaa chain-ka mana haysto hantidaada.",
       "connectWallet": "Ku xidh boorsad",
@@ -980,11 +983,15 @@
       "thirdPartyPricesHint": "Qiimaha dhinaca saddexaad",
       "assetsHeld": "Hantida la haysto",
       "nonZeroHint": "Kuwa haraag leh",
+      "buyingPower": "Awoodda iibsiga",
+      "buyingPowerHint": "Stablecoin diyaar u ah ganacsiga",
+      "balance": "Hadhaag",
+      "custodyBadge": "Kaydka",
       "wallets": "Boorsooyinka",
       "linkedVerifiedHint": "La xidhay oo la xaqiijiyay",
       "holdings": "Haraagga",
       "noBalancesTitle": "Haraag lama helin",
-      "noBalancesBody": "Boorsadan kama haysato mid ka mid ah tokenada diiwaanka FLT ee Base. Haraagga waxaa laga akhriyaa chain-ka, sidaa darteed wixii aad ku haysato meel kale ma saameeyo.",
+      "noBalancesBody": "Weli ma lihid hadhaag. Lacagtu waxay halkan ka soo muuqataa markii lacag-dhigasho la xaqiijiyo.",
       "asset": "Hantida",
       "contract": "Qandaraaska",
       "onChainBalance": "Haraaga chain-ka",
@@ -992,7 +999,7 @@
       "unverified": "Aan la xaqiijin",
       "wallet": "Boorsad",
       "couldNotBeRead": "Lama akhriyi karin",
-      "footerNote": "Haraagga chain-ku waa sax oo toos looga akhriyaa Base. Qiimayaasha lagu qiyaaso waxay isticmaalaan qiimayaasha dhinaca saddexaad, waxayna ka duwanaan doonaan waxa ganacsi dhab ahaan keeni doono. Sadar (—) macnaheedu waa qiimaha aan la garanayn, marnaba ma aha eber."
+      "footerNote": "Hadhaagu waa diiwaanka FLT ee waxa uu kuu hayo. Qiimayaasha lagu qiyaasay waxay isticmaalaan qiimaha dhinaca saddexaad, wayna ka duwanaan doonaan waxa ganacsi dhab ahaan keeni doono. Sadar (—) macnaheedu waa qiimaha aan la garanayn, marnaba ma aha eber."
     },
     "referrals": {
       "title": "Jeedinta",
@@ -1102,16 +1109,40 @@
     "termsChangedTitle": "Shuruudaha way beddelmeen",
     "termsChangedBody": "Ogolaanshihii aad bixisay wuxuu ahaa qoraal hore. Fadlan akhri oo aqbal shuruudaha hadda si aad u sii wadato ganacsiga boorsadan."
   },
+  "withdrawPage": {
+    "title": "Lacag qaadasho",
+    "description": "Lacagta ka qaado akoonkaaga FLT. Codsigu wuxuu dhawraa qadarka; wareejinta waxaa laga diraa omnibus-ka, hadhaagaaguna wuxuu isbeddelaa marka la xaqiijiyo silsiladda.",
+    "formTitle": "Codso lacag qaadasho",
+    "asset": "Hanti",
+    "amountLabel": "Qadar",
+    "available": "Diyaar: {amount}",
+    "destination": "Cinwaanka loo dirayo",
+    "destinationHint": "Boorsada aad lacagta u dirayso. Si fiican u hubi — lacag qaadasho lama celin karo.",
+    "overBalance": "Taasi waa ka badan hadhaagaaga diyaar ah.",
+    "badAddress": "Geli cinwaan boorsad sax ah.",
+    "requestWithdrawal": "Codso lacag qaadasho",
+    "timingNote": "Hadhaagaagu wuxuu isbeddelaa marka wareejintu ku xaqiiqdo silsiladda. Waxaad kala socon kartaa Dhaqdhaqaaqa.",
+    "submitted": "Lacag qaadasho waa la codsaday. Dhowaan ayaa la diri doonaa, hadhaagaaguna wuu cusboonaan doonaa marka la xaqiiqdo.",
+    "noAssets": "Weli waxba ma lihid oo aad qaadan karto.",
+    "genericError": "Lama codsan karin lacag qaadasho.",
+    "historyTitle": "Lacag qaadashooyinkii ugu dambeeyay",
+    "status": {
+      "PENDING": "Sugaya",
+      "SENT": "Waa la dirayaa",
+      "COMPLETED": "La diray",
+      "FAILED": "Guuldareystay"
+    }
+  },
   "deposit": {
     "title": "Lacag geli",
-    "description": "Dir lacag caadi ah, waxayna doollar ahaan ugu soo gashaa boorsadaada FLT, diyaar u ah ganacsi.",
+    "description": "Dir lacag caadi ah, waxaana doollar ahaan loogu shubaa hadhaagaaga FLT, diyaar u ah ganacsi.",
     "needsWalletTitle": "Marka hore samee boorsadaada FLT",
     "needsWalletBody": "Lacagtaadu waxay ku soo gashaa boorsadaada FLT, markaa u baahan tahay mid ka hor inta aadan waxba dirin.",
     "goToWallet": "Aad boorsada",
     "unavailableTitle": "Lacag gelintu weli ma furna",
     "unavailableBody": "Hadda ma qaadanayno wareejin. Waxba lagaama qaadi doono halkan.",
     "formTitle": "Imisa ayaad dirayaa?",
-    "intro": "Lacagtaada waxaa loo beddelaa doollar, waxaana loo diraa boorsadaada FLT ({address}). Adigay iska leedahay — FLT waligeed furaha ma hayso.",
+    "intro": "Lacagtaada waxaa loo beddelaa doollar, waxaana loogu shubaa hadhaagaaga FLT. Adigay iska leedahay.",
     "method": "Sidee ayaad u diraysaa?",
     "methods": {
       "ACH": "Wareejin bangi (ACH)",
@@ -1133,12 +1164,12 @@
     "amount": "Qadarka",
     "whereToSend": "Halka aad u dirayso",
     "pendingTitle": "Hadhaagaagu weli ma iman",
-    "pendingBody": "Tixraaca ku qor wareejintaada si aan kuugu heli karno. Marka aan lacagta aragno oo aan boorsadaada u dirno, hadhaagaagu halkan ayuu ka muuqan doonaa.",
+    "pendingBody": "Tixraaca ku qor wareejintaada si aan kuugu heli karno. Marka aan lacagta aragno oo aan u beddelno hadhaagaaga, halkan ayuu ka muuqan doonaa.",
     "yourDeposits": "Lacagahaaga la geliyey",
     "status": {
       "AWAITING_FUNDS": "La sugayo wareejintaada",
       "FUNDS_RECEIVED": "La helay, waa la dirayaa",
-      "DELIVERED": "Boorsadaada ayay ku jirtaa",
+      "DELIVERED": "Hadhaagaaga ayay ku jirtaa",
       "REJECTED": "Lama helin"
     },
     "payerName": "Magaca koontada wax laga dirayo",

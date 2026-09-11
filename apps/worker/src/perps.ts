@@ -2,6 +2,7 @@ import { PerpOrderStatus, prisma } from '@flt/db';
 import { env } from '@flt/config';
 import { Decimal, liquidationProximity, newId } from '@flt/core/domain';
 import { AuditAction, audit } from '@flt/core/services/audit';
+import { settlePerpRealized } from '@flt/core/services';
 import { perpVenue } from '@flt/providers';
 
 /**
@@ -140,6 +141,12 @@ export async function syncPerpetuals(): Promise<PerpSyncResult> {
         include: { market: { select: { symbol: true } } },
       });
 
+      // The last PnL the venue reported for a position that has now vanished is
+      // the best available realized figure — captured before the row is deleted
+      // so the settlement below has something to book.
+      const stalePnlByMarket = new Map<string, string | null>();
+      for (const snapshot of stale) stalePnlByMarket.set(snapshot.marketId, snapshot.unrealizedPnl);
+
       for (const snapshot of stale) {
         const wasNearLiquidation =
           snapshot.liquidationPrice &&
@@ -174,7 +181,13 @@ export async function syncPerpetuals(): Promise<PerpSyncResult> {
         await prisma.perpPositionSnapshot.delete({ where: { id: snapshot.id } });
       }
 
-      result.reconciled += await reconcileOrders(wallet, positions, venue.meta.slug, result);
+      // Under custody the positions live on the omnibus, not on this wallet, so
+      // the per-wallet order reconcile is skipped — it would mark a close filled
+      // unconditionally, since the wallet never shows a position. The custody
+      // pass after the loop reconciles against the omnibus instead.
+      if (env().CUSTODY_PROVIDER === 'disabled') {
+        result.reconciled += await reconcileOrders(wallet, positions, venue.meta.slug, result, stalePnlByMarket);
+      }
     } catch (error) {
       // One wallet failing must not stop the pass. The venue rate-limits, and
       // a single bad account should not stall every other user's sync.
@@ -185,7 +198,82 @@ export async function syncPerpetuals(): Promise<PerpSyncResult> {
     }
   }
 
+  // Custody: one pooled venue account, so reconcile every outstanding order
+  // against the omnibus's positions once, not per wallet.
+  const omnibusAddress = env().OMNIBUS_EVM_ADDRESS;
+  if (env().CUSTODY_PROVIDER !== 'disabled' && omnibusAddress) {
+    try {
+      const omnibusPositions = await venue.getPositions({ address: omnibusAddress });
+      result.reconciled += await reconcileCustodyOrders(omnibusPositions, venue.meta.slug);
+    } catch (error) {
+      console.error('[perps] custody reconcile failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   return result;
+}
+
+/**
+ * Reconciles the pooled account's outstanding orders against its positions.
+ *
+ * A CLOSE order whose market no longer holds a position is the close fill, and
+ * is settled here: the reserved margin is released. The realized PnL is booked
+ * as zero — the venue reports the *pooled* account's PnL, which cannot be
+ * attributed to one participant under ADR 0006 (P1/P10), so an exact figure is a
+ * deliberate follow-up, not a guess. An OPEN order marks FILLED once its
+ * position appears; its margin was already reserved at open.
+ */
+async function reconcileCustodyOrders(
+  positions: Array<{ symbol: string; side: string; size: string; entryPrice: string }>,
+  venueSlug: string,
+): Promise<number> {
+  const outstanding = await prisma.perpOrder.findMany({
+    where: { venueSlug, status: PerpOrderStatus.SUBMITTED },
+    include: { market: { select: { symbol: true } } },
+  });
+
+  let reconciled = 0;
+
+  for (const order of outstanding) {
+    const position = positions.find((p) => p.symbol === order.market.symbol);
+
+    if (order.kind === 'CLOSE') {
+      if (position) continue;
+
+      const margin = new Decimal(order.marginRequired ?? '0');
+      if (margin.greaterThan(0)) {
+        // Settle BEFORE marking filled: a settle that fails leaves the order
+        // outstanding so the next pass retries, rather than a close recorded as
+        // done with its margin still reserved.
+        await settlePerpRealized({
+          userId: order.userId,
+          reference: `perp-close:${order.id}`,
+          margin,
+          pnl: new Decimal(0),
+          fee: new Decimal(0),
+        });
+      }
+
+      await prisma.perpOrder.update({
+        where: { id: order.id },
+        data: { status: PerpOrderStatus.FILLED, settledAt: new Date() },
+      });
+      reconciled += 1;
+      continue;
+    }
+
+    if (position) {
+      await prisma.perpOrder.update({
+        where: { id: order.id },
+        data: { status: PerpOrderStatus.FILLED, settledAt: new Date() },
+      });
+      reconciled += 1;
+    }
+  }
+
+  return reconciled;
 }
 
 /**
@@ -202,6 +290,7 @@ async function reconcileOrders(
   positions: Array<{ symbol: string; side: string; size: string; entryPrice: string }>,
   venueSlug: string,
   result: PerpSyncResult,
+  stalePnlByMarket: Map<string, string | null>,
 ): Promise<number> {
   const outstanding = await prisma.perpOrder.findMany({
     where: { walletId: wallet.id, venueSlug, status: PerpOrderStatus.SUBMITTED },
@@ -220,6 +309,19 @@ async function reconcileOrders(
           where: { id: order.id },
           data: { status: PerpOrderStatus.FILLED, settledAt: new Date() },
         });
+
+        // The close filled: release the reserved margin and book the realized
+        // PnL. Idempotent on the order id, so a re-run cannot double-settle.
+        const margin = new Decimal(order.marginRequired ?? '0');
+        if (margin.greaterThan(0)) {
+          await settlePerpRealized({
+            userId: order.userId,
+            reference: `perp-close:${order.id}`,
+            margin,
+            pnl: new Decimal(stalePnlByMarket.get(order.marketId) ?? '0'),
+            fee: new Decimal(0),
+          });
+        }
         reconciled += 1;
       }
       continue;

@@ -25,22 +25,31 @@ describe('fiat deposit accounting', () => {
     expect(sum.toFixed()).toBe('0');
   });
 
-  it('balances when the crypto is delivered', () => {
-    const entries = [net, net.negated()];
-    const sum = entries.reduce((total, amount) => total.plus(amount), new Decimal(0));
+  it('balances the conversion against each asset', () => {
+    // Under custody the conversion is two transfers, not one: USD and the
+    // stablecoin are different assets, and a single transfer's entries must
+    // stay within one. Each leg balances on its own.
+    const usdLeg = [net, net.negated()];
+    const stableLeg = [net, net.negated()];
 
-    expect(sum.toFixed()).toBe('0');
+    for (const leg of [usdLeg, stableLeg]) {
+      const sum = leg.reduce((total, amount) => total.plus(amount), new Decimal(0));
+      expect(sum.toFixed()).toBe('0');
+    }
   });
 
-  it('leaves the client owed nothing once delivered', () => {
-    // Stored as a credit balance, so a credit of `net` then a debit of `net`
-    // returns to zero. This is the property that makes the model honest: after
-    // delivery the value sits in a wallet FLT does not control, so FLT owes
-    // nothing and the participant's balance is their on-chain balance.
-    const afterReceipt = new Decimal(0).plus(net.negated());
-    const afterDelivery = afterReceipt.plus(net);
+  it('leaves the participant holding the stablecoin, not nothing', () => {
+    // On receipt the participant is owed `net` in USD. On conversion that USD
+    // liability closes to zero and a stablecoin liability of `net` opens — the
+    // value does not leave the ledger, it changes asset, because the stablecoin
+    // sits in the omnibus rather than a wallet the participant controls.
+    const afterReceiptUsd = new Decimal(0).plus(net.negated());
+    const afterConversionUsd = afterReceiptUsd.plus(net);
+    const afterConversionStable = new Decimal(0).plus(net.negated());
 
-    expect(afterDelivery.toFixed()).toBe('0');
+    expect(afterConversionUsd.toFixed()).toBe('0');
+    // Stored as a credit balance: negative means the participant holds it.
+    expect(afterConversionStable.toFixed()).toBe(new Decimal(net).negated().toFixed());
   });
 
   it('leaves exactly the fee behind, matched by revenue', () => {

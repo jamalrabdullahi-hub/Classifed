@@ -4,7 +4,7 @@ import { QuoteStatus, prisma } from '@flt/db';
 import { NotFoundError, ValidationError } from '@flt/core/domain';
 import { recordApproval } from '@flt/core/services/trades';
 import { RateLimits } from '@flt/core/services/ratelimit';
-import { isManagedWallet, sendManagedTransaction } from '@flt/providers';
+import { custodyProvider, isManagedWallet, sendManagedTransaction, sendOmnibusTransaction } from '@flt/providers';
 import { handler } from '@/server/api';
 
 /**
@@ -50,24 +50,38 @@ export const POST = handler(
     if (!quote.allowanceTarget) {
       throw new ValidationError('That quote does not need an approval');
     }
-    if (!isManagedWallet(quote.wallet)) {
-      throw new ValidationError(
-        'That quote is against a wallet you linked yourself, so the approval has to be signed ' +
-          'in your wallet rather than executed here.',
-      );
-    }
-
-    const txHash = await sendManagedTransaction({
-      wallet: quote.wallet,
-      to: quote.sellTokenAddress,
-      data: encodeFunctionData({
-        abi: erc20Abi,
-        functionName: 'approve',
-        args: [quote.allowanceTarget as `0x${string}`, BigInt(quote.sellAmount)],
-      }),
-      value: '0',
+    const approveData = encodeFunctionData({
+      abi: erc20Abi,
+      functionName: 'approve',
+      args: [quote.allowanceTarget as `0x${string}`, BigInt(quote.sellAmount)],
     });
 
+    let txHash: `0x${string}`;
+
+    if (custodyProvider()) {
+      // Under custody the allowance must be granted by the omnibus — it is the
+      // wallet that will execute the swap, so approving from anywhere else would
+      // leave the swap unapproved and reverting.
+      txHash = await sendOmnibusTransaction({
+        chainId: quote.chainId,
+        to: quote.sellTokenAddress,
+        data: approveData,
+        value: '0',
+      });
+    } else {
+      if (!isManagedWallet(quote.wallet)) {
+        throw new ValidationError(
+          'That quote is against a wallet you linked yourself, so the approval has to be signed ' +
+            'in your wallet rather than executed here.',
+        );
+      }
+      txHash = await sendManagedTransaction({
+        wallet: quote.wallet,
+        to: quote.sellTokenAddress,
+        data: approveData,
+        value: '0',
+      });
+    }
     const transaction = await recordApproval({
       user,
       walletId: quote.walletId,

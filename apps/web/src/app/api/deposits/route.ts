@@ -64,7 +64,7 @@ export const POST = handler(
       ussdCode: evc ? evcUssdCode(evc.merchantNumber, instructions.amountFiat) : null,
       note:
         'Put this reference on your transfer. Your balance appears once we have matched the ' +
-        'payment and sent the funds to your FLT wallet.',
+        'payment and credited it.',
     };
   },
 );

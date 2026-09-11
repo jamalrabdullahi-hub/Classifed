@@ -5,6 +5,9 @@ import { runHousekeeping } from './housekeeping';
 import { refreshMarketData } from './market';
 import { syncPerpetuals } from './perps';
 import { sweepProtectionPolicies } from './protection';
+import { sweepCustodyDeposits } from './custody';
+import { processWithdrawals } from './withdrawals';
+import { runReconciliation } from './reconciliation';
 
 /**
  * The FLT worker.
@@ -35,6 +38,20 @@ const PERP_SYNC_INTERVAL_MS = 20_000;
  * and each pass costs a candle request per policy.
  */
 const PROTECTION_SWEEP_INTERVAL_MS = 120_000;
+/**
+ * Custody deposits are swept on a slow interval.
+ *
+ * Detection scans a block window and every sweep then waits for a mined
+ * receipt, so a faster tick only spends RPC calls. A few seconds of staleness
+ * on a deposit does not matter the way a stale quote does.
+ */
+const CUSTODY_SWEEP_INTERVAL_MS = 30_000;
+/**
+ * Reconciliation runs slowly. It reads every ledger account and the omnibus
+ * balance, and its answer changes on the scale of a trade or a deposit, not a
+ * tick — a pass a few minutes apart is plenty and keeps the chain reads cheap.
+ */
+const RECONCILIATION_INTERVAL_MS = 300_000;
 /**
  * Agentic trading, on its own slow interval.
  *
@@ -96,6 +113,9 @@ async function main(): Promise<void> {
   console.info(
     `  protection    ${config.PERPS_ENABLED ? `every ${PROTECTION_SWEEP_INTERVAL_MS}ms` : 'disabled'}`,
   );
+  console.info(
+    `  custody       ${config.CUSTODY_PROVIDER === 'disabled' ? 'disabled' : `every ${CUSTODY_SWEEP_INTERVAL_MS}ms`}`,
+  );
 
   // Fail fast if the database is unreachable, rather than logging a failed pass
   // every few seconds forever.
@@ -111,6 +131,14 @@ async function main(): Promise<void> {
     // Slower than the position sync: a policy's state follows volatility over
     // hours, not the tick-by-tick mark, and every pass costs candle requests.
     loop('protection', PROTECTION_SWEEP_INTERVAL_MS, sweepProtectionPolicies);
+  }
+
+  // Only when FLT actually holds client funds. With custody off there is no
+  // omnibus, and these passes would have nothing to do but log.
+  if (config.CUSTODY_PROVIDER !== 'disabled') {
+    loop('custody', CUSTODY_SWEEP_INTERVAL_MS, sweepCustodyDeposits);
+    loop('withdrawals', CUSTODY_SWEEP_INTERVAL_MS, processWithdrawals);
+    loop('reconciliation', RECONCILIATION_INTERVAL_MS, runReconciliation);
   }
 }
 

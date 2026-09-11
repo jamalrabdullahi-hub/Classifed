@@ -1,0 +1,285 @@
+===============================================================================
+FLT EXCHANGE — CUSTODY: TESTER'S WALKTHROUGH
+===============================================================================
+For a human manually testing the custodial-omnibus switch. Follow top to bottom.
+Read §1 to know what is testable WITHOUT real money vs. what needs real funds.
+
+Three surfaces you will use:
+  Web app      http://localhost:3000     (participant)
+  Admin panel  http://localhost:3001     (operator)
+  Worker       `pnpm worker`  (background: sweeps, withdrawals, monitoring, recon)
+
+===============================================================================
+1. TWO MODES — know which one you are in
+===============================================================================
+
+MODE A — "no real funds" (UI + ledger shape, no on-chain settlement)
+  Use DEX_ROUTER=mock. You can exercise: registration, KYC, deposit request,
+  the trade REVIEW screen, the withdrawal form, portfolio/balance display, and
+  the ledger movements for DEPOSITS (if you can get a real USDC transfer in).
+  You CANNOT complete a real swap or a real on-chain send: the mock router
+  returns synthetic calldata that reverts on-chain, and there is no funded
+  omnibus. Good for catching UI/logic issues, not settlement.
+
+MODE B — "full end-to-end" (real Base, real funds)
+  Requires: DEX_ROUTER=zeroex + ZEROEX_API_KEY, a funded omnibus Privy wallet,
+  a funded Base wallet you control, and a small amount of real USDC/ETH.
+  This is the only way to prove a swap settles and the ledger settles with it.
+
+===============================================================================
+2. ONE-TIME SETUP
+===============================================================================
+
+2.1  Env (.env at repo root — copy from .env.example)
+     Required for custody:
+       CUSTODY_PROVIDER=privy
+       OMNIBUS_EVM_ADDRESS=0x...         # the omnibus wallet's public address
+       OMNIBUS_EVM_WALLET_ID=...         # Privy's wallet id (NOT the address)
+       PRIVY_APP_ID=...  PRIVY_APP_SECRET=...
+       APP_SECRET=<32+ chars>            # openssl rand -base64 48
+       ENCRYPTION_KEY=<32 bytes base64>  # openssl rand -base64 32
+       FLT_FEE_RECIPIENT_ADDRESS=<the omnibus address>   # IMPORTANT, see §9
+     For mode B also:
+       DEX_ROUTER=zeroex  ZEROEX_API_KEY=...
+       BASE_RPC_URL=<a keyed RPC if you can>   # public works for dev
+     The env schema REFUSES TO BOOT in production if CUSTODY_PROVIDER=privy is
+     missing the OMNIBUS_* / PRIVY vars — that is intended.
+
+2.2  Database + app
+       pnpm install
+       pnpm db:up            # Postgres on :5433
+       pnpm db:migrate       # applies the two new migrations (custody_deposits,
+                             # withdrawals) plus everything before them
+       pnpm db:seed
+       pnpm dev              # web :3000 + admin :3001
+       pnpm worker           # in a SECOND terminal — the flows depend on it
+
+2.3  First-time check
+       curl -s http://localhost:3000 >/dev/null && echo web up
+       # worker startup should print a line like:
+       #   custody       every 30000ms
+       #   withdrawals   ... (same loop line) ...
+       #   reconciliation every 300000ms
+     If `custody`/`reconciliation` say "disabled", CUSTODY_PROVIDER is not privy.
+
+===============================================================================
+3. WATCH THE LEDGER (do this in every test)
+===============================================================================
+
+Open Prisma Studio:   pnpm db:studio   (http://localhost:5555)
+
+The two tables that matter:
+  ledger_accounts   one row per (kind, user, asset); the cached `balance`
+                    (debt positive, credit negative — see §8)
+  ledger_entries /  every movement; a transfer's entries always sum to ZERO
+  ledger_transfers  (kind: DEPOSIT / WITHDRAWAL / TRADE_SETTLEMENT / LOCK /
+                    UNLOCK / FEE / ADJUSTMENT; reference = the idempotency key)
+
+Also useful:
+  custody_deposits  a row per inbound transfer (DETECTED -> SWEEPING -> SWEPT ->
+                    CREDITED, or FAILED)
+  withdrawals       PENDING -> SENT -> COMPLETED, or FAILED
+  fiat_deposits     the operator fiat stages
+
+A quick way to read a balance the way a person would (liabilities are stored
+negative): what is OWED = -(stored balance) for kinds USER_AVAILABLE/USER_LOCKED.
+
+===============================================================================
+4. TEST A — CRYPTO DEPOSIT
+===============================================================================
+
+Goal: send USDC to your FLT deposit address; the worker sweeps it to the omnibus
+and credits your buying power; the ledger shows it.
+
+ 1. Register a participant at http://localhost:3000 (sign up), verify email
+    (with MAIL_PROVIDER=console the link is printed in the WEB terminal).
+ 2. In admin (:3001), approve the participant's KYC. Trading requires
+    KYC_APPROVED — nothing trades without it.
+ 3. In the web app, open Wallets (/boorso). Note the FLT wallet address shown —
+    under custody this IS your deposit address.
+ 4. From a wallet you control, send a small amount of USDC (Base) to that
+    address. (In mode B this is a real Base transfer.)
+ 5. Watch the WORKER terminal. Within ~30s a `custody` pass should log activity,
+    and `custody_deposits` should move DETECTED -> SWEEPING -> SWEPT -> CREDITED.
+       - DETECTED: the inbound Transfer was seen (idempotent on chain+tx+logIndex)
+       - SWEEPING: the worker broadcast a transfer of that USDC to the omnibus
+       - SWEPT:    the sweep is confirmed in a mined receipt
+       - CREDITED: the ledger credited your balance
+ 6. Check:
+       - Portfolio (/hantida) and the Wallets card now show buying power.
+       - ledger_transfers has kind=DEPOSIT, reference=crypto-deposit:<sweepTxHash>
+       - ledger_accounts: CLIENT_OMNIBUS/USDC increased; your USER_AVAILABLE/USDC
+         liability increased (stored negative).
+    EXPECTED RESULT: your displayed balance = the USDC that arrived.
+
+  NOTE (mode A): the sweep needs to sign from your FLT wallet via Privy on a real
+  chain, so without a funded wallet + real chain this stops at DETECTED. The
+  DETECTED row is still a valid check of detection.
+
+===============================================================================
+5. TEST B — FIAT DEPOSIT (operator flow)
+===============================================================================
+
+Goal: a fiat deposit becomes a USDC balance. Four operator stages, the last one
+verifies the chain and credits the ledger.
+
+ 1. Web: /lacag-gelin (Add money). Choose a method, enter amount, payer name +
+    phone. You get a REFERENCE code. (Requires a placeholder FLT wallet on the
+    account — provisioned at signup if AUTO_WALLET_PROVISIONING_ENABLED, else
+    pressed on the wallets page.)
+ 2. Admin: /payments "1 - Awaiting funds". Enter the amount RECEIVED, a fee, and
+    a statement line, then "Confirm reconciliation".
+       -> ledger: kind=DEPOSIT reference=fiat:<id>
+          DR FIAT_GATEWAY/USD (asset up), CR USER_AVAILABLE/USD (owed, net),
+          CR FEE_REVENUE/USD (the fee).
+       -> status FUNDS_RECEIVED.
+ 3. Admin "2 - Convert into the omnibus": enter the hash of the on-chain move of
+    USDC into the omnibus, and the chain. status SENT.
+ 4. Admin "3 - Confirm and credit": this checks the receipt (USDC must have
+    landed at OMNIBUS_EVM_ADDRESS) then posts the conversion:
+          close USD:  DR USER_AVAILABLE/USD (net), CR FIAT_GATEWAY/USD (net)
+          open USDC:  DR CLIENT_OMNIBUS/USDC (net), CR USER_AVAILABLE/USDC (net)
+       -> status DELIVERED; your USDC buying power goes up.
+  EXPECTED: after step 4 your USD balance is 0 and your USDC balance is `net`.
+
+===============================================================================
+6. TEST C — TRADE (buy crypto with your USDC)
+===============================================================================
+
+Goal: FLT signs a swap from the omnibus; on confirmation the ledger moves your
+USDC into the bought asset.
+
+ 1. You need buying power first (Test A or B).
+ 2. Web: /iibso (the trade screen). Pick a pair (sell USDC -> buy e.g. WBTC/ETH).
+    Enter an amount. The screen shows a buying-power line from the ledger.
+ 3. "Review trade" -> a quote appears. (It is built for the OMNIBUS as taker.)
+ 4. If the quote says an approval is required, press the approve button once —
+    it is signed FROM THE OMNIBUS, server-side, no wallet connect.
+ 5. Press "Execute". The server LOCKS your USDC, then signs+broadcasts the swap
+    from the omnibus. No browser wallet is involved.
+ 6. Watch:
+    - ledger_transfers: a LOCK (USDC available -> locked, ref trade-lock:<quoteId>).
+    - The worker's monitor records the swap; on CONFIRMED it posts TWO transfers:
+        trade-sell:<txId>   DR your LOCKED USDC, CR CLIENT_OMNIBUS USDC
+        trade-buy:<txId>    DR CLIENT_OMNIBUS <token>, CR your USER_AVAILABLE
+                            <token> (received - fee), CR FEE_REVENUE <token> (fee)
+ 7. Portfolio now shows the new asset; USDC buying power dropped by what you sold.
+    EXPECTED: two balanced transfers, both single-asset; earnings reflect the
+    amount that ACTUALLY landed in the omnibus (never the quote's promise).
+
+  REVERTED/FAILED: if the swap reverts, the worker RELEASES the lock
+    (UNLOCK, ref trade-unlock:<txId>) and nothing is credited.
+
+  REMINDERS:
+    - The fee recipient must be the omnibus (§9), or the buy leg won't match the
+      chain and reconciliation will flag a shortfall.
+    - Mode A (mock router): the swap calldata is synthetic and reverts on-chain,
+      so the trade will end REVERTED and the lock will be released. That path is
+      still worth testing.
+
+===============================================================================
+7. TEST D — WITHDRAWAL
+===============================================================================
+
+Goal: take a balance back out; the worker sends from the omnibus and debits the
+ledger only on a mined receipt.
+
+ 1. Web: /lacag-qaadasho (Withdraw). Pick an asset (shows your available), enter
+    an amount and a destination 0x address. "Request withdrawal".
+    -> ledger: a LOCK (available -> locked, ref withdrawal-lock:<id>)
+    -> `withdrawals` row PENDING.
+ 2. Watch the worker: it broadcasts from the omnibus (SENT, txHash recorded),
+    then on a mined receipt confirms:
+        WITHDRAWAL ref=withdrawal:<id>  DR your LOCKED asset, CR CLIENT_OMNIBUS
+        status COMPLETED.
+ 3. Portfolio buying power drops by the withdrawn amount.
+  EXPECTED: the reserved amount leaves your LOCKED balance; the omnibus holds
+  that much less.
+
+  FAILURE: a reverted/dropped send releases the lock (UNLOCK) and marks FAILED.
+  A broadcast that could not be SENT stays PENDING and retries next pass (a stuck
+  PENDING row means the broadcast keeps failing — check the worker log).
+
+===============================================================================
+8. TEST E — RECONCILIATION (the solvency check)
+===============================================================================
+
+ 1. Let the worker run. Every ~5 min the `reconciliation` pass logs a result
+    only when something is wrong.
+ 2. Expected NORMAL: no output (or a plain ok). The omnibus holds >= what the
+    ledger owes. A small SURPLUS is normal — that is FLT's fee revenue sitting in
+    the omnibus (because the fee recipient is the omnibus).
+ 3. To see it fire (dev only): in Studio, edit a USER_AVAILABLE `balance` to make
+    the owed total exceed the omnibus (e.g. make one user's USDC more negative).
+    Within a few minutes the worker should log:
+        [reconciliation] SHORTFALL — the ledger owes more than the omnibus holds
+    It must NOT change any balance. Revert your edit afterwards.
+ 4. The other check it runs: each account's cached `balance` is re-derived from
+    its `ledger_entries`; a mismatch logs
+        [reconciliation] LEDGER DRIFT — a cached balance disagrees with its entries
+
+===============================================================================
+9. GOTCHAS (things that will bite a tester)
+===============================================================================
+
+- FEE RECIPIENT: FLT_FEE_RECIPIENT_ADDRESS must equal OMNIBUS_EVM_ADDRESS. If not,
+  the trade buy leg credits the omnibus for a fee the omnibus never received, and
+  reconciliation will report a real shortfall that is NOT a bug in the ledger.
+- APPROVALS: the first swap in a given sell token needs the omnibus to approve
+  that token's AllowanceHolder. Use the approve button on the trade screen once.
+- KYC: trading is blocked until an admin approves KYC.
+- RUN THE WORKER: have BOTH `pnpm dev` AND `pnpm worker` running; almost every
+  flow needs the worker (sweeps, trade confirmation, withdrawals,
+  reconciliation).
+- DEPOSIT DETECTION WINDOW: the worker scans a fixed ~2000-block window. A
+  transfer older than that (or before the worker started) will not be detected
+  without a backfill. Funds are never lost — they are on-chain at the address.
+- MAIL_PROVIDER=console: no email actually sends; read verification/reset links
+  from the WEB terminal.
+- MOCK ROUTER (mode A): quotes look real but the calldata is synthetic and
+  reverts on-chain.
+- BALANCE SIGN: liabilities (user balances, revenue) are stored NEGATIVE. "Owed
+  to the user" = the negation. Do not read an account balance as the user's
+  positive number without negating for credit-balance kinds.
+
+===============================================================================
+10. COMMANDS CHEAT-SHEET
+===============================================================================
+
+  pnpm db:up / db:down        start/stop Postgres (:5433)
+  pnpm db:migrate             apply migrations (dev)
+  pnpm db:seed                seed chains/tokens/admin
+  pnpm db:studio              Prisma Studio (:5555)
+  pnpm dev                    web + admin
+  pnpm worker                 the background passes
+  pnpm -C C:\FLTCrypto typecheck                 all packages
+  pnpm -C C:\FLTCrypto --filter @flt/core exec vitest run --exclude "**/integration/**"
+  pnpm -C C:\FLTCrypto --filter @flt/providers test
+  pnpm -C C:\FLTCrypto --filter @flt/worker test
+
+Key worker log tags:
+  [custody]        deposits + a couple of error lines
+  [withdrawals]    broadcast/confirm errors
+  [reconciliation] SHORTFALL / LEDGER DRIFT
+  [monitor]        transaction confirmation / tamper detection
+
+===============================================================================
+11. WHAT "CORRECT" LOOKS LIKE (summary of expected ledger effects)
+===============================================================================
+
+  crypto deposit  CLIENT_OMNIBUS +x   USER_AVAILABLE(user) -x   (ref crypto-deposit:<hash>)
+  fiat received   FIAT_GATEWAY +net+fee  USER_AVAILABLE(USD) -net  FEE_REVENUE -fee
+  fiat converted  USER_AVAILABLE(USD) +net  FIAT_GATEWAY -net
+                  CLIENT_OMNIBUS +net        USER_AVAILABLE(stable) -net
+  trade lock      USER_AVAILABLE -x   USER_LOCKED +x
+  trade settle    LOCKED(sell) +x  OMNIBUS(sell) -x
+                  OMNIBUS(buy) +received  USER_AVAILABLE(buy) -(received-fee)  FEE_REVENUE -fee
+  withdrawal      USER_LOCKED +x   CLIENT_OMNIBUS -x   (ref withdrawal:<id>)
+
+Every transfer's entries sum to ZERO; entries stay within ONE asset per transfer.
+Any of these that does not balance is a bug, and Postgres will reject it anyway
+(a deferred trigger on ledger_entries).
+
+===============================================================================
+END
+===============================================================================

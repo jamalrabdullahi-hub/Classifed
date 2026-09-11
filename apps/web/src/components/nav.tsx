@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
+  ArrowDownToLine,
   ArrowLeftRight,
   Banknote,
   ChevronDown,
@@ -55,6 +56,9 @@ const WALLET = { href: '/boorso', key: 'wallets', icon: Wallet } as const;
 
 /** Putting money in. Sits beside the wallet, which is where it lands. */
 const DEPOSIT = { href: '/lacag-gelin', key: 'deposit', icon: Banknote } as const;
+
+/** Taking money out. The other half of the wallet, beside where it lands. */
+const WITHDRAW = { href: '/lacag-qaadasho', key: 'withdraw', icon: ArrowDownToLine } as const;
 
 /**
  * Sending money home is a destination in its own right, not an account setting.
@@ -118,7 +122,7 @@ export function TopNav({
   // worse first impression than not showing the tab at all.
   const primary = guest
     ? [tradeItem, ACCOUNT[0]]
-    : [...PRIMARY, tradeItem, WALLET, DEPOSIT, REMITTANCE, REFERRALS];
+    : [...PRIMARY, tradeItem, WALLET, DEPOSIT, WITHDRAW, REMITTANCE, REFERRALS];
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--canvas)]/85 backdrop-blur-md">

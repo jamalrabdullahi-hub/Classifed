@@ -118,6 +118,19 @@ export async function createQuote(
   const slippageBps = context.slippageBps ?? config.DEFAULT_SLIPPAGE_BPS;
   const warnings: QuoteWarning[] = [];
 
+  /**
+   * Who the swap is built for.
+   *
+   * Under custody the swap executes from the omnibus, so the calldata must be
+   * built with the omnibus as taker — quoting for the participant's own wallet
+   * would produce a transaction the omnibus cannot run. Before custody, the
+   * taker is the participant's own wallet.
+   */
+  const taker =
+    config.CUSTODY_PROVIDER === 'privy' && config.OMNIBUS_EVM_ADDRESS
+      ? checksumAddress(config.OMNIBUS_EVM_ADDRESS)
+      : checksumAddress(context.wallet.address);
+
   // The fee is taken in the buy token, so the user pays it out of what they
   // receive rather than out of what they are spending.
   // The subscriber's discount reduces the fee rather than the notional, and is
@@ -148,7 +161,7 @@ export async function createQuote(
     sellAmount: context.sellAmount,
     sellTokenDecimals: context.sellToken.decimals,
     buyTokenDecimals: context.buyToken.decimals,
-    takerAddress: checksumAddress(context.wallet.address),
+    takerAddress: taker,
     slippageBps,
     ...(integratorFee ? { fee: integratorFee } : {}),
   });
@@ -235,7 +248,7 @@ export async function createQuote(
       allowanceTarget: quote.allowanceTarget,
       allowanceNeeded: quote.allowanceNeeded,
 
-      takerAddress: checksumAddress(context.wallet.address),
+      takerAddress: taker,
       status: QuoteStatus.ACTIVE,
       expiresAt: new Date(now + config.QUOTE_TTL_SECONDS * 1_000),
     },

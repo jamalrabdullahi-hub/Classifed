@@ -54,6 +54,25 @@ export function isManagedWallet(wallet: Wallet): boolean {
  * account — an ERC-20 transfer, DEX swap calldata, a Hyperliquid order — works
  * unchanged.
  */
+/**
+ * The viem account for a provisioned wallet, WITHOUT the delegation gate.
+ *
+ * Private on purpose: the public entry points differ only in whether they check
+ * consent first, and keeping the unchecked build in one place means the check
+ * cannot be forgotten in one of them.
+ */
+async function provisionedAccount(wallet: Wallet) {
+  if (!isManagedWallet(wallet)) {
+    throw new ValidationError(
+      'That wallet was linked by its owner, so FLT cannot sign for it. Sign in your own wallet instead.',
+    );
+  }
+  return createViemAccount(privyClient(), {
+    walletId: wallet.providerWalletId!,
+    address: wallet.address as Hex,
+  });
+}
+
 export async function managedAccountFor(wallet: Wallet) {
   if (!isManagedWallet(wallet)) {
     throw new ValidationError(
@@ -67,10 +86,7 @@ export async function managedAccountFor(wallet: Wallet) {
     );
   }
 
-  return createViemAccount(privyClient(), {
-    walletId: wallet.providerWalletId!,
-    address: wallet.address as Hex,
-  });
+  return provisionedAccount(wallet);
 }
 
 /**
@@ -97,6 +113,51 @@ export async function sendManagedTransaction(params: {
   }
 
   const account = await managedAccountFor(params.wallet);
+
+  const client = createWalletClient({
+    account,
+    chain: chain.viemChain,
+    transport: http(chain.rpcUrl()),
+  }).extend(publicActions);
+
+  return client.sendTransaction({
+    account,
+    chain: chain.viemChain,
+    to: params.to as Hex,
+    data: params.data as Hex,
+    value: BigInt(params.value),
+    ...(params.gas ? { gas: BigInt(params.gas) } : {}),
+  });
+}
+
+/**
+ * Signs and broadcasts from a provisioned wallet WITHOUT the delegation gate.
+ *
+ * ONLY for sweeping a participant's deposit into the omnibus, where depositing
+ * is itself the authorisation — see `docs/adr/0004-custodial-omnibus.md` and the
+ * `CustodyDeposit` flow. It exists so the sweep does not have to fabricate a
+ * `WalletDelegation` the participant never gave.
+ *
+ * Every other caller must use `sendManagedTransaction`, which enforces the
+ * grant. This function is named for its single permitted use so a second caller
+ * is conspicuous in review rather than a quiet widening of who FLT can spend
+ * for.
+ */
+export async function sendDepositSweepTransaction(params: {
+  wallet: Wallet;
+  to: string;
+  data: string;
+  value: string;
+  gas?: string | null;
+}): Promise<Hex> {
+  const chain = findChain(params.wallet.chainId);
+  if (!chain) {
+    throw new ValidationError('That wallet is on a chain this deployment does not support', {
+      chainId: params.wallet.chainId,
+    });
+  }
+
+  const account = await provisionedAccount(params.wallet);
 
   const client = createWalletClient({
     account,

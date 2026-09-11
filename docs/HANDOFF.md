@@ -31,13 +31,23 @@ perp execution need both the venue SDK and `@flt/db`.
 
 ### Money model, in one paragraph
 
-FLT is **not** a crypto custodian. Participants' funds sit in FLT-provisioned
-wallets whose keys are held by **Privy** (MPC), or in wallets they linked
-themselves. On the fiat leg FLT *is* a money transmitter: it takes cash, buys
-crypto, and delivers it to the participant's Privy wallet. The double-entry
-ledger records only that in-between liability and **nets to zero** on delivery.
-The balance a participant sees is their real on-chain balance, not a number FLT
-invented. Do not add a code path that makes the ledger a store of value.
+FLT **is** a crypto custodian. Client funds are pooled in an omnibus wallet
+whose key material is held by **Privy** (MPC) and which FLT controls — see
+`docs/adr/0004-custodial-omnibus.md`, which supersedes ADR 0001. The
+**double-entry ledger is the source of truth** for participant balances: the
+buying power a participant sees is their `USER_AVAILABLE` ledger balance, not an
+on-chain read. Deposits credit it (against a mined sweep receipt); a confirmed
+trade posts a `TRADE_SETTLEMENT` moving value between two of the participant's
+asset balances; withdrawals debit it against a mined receipt.
+
+The chain is now consulted for **prices**, for **what the omnibus holds**, and
+for **settlement receipts** — never as the answer to "what does this participant
+own". The controls that made the ledger safe to have (zero-sum + sign constraints
+enforced in the database, `(kind, reference)` idempotency) matter more under
+custody, not less. The one new thing custody makes mandatory is
+**reconciliation**: `totalClientLiability()` must never exceed what the omnibus
+holds, and a divergence is an alert, never an auto-correction. Do not add a code
+path that writes a ledger balance to match the chain.
 
 ---
 

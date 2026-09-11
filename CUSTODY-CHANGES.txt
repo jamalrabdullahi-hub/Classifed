@@ -1,0 +1,281 @@
+===============================================================================
+FLT EXCHANGE — CUSTODY SWITCH: CHANGE SUMMARY (AGENT HANDOVER)
+===============================================================================
+
+Repo: C:\FLTCrypto
+Date of work: 2026-09-11 (session)
+Purpose: switched FLT from a non-custodial DEX to a custodial OMNIBUS model.
+This file lists everything changed so another agent (or a human) can pick it up.
+
+===============================================================================
+0. READ FIRST — HOW THIS REPO WORKS (learned the hard way)
+===============================================================================
+
+- Package manager: pnpm workspaces + Turborepo. IMPORTANT: `run_command`'s cwd is
+  NOT the project root here, so ALWAYS pass -C, e.g.:
+      pnpm -C C:\FLTCrypto --filter @flt/core test
+      pnpm -C C:\FLTCrypto --filter @flt/core typecheck
+      pnpm -C C:\FLTCrypto --filter @flt/core exec vitest run --exclude "**/integration/**"
+  A bare `pnpm --filter ...` resolves the workspace from the home dir and fails
+  (and can trigger an install in the home dir). The integration tests need a DB
+  and will HANG without one — always exclude "**/integration/**".
+
+- No local Postgres. Prisma is MOCKED in tests. Migrations are HAND-WRITTEN
+  (never `prisma migrate dev`). After editing schema.prisma run:
+      pnpm -C C:\FLTCrypto --filter @flt/db exec prisma validate
+      pnpm -C C:\FLTCrypto --filter @flt/db exec prisma generate
+  A migration you write CANNOT be run/diffed locally — walk concrete rows through
+  any CHECK by hand.
+
+- i18n: every user-facing string needs an entry in BOTH
+      apps/web/messages/en.json AND apps/web/messages/so.json
+  (Somali). A missing key is a runtime failure. Somali here is best-effort and
+  NEEDS NATIVE REVIEW (see §7).
+
+- Layering: `@flt/core` defines ports; `@flt/providers` implements them. Core
+  MUST NOT import providers. Provider code may import @flt/db. The worker may
+  import both.
+
+===============================================================================
+1. WHAT CHANGED, IN ONE PARAGRAPH
+===============================================================================
+
+FLT is now a custodian. Client funds pool in ONE FLT-controlled Privy wallet
+("the omnibus"); the double-entry ledger is now the SOURCE OF TRUTH for
+participant balances (buying power = ledger USER_AVAILABLE). Participants
+deposit crypto (USDC/USDT) to their own FLT deposit address (swept into the
+omnibus) or fiat (converted + credited), trade by FLT signing swaps from the
+omnibus server-side, and withdraw by FLT sending from the omnibus. The chain is
+consulted only to price assets, to hold (the omnibus), and to prove settlement.
+This REVERSES ADR 0001 (non-custodial); that ADR is now marked superseded.
+
+Everything is gated on CUSTODY_PROVIDER=privy and is a no-op when disabled, so
+CUSTODY_PROVIDER=disabled still behaves exactly as before.
+
+===============================================================================
+2. DECISIONS MADE BY THE OPERATOR (do not re-litigate)
+===============================================================================
+
+- Deposit attribution: PER-USER deposit addresses (each participant's existing
+  FLT/Privy wallet), swept to the omnibus. NOT a single shared address.
+- The omnibus Privy wallet ALREADY EXISTS. It is supplied via env, not created.
+- Depositing IS the authorisation to sweep (no separate WalletDelegation grant
+  needed for sweeps).
+- Only USDC and USDT are custodied.
+
+===============================================================================
+3. NEW FILES
+===============================================================================
+
+Docs:
+  docs/adr/0004-custodial-omnibus.md
+      The governing ADR: omnibus, ledger-is-truth, segregation, mandatory
+      reconciliation, licensing note.
+
+Providers (@flt/providers):
+  src/custody/types.ts              re-exports the CustodyProvider port
+  src/custody/privy-custody.ts      PrivyCustodyProvider: depositAddress,
+                                    getBalances, requestWithdrawal, getWithdrawal
+                                    (backed by the omnibus Privy wallet)
+  src/custody/omnibus.ts            sendOmnibusTransaction(): signs/broadcasts
+                                    from the omnibus (no delegation gate)
+  src/custody/sweep.ts              sweepErc20ToOmnibus(): moves a participant's
+                                    deposit into the omnibus (uses
+                                    sendDepositSweepTransaction)
+  src/custody/index.ts              exports
+  tests/custody.test.ts             6 tests
+
+DB (@flt/db):
+  prisma/migrations/20260910120000_custody_deposits/migration.sql
+  prisma/migrations/20260910130000_withdrawals/migration.sql
+      (models CustodyDeposit + Withdrawal; both added to schema.prisma)
+
+Core (@flt/core):
+  src/services/custody-deposits.ts        creditCryptoDeposit()
+  src/services/custody-trades.ts          settleSpotTrade(),
+                                          settleCustodyTradeAfterConfirm(),
+                                          releaseCustodyTradeLock()
+  src/services/withdrawals.ts             requestWithdrawal(), markWithdrawalSent(),
+                                          confirmWithdrawal(), failWithdrawal(),
+                                          listWithdrawalsForUser()
+  src/services/custody-reconciliation.ts  compareCustodyBalances(),
+                                          clientLiabilities(),
+                                          ledgerIntegrityReport()
+  tests/custody-deposits.test.ts          4 tests
+  tests/custody-trades.test.ts            9 tests
+  tests/withdrawals.test.ts               4 tests
+  tests/custody-portfolio.test.ts         3 tests
+  tests/custody-reconciliation.test.ts    5 tests
+
+Worker (@flt/worker):
+  src/custody.ts          deposit pipeline: detect -> sweep -> credit on receipt
+  src/withdrawals.ts      withdrawal pipeline: broadcast -> confirm/debit
+  src/reconciliation.ts   solvency + ledger-integrity check (nevers auto-adjust)
+  tests/custody.test.ts   5 tests
+
+Web (@flt/web):
+  src/app/api/withdrawals/route.ts                      GET list / POST request
+  src/app/(app)/lacag-qaadasho/page.tsx                 withdrawal page
+  src/app/(app)/lacag-qaadasho/withdraw-client.tsx      withdrawal form + history
+
+===============================================================================
+4. MODIFIED FILES
+===============================================================================
+
+Docs:
+  docs/adr/0001-non-custodial-architecture.md   status -> SUPERSEDED by 0004
+  docs/HANDOFF.md                               money-model paragraph rewritten
+
+Config:
+  packages/config/src/env.ts        added CUSTODY_PROVIDER ('disabled'|'privy'),
+                                    OMNIBUS_EVM_ADDRESS, OMNIBUS_EVM_WALLET_ID,
+                                    OMNIBUS_SOLANA_* ; production guards
+  .env.example                      custody section (all commented / off)
+
+Providers:
+  src/registry.ts                   custodyProvider() (returns null when disabled)
+  src/index.ts                      exports custody
+  package.json                      "./custody" subpath export
+  src/wallet-provisioning/signer.ts  added sendDepositSweepTransaction()
+                                    (the ONE delegation-free signing path);
+                                    refactored managedAccountFor to share
+                                    provisionedAccount()
+  src/wallet-provisioning/index.ts  exports sendDepositSweepTransaction
+
+DB:
+  prisma/schema.prisma              + CustodyDeposit, + Withdrawal, + enums
+                                    CustodyDepositStatus / WithdrawalStatus,
+                                    back-relations on User + Chain
+  src/index.ts                      re-exports the new Prisma types/enums
+
+Core (@flt/core/src/services):
+  fiat-deposits.ts   final step now VERIFIES the stablecoin landed in the omnibus
+                     (env OMNIBUS_EVM_ADDRESS) and posts a 2-asset conversion:
+                     close the USD liability, open the stablecoin balance.
+  quotes.ts          takerAddress = OMNIBUS_EVM_ADDRESS when custody is on
+  trades.ts          transitionTransaction(): on CONFIRMED -> settle;
+                     on REVERTED/DROPPED -> release the lock
+  portfolio-usd.ts   REWRITTEN: custodyPortfolio() reads the ledger (total +
+                     buying power + holdings; chain used only to price)
+  index.ts           barrel exports for the new services
+  tests/fiat-deposits.test.ts   two cases updated to the custody model
+
+Web (@flt/web):
+  src/app/api/trades/execute/route.ts    custody branch: lockFunds -> .
+                                         sendOmnibusTransaction -> submitTrade
+  src/app/api/approvals/execute/route.ts custody branch: approve from the omnibus
+  src/app/api/wallets/usd-balance/route.ts  returns custodyPortfolio()
+  src/app/api/deposits/route.ts          note copy -> "credited"
+  src/app/(app)/iibso/trade-client.tsx   REMOVED wagmi + browser signing; always
+                                         server-executed; shows buying power
+  src/app/(app)/boorso/wallets-client.tsx  balance card reads the ledger
+  src/app/(app)/hantida/page.tsx          REWRITTEN: renders ledger holdings
+  src/components/nav.tsx                  added /lacag-qaadasho (Withdraw)
+  messages/en.json + messages/so.json     new/changed keys (see §7)
+
+Admin (@flt/admin):
+  src/app/(panel)/payments/page.tsx             passes the omnibus address
+  src/app/(panel)/payments/fiat-deposit-queue.tsx  copy/dest -> "convert into
+                                                the omnibus"
+
+Worker (@flt/worker):
+  src/index.ts    new loops: custody (30s), withdrawals (30s), reconciliation (5m),
+                  all gated on CUSTODY_PROVIDER != disabled
+  src/monitor.ts  under custody, reads the fill AT THE OMNIBUS (env), not the
+                  participant's wallet
+
+===============================================================================
+5. KEY INVARIANTS (do not break)
+===============================================================================
+
+- Ledger sign convention: debits positive, credits negative, every transfer sums
+  to zero (enforced by a DB trigger). Asset accounts >= 0, liabilities <= 0.
+- Settle/credit/debit ONLY against a MINED receipt, never a broadcast.
+- Every ledger movement is idempotent on (kind, reference). References used:
+    crypto-deposit:<sweepTxHash>   trade-lock:<quoteId>   trade-unlock:<txId>
+    trade-sell:<txId> trade-buy:<txId>   withdrawal:<id>
+    withdrawal-lock:<id> withdrawal-unlock:<id>   fiat-convert-usd:<id> ...
+- Move an amount available -> locked BEFORE broadcasting a trade or withdrawal,
+  so the same balance cannot back two things.
+- Settlement of a spot trade is TWO single-asset transfers (sell leg + buy leg).
+  The participant is credited (received - fee); fee -> FEE_REVENUE.
+- Reconciliation NEVER writes a ledger balance to match the chain. A shortfall
+  (owed > held) is the failure. A surplus is expected (revenue sits in the
+  omnibus when the fee recipient is the omnibus).
+- The integrator fee recipient MUST be the omnibus (FLT_FEE_RECIPIENT_ADDRESS),
+  or the omnibus holds less than the ledger credits it for — reconciliation will
+  flag it. 0x always prices the fee in the BUY token (see zeroex.ts).
+
+===============================================================================
+6. HOW TO VERIFY
+===============================================================================
+
+  pnpm -C C:\FLTCrypto --filter @flt/db exec prisma validate
+  pnpm -C C:\FLTCrypto --filter @flt/db exec prisma generate
+  pnpm -C C:\FLTCrypto typecheck            (8/8 packages should pass)
+  pnpm -C C:\FLTCrypto --filter @flt/core exec vitest run --exclude "**/integration/**"
+  pnpm -C C:\FLTCrypto --filter @flt/providers test
+  pnpm -C C:\FLTCrypto --filter @flt/worker test
+
+Last verified (all green):
+  core 318 tests, providers 43, worker 13, workspace typecheck 8/8, JSON valid.
+
+===============================================================================
+7. KNOWN GAPS / CAVEATS / FOLLOW-UPS
+===============================================================================
+
+- SOMALI TRANSLATION: new/changed strings in messages/so.json (nav.withdraw,
+  the withdrawPage namespace, and the deposit-namespace edits) are best-effort
+  and NEED NATIVE-SPEAKER REVIEW.
+- CRYPTO-DEPOSIT SCREEN: not a dedicated screen. The participant's deposit
+  address is shown on the existing wallets page (/boorso). A dedicated "send
+  USDC to this address" screen is a possible follow-up.
+- DEPOSIT DETECTION BACKFILL: apps/worker/src/custody.ts scans a fixed ~2000
+  block window per pass. Fine live; not a backfill. A deployment starting after
+  funds already sit at a deposit address needs a one-off backfill or a persisted
+  per-chain cursor. Nothing is lost (funds stay on-chain).
+- WITHDRAWAL BROADCAST FAILURE: a failed broadcast leaves the withdrawal PENDING
+  to retry (not FAILED), so a persistent failure = a stuck row for an operator.
+- ALERTING: reconciliation (and the worker generally) alerts via console.error +
+  the worker result log. MAIL_PROVIDER=console means NO email delivers yet.
+- MAIL: unchanged — MAIL_PROVIDER=console in prod (per HANDOFF).
+- INTEGRATION TESTS: still none; the ledger/DB constraints are not exercised in
+  tests (DB is mocked). The two new migrations were validated with `prisma
+  validate` only, plus hand-walked CHECK examples.
+- PERPS: NOT converted to custody (perps still use the old paths). Out of scope
+  for this work.
+- APPROVALS: the omnibus must be approved for each sell token's AllowanceHolder
+  before the first swap in that token (the approvals route now does this from
+  the omnibus on demand).
+
+===============================================================================
+8. ENV REQUIRED TO GO LIVE
+===============================================================================
+
+  CUSTODY_PROVIDER=privy
+  OMNIBUS_EVM_ADDRESS=0x...        (public address of the existing omnibus)
+  OMNIBUS_EVM_WALLET_ID=...        (Privy's wallet id — signing is by id)
+  PRIVY_APP_ID=...  PRIVY_APP_SECRET=...
+  DEX_ROUTER=zeroex  ZEROEX_API_KEY=...
+  FLT_FEE_RECIPIENT_ADDRESS=<must equal the omnibus address>
+The env schema REFUSES TO BOOT in production if CUSTODY_PROVIDER=privy without
+OMNIBUS_EVM_ADDRESS + OMNIBUS_EVM_WALLET_ID (and PRIVY creds).
+
+===============================================================================
+9. THE PLAN (all 9 steps completed and verified this session)
+===============================================================================
+
+  1. ADR rewrite (custodial omnibus)
+  2. Omnibus custody adapter + env + registry
+  3. CustodyDeposit model + migration
+  3b. Deposit worker (detect -> sweep -> credit on receipt)
+  4. Fiat rail ends in a ledger credit (2-asset conversion)
+  5. Server-side execution + TRADE_SETTLEMENT
+  6. Balances/portfolio read from the ledger (chain for pricing only)
+  7. Withdrawals (model + service + worker + API)
+  8. Reconciliation (solvency + ledger self-integrity; never auto-adjusts)
+  9. Front-end (trade screen has no wallet/wagmi; withdrawal screen; deposit copy)
+
+===============================================================================
+END
+===============================================================================

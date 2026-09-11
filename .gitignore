@@ -44,3 +44,6 @@ brand/review.html
 brand/ui-directions.html
 brand/fonts/
 
+# Local go-live notes — contains LIVE SECRETS, never commit
+GO-LIVE-ENV.txt
+
