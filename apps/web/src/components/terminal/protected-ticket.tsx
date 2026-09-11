@@ -5,14 +5,7 @@ import Link from 'next/link';
 import { TriangleAlert, ShieldCheck, ChevronDown, ArrowRight } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Button, Notice, cn } from '@flt/ui';
-import { useAccount, useWalletClient } from 'wagmi';
 import { ApiError, get, post } from '@/lib/api';
-import {
-  authorizeAgent,
-  hasAgentKey,
-  submitOrder,
-  type SubmittableOrder,
-} from '@/lib/hyperliquid-agent';
 import {
   COVERAGE_PRESETS,
   HORIZON_PRESETS,
@@ -26,19 +19,6 @@ import {
 } from '@/lib/protection-math';
 import type { Candle } from '@flt/core/ports/history';
 import type { PriceLineSpec } from '@/components/price-chart';
-
-/**
- * Hyperliquid wants the builder-fee ceiling as a percentage string.
- *
- * The order carries the fee in tenths of a basis point, so ten of them make
- * one basis point and one basis point is 0.01% — the division below is that,
- * not a magic number. Zero when there is no builder fee configured, which is
- * the default.
- */
-function maxFeeRateOf(tenthsBps: number | null | undefined): string {
-  if (!tenthsBps || tenthsBps <= 0) return '0%';
-  return `${tenthsBps / 1000}%`;
-}
 
 /** Per-browser preference: skip the pre-execution review. See `skipReview`. */
 const SKIP_REVIEW_KEY = 'flt.skip-order-review';
@@ -206,9 +186,6 @@ export function ProtectedTicket({
    * erring toward showing it is the safe direction for a screen that opens a
    * leveraged position.
    */
-  const { address } = useAccount();
-  const { data: walletClient } = useWalletClient();
-
   const [skipReview, setSkipReview] = useState(false);
 
   useEffect(() => {
@@ -339,70 +316,23 @@ export function ProtectedTicket({
     setError(null);
     setPending(true);
     try {
-      const prepared = await post<{
-        orderId: string;
-        action: {
-          kind: string;
-          order: SubmittableOrder;
-          attached?: SubmittableOrder[];
-          grouping?: 'na' | 'normalTpsl' | 'positionTpsl';
-        };
-      }>('/api/perps/orders', {
-        action: 'open',
+      // Placed server-side, from FLT's omnibus account, signed by the agent key
+      // FLT holds (ADR 0005). No wallet is connected and nothing is signed here;
+      // the participant's margin is reserved on the ledger before the order is
+      // broadcast (ADR 0006 P3).
+      await post('/api/perps/orders/execute', {
         symbol,
         side,
         usdNotional: amount.trim(),
         leverage,
         marginMode: 'ISOLATED',
         slippageBps: 50,
-        reduceOnly: false,
         orderType,
         limitPrice: needsLimit(orderType) ? limitPrice.trim() : null,
         triggerPrice: needsTrigger(orderType) ? triggerPrice.trim() : null,
         takeProfitPrice: bracket && takeProfit.trim() ? takeProfit.trim() : null,
         stopLossPrice: bracket && stopLoss.trim() ? stopLoss.trim() : null,
-        ...(insured
-          ? {
-              protectionPercentile: pricing!.confidence,
-              protectionKind: policy,
-              protectionHorizonDays: horizonDays,
-            }
-          : {}),
       });
-
-      if (!address || !walletClient) throw new Error(tt('connectFirst'));
-      if (prepared.action.kind !== 'venue-order') throw new Error(tt('venueNotSupported'));
-
-      // One signature, once per browser session. Skipped entirely when this
-      // browser already holds a key the venue has accepted.
-      if (!hasAgentKey(address)) {
-        await authorizeAgent({
-          wallet: walletClient,
-          owner: address,
-          builderAddress: (prepared.action.order.builderAddress as `0x${string}` | null) ?? null,
-          builderMaxFeeRate: maxFeeRateOf(prepared.action.order.builderFeeTenthsBps),
-        });
-      }
-
-      const outcome = await submitOrder({
-        owner: address,
-        order: prepared.action.order,
-        attached: prepared.action.attached,
-        grouping: prepared.action.grouping,
-      });
-
-      // Reported to FLT as a claim, not as proof: FLT never posted to the
-      // venue, so it cannot witness the submission. The worker reconciles
-      // against the venue's own record and is what marks an order filled.
-      try {
-        await post(`/api/perps/orders/${prepared.orderId}`, {
-          venueOrderId: outcome.venueOrderId,
-        });
-      } catch {
-        // The order is at the venue either way. Failing to record it here is a
-        // bookkeeping problem, not a trading one, and must not read as a
-        // failed trade.
-      }
 
       setDone(tt('orderSent'));
       setConfirming(false);

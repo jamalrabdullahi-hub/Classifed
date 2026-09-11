@@ -32,6 +32,12 @@ const schema = z.object({
   leverage: z.coerce.number().int().min(1).max(100),
   marginMode: z.enum(['ISOLATED', 'CROSS']).default('ISOLATED'),
   limitPrice: decimalString.nullish(),
+  orderType: z
+    .enum(['MARKET', 'LIMIT', 'STOP_MARKET', 'STOP_LIMIT', 'TAKE_PROFIT_MARKET', 'TAKE_PROFIT_LIMIT'])
+    .default('MARKET'),
+  triggerPrice: decimalString.nullish(),
+  takeProfitPrice: decimalString.nullish(),
+  stopLossPrice: decimalString.nullish(),
   slippageBps: z.coerce.number().int().min(0).max(1_000).default(50),
 });
 
@@ -81,7 +87,10 @@ export const POST = handler(
         limitPrice: body.limitPrice ?? null,
         slippageBps: body.slippageBps ?? 50,
         reduceOnly: false,
-        orderType: 'MARKET',
+        orderType: body.orderType ?? 'MARKET',
+        triggerPrice: body.triggerPrice ?? null,
+        takeProfitPrice: body.takeProfitPrice ?? null,
+        stopLossPrice: body.stopLossPrice ?? null,
       },
     });
 
