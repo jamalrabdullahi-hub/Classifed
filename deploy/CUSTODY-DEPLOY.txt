@@ -76,6 +76,13 @@ EOF
 # only by the ones that need it:
 chown flt:flt .env && chmod 600 .env
 
+# CRITICAL — confirm no template placeholders are left. Pasted literally,
+# `PRIVY_APP_ID=<PRIVY_APP_ID>` is an invalid app id: Privy rejects every call,
+# which surfaces as "Create FLT wallet -> Something went wrong", which means no
+# deposit address, which means no deposit is ever detected and credited.
+grep -nE '=<[^>]*>' .env
+#   No output = good. Any output = a value you still need to fill in.
+
 
 --- STEP 3: restart so the new env is read ------------------------------------
 
