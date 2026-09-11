@@ -16,6 +16,8 @@ import {
   UnauthenticatedError,
   ValidationError,
 } from '../domain/errors';
+import { Decimal } from '../domain/money';
+import { postAdjustment } from './ledger';
 import { newId, randomToken } from '../domain/id';
 import { checksumAddress } from '../domain/address';
 import { MAX_FEE_BPS } from './fees';
@@ -63,6 +65,10 @@ export const PERMISSIONS = {
   MANAGE_SUBSCRIPTIONS: 'manage_subscriptions',
   MANAGE_PLATFORM_SETTINGS: 'manage_platform_settings',
   MANAGE_PAYOUTS: 'manage_payouts',
+  /// Moving real custodied capital onto a named account (an ADJUSTMENT) — the
+  /// most sensitive operator action, because it writes a balance no deposit
+  /// produced. SUPER_ADMIN only, by the same reasoning as MANAGE_PAYOUTS.
+  ADJUST_LEDGER: 'adjust_ledger',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -638,5 +644,71 @@ export async function setProviderEnabled(
       after: { isEnabled: input.enabled },
       reason: input.reason,
     });
+  });
+}
+
+/**
+ * Credits a client's spendable balance from the omnibus.
+ *
+ * The one path that writes a balance no deposit produced, so it is the most
+ * sensitive action in the panel: SUPER_ADMIN only (see PERMISSIONS), always
+ * attributed, always reasoned. It is deliberately a credit *from the omnibus*
+ * rather than value from nowhere — the omnibus account is debited by the same
+ * amount, so the ledger still says what FLT holds against what it owes and
+ * reconciliation can still prove it. Reconciliation, not this function, is the
+ * guard against allocating more than the omnibus actually holds.
+ */
+export async function adjustClientBalance(
+  context: AdminActionContext,
+  input: { userId?: string; email?: string; asset: string; amount: string; reason: string },
+): Promise<{ transferId: string; userId: string; asset: string; credited: string }> {
+  assertCan(context.admin, PERMISSIONS.ADJUST_LEDGER);
+  if (!input.reason.trim()) throw new ValidationError('A reason is required');
+
+  const asset = input.asset.trim().toUpperCase();
+  if (!asset) throw new ValidationError('An asset is required');
+
+  let amount: Decimal;
+  try {
+    amount = new Decimal(input.amount);
+  } catch {
+    throw new ValidationError('Amount must be a decimal number');
+  }
+  if (!amount.isFinite() || amount.lessThanOrEqualTo(0)) {
+    throw new ValidationError('Amount must be a positive number');
+  }
+
+  // The account can be named by id or by email; the panel names it by email.
+  const user = input.userId
+    ? await prisma.user.findUnique({ where: { id: input.userId } })
+    : input.email
+      ? await prisma.user.findUnique({ where: { email: input.email.trim().toLowerCase() } })
+      : null;
+  if (!user) throw new NotFoundError('User');
+
+  const reference = `adjustment:${newId()}`;
+
+  return prisma.$transaction(async (tx) => {
+    const transfer = await postAdjustment(
+      {
+        userId: user.id,
+        asset,
+        amount,
+        reference,
+        memo: `Operator allocation of ${amount.toFixed()} ${asset} to ${user.email}`,
+        createdByAdminId: context.admin.id,
+      },
+      tx,
+    );
+
+    await recordAdminAction(tx, context, {
+      action: AuditAction.ADMIN_LEDGER_ADJUSTED,
+      entityType: 'User',
+      entityId: user.id,
+      after: { asset, credited: amount.toFixed(), reference },
+      reason: input.reason,
+    });
+
+    return { transferId: transfer.id, userId: user.id, asset, credited: amount.toFixed() };
   });
 }

@@ -231,6 +231,9 @@ export const AuditAction = {
   ADMIN_PROVIDER_ENABLED: 'admin.provider.enabled',
   ADMIN_CHAIN_TOGGLED: 'admin.chain.toggled',
   ADMIN_FEE_CHANGED: 'admin.fee.changed',
+  /// An operator moving real custodied capital onto a named account — the one
+  /// path that writes a balance no deposit produced, so it is audited as such.
+  ADMIN_LEDGER_ADJUSTED: 'admin.ledger.adjusted',
   ADMIN_ADMIN_CREATED: 'admin.admin.created',
   ADMIN_ADMIN_ROLE_CHANGED: 'admin.admin.role_changed',
   ADMIN_ADMIN_DEACTIVATED: 'admin.admin.deactivated',

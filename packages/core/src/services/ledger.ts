@@ -349,3 +349,67 @@ async function moveBetweenClientAccounts(
     );
   });
 }
+
+/**
+ * An operator adjustment: credits a client's spendable balance and debits the
+ * omnibus backing it.
+ *
+ * The same two-sided shape as a deposit — an asset (the omnibus, now holding
+ * that much more for clients) against a liability (the client, now owed that
+ * much more). It is how an operator moves real, already-custodied capital onto
+ * a specific account, and it is deliberately the only way to write a balance no
+ * deposit produced: always an `ADJUSTMENT`, always attributed, always reasoned,
+ * never an edit to a column.
+ *
+ * The permission check and the reason belong to the caller
+ * (`admin.adjustClientBalance`); this is only the movement.
+ */
+export async function postAdjustment(
+  params: {
+    userId: string;
+    asset: string;
+    /** Positive; the amount credited to the client. */
+    amount: Decimal;
+    reference: string;
+    memo: string;
+    createdByAdminId?: string | null;
+  },
+  client: Prisma.TransactionClient | typeof prisma = prisma,
+): Promise<LedgerTransfer> {
+  if (params.amount.lessThanOrEqualTo(0)) {
+    throw new ValidationError('An adjustment must credit a positive amount');
+  }
+
+  const run = async (tx: Prisma.TransactionClient) => {
+    const omnibus = await accountFor(
+      { kind: LedgerAccountKind.CLIENT_OMNIBUS, asset: params.asset },
+      tx,
+    );
+    const available = await accountFor(
+      { kind: LedgerAccountKind.USER_AVAILABLE, userId: params.userId, asset: params.asset },
+      tx,
+    );
+
+    return postTransfer(
+      {
+        kind: LedgerTransferKind.ADJUSTMENT,
+        reference: params.reference,
+        memo: params.memo,
+        createdByAdminId: params.createdByAdminId ?? null,
+        /**
+         * Debit the omnibus — an asset, so it now holds this much more — and
+         * credit the client — a liability, so FLT now owes this much more.
+         * Opposite signs, equal magnitude, summing to zero.
+         */
+        entries: [
+          { accountId: omnibus.id, amount: params.amount },
+          { accountId: available.id, amount: params.amount.negated() },
+        ],
+      },
+      tx,
+    );
+  };
+
+  if (client === prisma) return prisma.$transaction((tx) => run(tx));
+  return run(client as Prisma.TransactionClient);
+}
