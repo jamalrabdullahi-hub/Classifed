@@ -1,5 +1,5 @@
 import { env } from '@flt/config';
-import { ProviderNotConfiguredError, ValidationError } from '@flt/core/domain';
+import { DomainError, ProviderNotConfiguredError, ValidationError } from '@flt/core/domain';
 import { HyperliquidPerpVenue } from './hyperliquid';
 import { readPerpsAgentKey } from './agent-key';
 import { submitPrepared } from './submit';
@@ -47,11 +47,31 @@ export async function placeCustodyPerpOrder(
   const { venue, account, agent } = await venueAndAgent();
   const request = { address: account, intent };
 
-  const preview = await venue.previewOrder(request);
-  const action = await venue.prepareOrder(request);
-  const venueOrderId = await submitPrepared(venue.meta.slug, agent.privateKey, action);
+  try {
+    const preview = await venue.previewOrder(request);
+    const action = await venue.prepareOrder(request);
+    const venueOrderId = await submitPrepared(venue.meta.slug, agent.privateKey, action);
 
-  return { venueOrderId, preview };
+    return { venueOrderId, preview };
+  } catch (error) {
+    throw venueRejection(error);
+  }
+}
+
+/**
+ * Surfaces a venue rejection as our own error.
+ *
+ * The venue's message is the actionable part — "Order must have minimum value
+ * of $10" tells the participant what to change, whereas a raw provider error
+ * reaches them as the generic 500 "Something went wrong". Deliberately a
+ * ValidationError (400) rather than a ProviderError (502): this API sits behind
+ * Cloudflare, which replaces any origin 502 with its own HTML page, so a 502
+ * here would be masked before the message ever reached the client.
+ */
+function venueRejection(error: unknown): DomainError {
+  if (error instanceof DomainError) return error;
+  const message = error instanceof Error ? error.message : String(error);
+  return new ValidationError(`The venue rejected the order: ${message}`);
 }
 
 /** Closes (or reduces) the omnibus's position on a market. */
@@ -60,7 +80,11 @@ export async function closeCustodyPerpPosition(
   slippageBps = 100,
 ): Promise<{ venueOrderId: string | null }> {
   const { venue, account, agent } = await venueAndAgent();
-  const action = await venue.prepareClose({ address: account, symbol, size: null, slippageBps });
-  const venueOrderId = await submitPrepared(venue.meta.slug, agent.privateKey, action);
-  return { venueOrderId };
+  try {
+    const action = await venue.prepareClose({ address: account, symbol, size: null, slippageBps });
+    const venueOrderId = await submitPrepared(venue.meta.slug, agent.privateKey, action);
+    return { venueOrderId };
+  } catch (error) {
+    throw venueRejection(error);
+  }
 }
