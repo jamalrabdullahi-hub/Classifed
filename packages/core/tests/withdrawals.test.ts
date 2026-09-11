@@ -26,13 +26,20 @@ vi.mock('@flt/db', async () => {
 
   const tx = {
     ledgerAccount: {
-      findFirst: async ({ where }: { where: Record<string, unknown> }) => ({
-        id: `acct:${where.kind}:${where.userId ?? 'platform'}:${where.asset}`,
-        kind: where.kind,
-        userId: where.userId ?? null,
-        asset: where.asset,
-        balance: '0',
-      }),
+      // Mirror the seeded accounts so `accountFor` sees the same balance
+      // `clientBalance` does — a real database has one table behind both.
+      findFirst: async ({ where }: { where: Record<string, unknown> }) => {
+        const seeded = h.accounts.find(
+          (account) => account.kind === where.kind && account.asset === where.asset,
+        );
+        return {
+          id: `acct:${where.kind}:${where.userId ?? 'platform'}:${where.asset}`,
+          kind: where.kind,
+          userId: where.userId ?? null,
+          asset: where.asset,
+          balance: seeded ? String(seeded.balance) : '0',
+        };
+      },
       create: async ({ data }: { data: Record<string, unknown> }) => data,
       update: async () => ({}),
     },

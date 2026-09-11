@@ -11,7 +11,8 @@ export {
   Stat,
 } from './components/card';
 export { Badge, badgeVariants, StatusDot, StatusPill, type BadgeProps } from './components/badge';
-export { AddressChip, ValueDelta, truncateMiddle, type AddressChipProps } from './components/address';
+export { AddressChip, ValueDelta, type AddressChipProps } from './components/address';
+export { truncateMiddle } from './format';
 export { Input, Label, Field, Notice, type FieldProps } from './components/field';
 export {
   Table,

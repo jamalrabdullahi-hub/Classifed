@@ -329,6 +329,25 @@ async function moveBetweenClientAccounts(
       tx,
     );
 
+    /**
+     * Refuse to reserve more than the client has available.
+     *
+     * Without this the overdraw is caught by the ledger's own sign CHECK — a
+     * raw Postgres error that reaches the caller as a generic 500 rather than a
+     * refusal they can act on. Only a lock is checked: an unlock returns funds
+     * and cannot overdraw. Reserved (locked) funds are still owed, so the test
+     * is on what is spendable, not on the total.
+     */
+    if (toLocked) {
+      const availableAmount = naturalBalance(available);
+      if (availableAmount.lessThan(params.amount)) {
+        throw new ValidationError(
+          `Insufficient available ${params.asset}: ${params.amount.toFixed()} requested, ${availableAmount.toFixed()} available`,
+          { asset: params.asset, requested: params.amount.toFixed(), available: availableAmount.toFixed() },
+        );
+      }
+    }
+
     return postTransfer(
       {
         kind,

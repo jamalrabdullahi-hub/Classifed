@@ -3,6 +3,7 @@
 import { Check, Copy, ExternalLink } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { cn } from '../cn';
+import { truncateMiddle } from '../format';
 
 /**
  * Address display.
@@ -16,11 +17,6 @@ import { cn } from '../cn';
  * `full` is used wherever the address is part of a decision (the review screen,
  * the token detail) rather than part of a list.
  */
-
-export function truncateMiddle(value: string, lead = 6, tail = 4): string {
-  if (value.length <= lead + tail + 1) return value;
-  return `${value.slice(0, lead)}…${value.slice(-tail)}`;
-}
 
 export interface AddressChipProps {
   address: string;
