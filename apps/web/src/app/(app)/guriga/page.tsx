@@ -20,6 +20,8 @@ import { AddressChip } from '@flt/ui';
 import { ResendVerification } from '@/components/resend-verification';
 import { requireUserPage } from '@/server/session';
 import { entitlementsFor } from '@flt/core/services/entitlements';
+import { custodyPortfolio } from '@flt/core/services/portfolio-usd';
+import { OnboardingChecklist } from '@/components/onboarding-checklist';
 import { UpgradeBanner } from '@/components/upgrade-banner';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -42,7 +44,7 @@ export default async function DashboardPage() {
   // one forgetful call site should not start nagging paying customers.
   const entitlements = await entitlementsFor(user.id);
 
-  const [kyc, wallets, recentTransactions] = await Promise.all([
+  const [kyc, wallets, recentTransactions, portfolio] = await Promise.all([
     prisma.kycProfile.findUnique({ where: { userId: user.id } }),
     prisma.wallet.findMany({
       where: { userId: user.id, verifiedAt: { not: null } },
@@ -54,6 +56,7 @@ export default async function DashboardPage() {
       orderBy: { submittedAt: 'desc' },
       take: 5,
     }),
+    custodyPortfolio(user.id),
   ]);
 
   const verified = user.accountStatus === AccountStatus.KYC_APPROVED;
@@ -69,6 +72,12 @@ export default async function DashboardPage() {
         </h1>
         <p className="mt-1 text-[13px] text-[var(--text-muted)]">{user.email}</p>
       </div>
+
+      <OnboardingChecklist
+        kycApproved={kyc?.status === KycStatus.APPROVED}
+        balanceUsd={portfolio.totalUsd}
+        emailVerified={user.emailVerifiedAt !== null}
+      />
 
       {/* The most important thing on the page is whatever is currently blocking
           the user. Only one of these renders at a time. */}

@@ -22,6 +22,19 @@
     "deposit": "Lacag geli",
     "withdraw": "Lacag qaado"
   },
+  "onboarding": {
+    "title": "Bilow",
+    "subtitle": "Dhammee tallaabooyinkan si aad u bilowdo ganacsiga.",
+    "progress": "{done} ee {total} la dhammeeyey",
+    "stepAccount": "Samee akoonkaaga",
+    "stepKyc": "Xaqiiji aqoonsigaaga",
+    "stepDeposit": "Dhigo lacag (ugu yaraan $15)",
+    "stepMfa": "Deji laba-qod oo xaqiijin",
+    "recommended": "La talinayaa",
+    "actionVerify": "Xaqiiji",
+    "actionDeposit": "Dhigo",
+    "actionSecure": "Deji"
+  },
   "home": {
     "eyebrow": "Ganacsi aan qofna hayn lacagtaada",
     "title": "Ka ganacso boorsadaada",

@@ -22,6 +22,19 @@
     "deposit": "Add money",
     "withdraw": "Withdraw money"
   },
+  "onboarding": {
+    "title": "Get started",
+    "subtitle": "Finish these steps to start trading.",
+    "progress": "{done} of {total} done",
+    "stepAccount": "Create your account",
+    "stepKyc": "Verify your identity",
+    "stepDeposit": "Deposit funds (min $15)",
+    "stepMfa": "Set up two-factor authentication",
+    "recommended": "Recommended",
+    "actionVerify": "Verify",
+    "actionDeposit": "Deposit",
+    "actionSecure": "Set up"
+  },
   "home": {
     "eyebrow": "Non-custodial trading",
     "title": "Trade from your own wallet",
