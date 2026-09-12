@@ -46,6 +46,7 @@ export default async function DashboardPage() {
     prisma.kycProfile.findUnique({ where: { userId: user.id } }),
     prisma.wallet.findMany({
       where: { userId: user.id, verifiedAt: { not: null } },
+      include: { chain: { select: { name: true } } },
       orderBy: [{ isPreferred: 'desc' }, { createdAt: 'asc' }],
     }),
     prisma.transaction.findMany({
@@ -137,7 +138,7 @@ export default async function DashboardPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     {wallet.isPreferred ? <Badge tone="accent">{t('preferred')}</Badge> : null}
-                    <Badge tone="neutral">Base</Badge>
+                    <Badge tone="neutral">{wallet.chain.name}</Badge>
                   </div>
                 </div>
               ))}

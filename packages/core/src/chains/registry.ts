@@ -119,14 +119,17 @@ export function isSupportedChain(chainId: number): boolean {
   return findChain(chainId) !== undefined;
 }
 
-export function explorerTxUrl(chainId: number, txHash: string): string {
-  return `${requireChain(chainId).explorerUrl}/tx/${txHash}`;
+export function explorerTxUrl(chainId: number, txHash: string): string | undefined {
+  const chain = findChain(chainId);
+  return chain ? chain.explorerUrl + '/tx/' + txHash : undefined;
 }
 
-export function explorerAddressUrl(chainId: number, address: string): string {
-  return `${requireChain(chainId).explorerUrl}/address/${address}`;
+export function explorerAddressUrl(chainId: number, address: string): string | undefined {
+  const chain = findChain(chainId);
+  return chain ? chain.explorerUrl + '/address/' + address : undefined;
 }
 
-export function explorerTokenUrl(chainId: number, address: string): string {
-  return `${requireChain(chainId).explorerUrl}/token/${address}`;
+export function explorerTokenUrl(chainId: number, address: string): string | undefined {
+  const chain = findChain(chainId);
+  return chain ? chain.explorerUrl + '/token/' + address : undefined;
 }
