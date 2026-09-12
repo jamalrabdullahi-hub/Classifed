@@ -18,11 +18,11 @@ export const dynamic = 'force-dynamic';
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ symbol: string }>;
+  params: Promise<{ symbol: string[] }>;
 }): Promise<Metadata> {
   const { symbol } = await params;
   const t = await getTranslations('meta');
-  return { title: t('titleInstrumentSymbol', { symbol: symbol.toUpperCase() }) };
+  return { title: t('titleInstrumentSymbol', { symbol: symbol.join('/').toUpperCase() }) };
 }
 
 /**
@@ -37,7 +37,7 @@ export async function generateMetadata({
 export default async function PerpMarketPage({
   params,
 }: {
-  params: Promise<{ symbol: string }>;
+  params: Promise<{ symbol: string[] }>;
 }) {
   const user = await currentUser();
   const t = await getTranslations('perpMarketPage');
@@ -66,7 +66,11 @@ export default async function PerpMarketPage({
     entitlements.tier !== SubscriptionTier.PRO &&
     entitlements.tier !== SubscriptionTier.ELITE;
 
-  const { symbol } = await params;
+  // Catch-all: /ganacsi/USD/CAD arrives as ["USD","CAD"]. Rejoin with "/" so a
+  // slashed symbol is one market, not two path segments that match no route —
+  // which is why these pages 404'd before.
+  const { symbol: segments } = await params;
+  const symbol = segments.join('/');
   const venues = perpVenues();
 
   const [offered, all] = await Promise.all([

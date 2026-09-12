@@ -39,7 +39,7 @@ export default async function HomePage() {
   if (env().PERPS_ENABLED) {
     const markets = await listAllOfferedMarkets(perpVenues());
     const first = markets[0];
-    if (first) redirect(`/ganacsi/${encodeURIComponent(first.symbol)}`);
+    if (first) redirect(`/ganacsi/${first.symbol}`);
   }
 
   const perpsEnabled = env().PERPS_ENABLED;
