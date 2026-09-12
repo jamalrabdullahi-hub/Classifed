@@ -8,6 +8,7 @@ import { ApiError, get } from '@/lib/api';
 import { PriceChart, type PriceLineSpec } from '@/components/price-chart';
 import {
   INDICATOR_TYPES,
+  defaultParams,
   indicatorPolicyFor,
   type IndicatorSpec,
   type IndicatorType,
@@ -107,14 +108,21 @@ export function PerpChart({
       typeof crypto !== 'undefined' && crypto.randomUUID
         ? crypto.randomUUID()
         : `${type}-${Date.now()}`;
-    setIndicators((current) => [
-      ...current,
-      { id, type, period: INDICATOR_TYPES[type].defaultPeriod },
-    ]);
+    setIndicators((current) => [...current, { id, type, params: defaultParams(type) }]);
   }
 
   function removeIndicator(id: string): void {
     setIndicators((current) => current.filter((spec) => spec.id !== id));
+  }
+
+  function updateParam(id: string, key: string, value: number, min: number, max: number): void {
+    if (!Number.isFinite(value)) return;
+    const clamped = Math.min(Math.max(Math.round(value), min), max);
+    setIndicators((current) =>
+      current.map((spec) =>
+        spec.id === id ? { ...spec, params: { ...spec.params, [key]: clamped } } : spec,
+      ),
+    );
   }
 
   // Price precision follows magnitude: a $79,000 contract and a $0.14 one need
@@ -160,18 +168,42 @@ export function PerpChart({
       </div>
 
       {indicators.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-1.5 border-b border-[var(--border)] px-2 py-1">
+        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] px-2 py-1">
           {indicators.map((spec) => (
-            <button
+            <div
               key={spec.id}
-              type="button"
-              onClick={() => removeIndicator(spec.id)}
-              aria-label={`Remove ${INDICATOR_TYPES[spec.type].label} ${spec.period}`}
-              className="flex items-center gap-1 rounded-[3px] bg-[var(--surface-raised)] px-1.5 py-0.5 font-[family-name:var(--font-mono)] text-[10px] text-[var(--text-muted)] hover:text-[var(--text)]"
+              className="flex items-center gap-1.5 rounded-[3px] bg-[var(--surface-raised)] px-1.5 py-0.5"
             >
-              {INDICATOR_TYPES[spec.type].label} {spec.period}
-              <span aria-hidden="true">×</span>
-            </button>
+              <span className="font-[family-name:var(--font-mono)] text-[10px] text-[var(--text-muted)]">
+                {INDICATOR_TYPES[spec.type].label}
+              </span>
+              {INDICATOR_TYPES[spec.type].params.map((param) => (
+                <label key={param.key} className="flex items-center gap-1">
+                  <span className="text-[9px] uppercase tracking-[0.06em] text-[var(--text-subtle)]">
+                    {param.label}
+                  </span>
+                  <input
+                    type="number"
+                    value={spec.params[param.key] ?? param.default}
+                    min={param.min}
+                    max={param.max}
+                    step={param.step ?? 1}
+                    onChange={(event) =>
+                      updateParam(spec.id, param.key, Number(event.target.value), param.min, param.max)
+                    }
+                    className="w-11 rounded-[2px] border border-[var(--border)] bg-transparent px-1 py-[1px] font-[family-name:var(--font-mono)] text-[10px] text-[var(--text)] outline-none"
+                  />
+                </label>
+              ))}
+              <button
+                type="button"
+                onClick={() => removeIndicator(spec.id)}
+                aria-label={`Remove ${INDICATOR_TYPES[spec.type].label}`}
+                className="px-0.5 text-[11px] text-[var(--text-subtle)] hover:text-[var(--text)]"
+              >
+                ×
+              </button>
+            </div>
           ))}
         </div>
       ) : null}

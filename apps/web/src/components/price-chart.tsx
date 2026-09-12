@@ -16,7 +16,7 @@ import {
 } from 'lightweight-charts';
 import { useEffect, useRef, useState } from 'react';
 import type { Candle, CandleInterval, PerpCandleInterval } from '@flt/core/ports';
-import { indicatorLines, type IndicatorSpec } from '@/lib/indicators';
+import { INDICATOR_TYPES, indicatorLines, type IndicatorSpec } from '@/lib/indicators';
 
 /**
  * Price chart.
@@ -387,18 +387,26 @@ export function PriceChart({
 
     const wanted = new Map<
       string,
-      { points: { time: number; value: number }[]; color: string; width: 1 | 2 }
+      { points: { time: number; value: number }[]; color: string; width: 1 | 2; pane: 0 | 1; dashed: boolean }
     >();
-    indicators.forEach((spec, index) => {
-      const color = colors[index % colors.length]!;
+
+    // Overlays share the price pane; oscillators get the lower pane. Colour is
+    // assigned per indicator (not per line) so a banded indicator reads as one.
+    let overlayIndex = 0;
+    let oscillatorIndex = 0;
+    for (const spec of indicators) {
+      const overlay = INDICATOR_TYPES[spec.type].pane === 'overlay';
+      const color = colors[(overlay ? overlayIndex++ : oscillatorIndex++) % colors.length]!;
       for (const line of indicatorLines(spec, candles)) {
         wanted.set(line.key, {
           points: line.points,
           color,
           width: line.key.endsWith(':m') ? 2 : 1,
+          pane: overlay ? 0 : 1,
+          dashed: line.dashed === true,
         });
       }
-    });
+    }
 
     for (const [key, series] of indicatorSeries.current) {
       if (!wanted.has(key)) {
@@ -407,21 +415,40 @@ export function PriceChart({
       }
     }
 
+    let hasOscillator = false;
     for (const [key, spec] of wanted) {
+      if (spec.pane === 1) hasOscillator = true;
       let series = indicatorSeries.current.get(key);
       if (!series) {
-        series = api.addSeries(LineSeries, {
-          color: spec.color,
-          lineWidth: spec.width,
-          priceLineVisible: false,
-          lastValueVisible: false,
-          crosshairMarkerVisible: false,
-        });
+        series = api.addSeries(
+          LineSeries,
+          {
+            color: spec.color,
+            lineWidth: spec.width,
+            lineStyle: spec.dashed ? LineStyle.Dashed : LineStyle.Solid,
+            priceLineVisible: false,
+            lastValueVisible: false,
+            crosshairMarkerVisible: false,
+          },
+          spec.pane,
+        );
         indicatorSeries.current.set(key, series);
       } else {
-        series.applyOptions({ color: spec.color, lineWidth: spec.width });
+        series.applyOptions({
+          color: spec.color,
+          lineWidth: spec.width,
+          lineStyle: spec.dashed ? LineStyle.Dashed : LineStyle.Solid,
+        });
       }
       series.setData(spec.points.map((point) => ({ time: point.time as UTCTimestamp, value: point.value })));
+    }
+
+    // Give the oscillator pane a slice of the height when one is present, and
+    // drop it once the last oscillator is gone so it does not linger empty.
+    const panes = api.panes();
+    if (panes[1]) {
+      panes[1].setPreserveEmptyPane(hasOscillator);
+      if (hasOscillator) panes[1].setHeight(Math.round(height * 0.28));
     }
   }, [indicators, candles, palette, interval, height, precision]);
 
