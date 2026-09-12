@@ -46,6 +46,17 @@ export type {
 } from './perps';
 
 export type {
+  MakerAction,
+  MakerCancel,
+  MakerCancelRequest,
+  MakerQuote,
+  MakerQuoteRequest,
+  MarketMakingVenue,
+  OpenOrder,
+  VenueFill,
+} from './market-making';
+
+export type {
   CustodyBalance,
   CustodyDepositAddress,
   CustodyProvider,

@@ -33,6 +33,8 @@ export function PerpTerminal({
   canTrade = true,
   guest = false,
   requiresBridgedCollateral,
+  level2Locked = false,
+  tier = 'FREE',
 }: {
   market: TickerMarket;
   markets: Array<{ symbol: string; name?: string }>;
@@ -43,6 +45,10 @@ export function PerpTerminal({
   /** No session at all. Locks the ticket for a different reason than `canTrade`, and skips the position panel — there is no account to hold one. */
   guest?: boolean;
   requiresBridgedCollateral: boolean;
+  /** BASIC+ see the live Level 2 book; FREE/guests get a blurred teaser. */
+  level2Locked?: boolean;
+  /** Subscription tier, for gating the indicator set. */
+  tier?: string;
 }) {
   const t = useTranslations('terminal');
   // Clicking a book level is currently read by nothing: the protected ticket
@@ -90,6 +96,7 @@ export function PerpTerminal({
             height={520}
             priceLines={protectionLines}
             historyNote={historyNote}
+            tier={tier}
           />
         </Panel>
 
@@ -107,6 +114,7 @@ export function PerpTerminal({
             depth={11}
             markPrice={market.markPrice}
             onPriceClick={setPriceFromBook}
+            level2Locked={level2Locked}
           />
         </Panel>
 

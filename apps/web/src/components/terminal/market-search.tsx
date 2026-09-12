@@ -82,7 +82,7 @@ export function MarketSearch({
   function go(symbol: string) {
     setOpen(false);
     setQuery('');
-    router.push(`/ganacsi/${symbol}`);
+    router.push(`/ganacsi/${encodeURIComponent(symbol)}`);
   }
 
   return (

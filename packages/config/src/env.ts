@@ -178,6 +178,24 @@ const schema = z.object({
     .default('false')
     .transform((value) => value === 'true'),
 
+  // ── Market making (automated) ─────────────────────────────────────────────
+  /**
+   * FLT's own automated book. Off by default, and turned on deliberately
+   * (docs/adr/0007): it trades FLT's capital with a server-held venue key, and
+   * reverses the earlier "no automated trading path" stance. A deployment must
+   * say so rather than inherit it.
+   */
+  MM_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  /** The agent-key scope and venue the maker signs under (see agent-key.ts). */
+  MM_VENUE_SLUG: z.string().default('hyperliquid'),
+  /** The FLT venue account the book trades. Required when MM_ENABLED. */
+  MM_VENUE_ACCOUNT: optionalAddress,
+  /** The market the book quotes. */
+  MM_SYMBOL: z.string().default('BTC'),
+
   // ── Position protection ──────────────────────────────────────────────────
 
   /**
@@ -320,6 +338,17 @@ function load(): Env {
     // with leverage on top.
     if (value.PERPS_ENABLED && value.PERP_VENUE === 'mock') {
       problems.push('PERP_VENUE=mock cannot be used in production');
+    }
+    // An automated book that trades real money needs a real venue, a named
+    // account, and perps; anything less would quote nothing or quote nowhere.
+    if (value.MM_ENABLED && !value.PERPS_ENABLED) {
+      problems.push('MM_ENABLED requires PERPS_ENABLED');
+    }
+    if (value.MM_ENABLED && value.PERP_VENUE === 'mock') {
+      problems.push('MM_ENABLED cannot run against PERP_VENUE=mock');
+    }
+    if (value.MM_ENABLED && !value.MM_VENUE_ACCOUNT) {
+      problems.push('MM_ENABLED requires MM_VENUE_ACCOUNT');
     }
     if (value.PERP_BUILDER_FEE_BPS > 0 && !value.HYPERLIQUID_BUILDER_ADDRESS) {
       problems.push('PERP_BUILDER_FEE_BPS requires HYPERLIQUID_BUILDER_ADDRESS');

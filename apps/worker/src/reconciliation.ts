@@ -51,7 +51,14 @@ async function reconcileVenue(): Promise<number> {
   if (!omnibus) return 0;
 
   const summary = await venue.getAccountSummary({ address: omnibus });
-  const venueValue = new Decimal(summary.accountValue ?? '0');
+  // The maker trades on its own venue account (docs/adr/0007 §2) but its margin
+  // pools into the same ledger account, so the comparison is against both —
+  // otherwise the house margin reads as a false shortfall against the omnibus.
+  let venueValue = new Decimal(summary.accountValue ?? '0');
+  if (env().MM_ENABLED && env().MM_VENUE_ACCOUNT) {
+    const maker = await venue.getAccountSummary({ address: env().MM_VENUE_ACCOUNT! });
+    venueValue = venueValue.plus(maker.accountValue ?? '0');
+  }
 
   const row = await prisma.ledgerAccount.findFirst({
     where: { kind: LedgerAccountKind.VENUE_MARGIN },

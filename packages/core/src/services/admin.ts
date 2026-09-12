@@ -69,6 +69,10 @@ export const PERMISSIONS = {
   /// most sensitive operator action, because it writes a balance no deposit
   /// produced. SUPER_ADMIN only, by the same reasoning as MANAGE_PAYOUTS.
   ADJUST_LEDGER: 'adjust_ledger',
+  /// Starting, stopping / re-capping FLT's automated market-making book, which
+  /// trades FLT's own capital. As consequential as MANAGE_PLATFORM_SETTINGS —
+  /// and, like it, SUPER_ADMIN only.
+  MANAGE_MARKET_MAKING: 'manage_market_making',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

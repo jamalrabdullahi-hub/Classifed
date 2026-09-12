@@ -9,6 +9,7 @@ import { sweepCustodyDeposits } from './custody';
 import { processWithdrawals } from './withdrawals';
 import { runReconciliation } from './reconciliation';
 import { runDocumentRetention } from './retention';
+import { runMarketMakerPass } from './market-maker';
 
 /**
  * The FLT worker.
@@ -55,6 +56,13 @@ const CUSTODY_SWEEP_INTERVAL_MS = 30_000;
 const RECONCILIATION_INTERVAL_MS = 300_000;
 /** Retention purge runs slowly: a document's clock is measured in years. */
 const DOCUMENT_RETENTION_INTERVAL_MS = 21_600_000;
+/**
+ * The market-making requote loop.
+ *
+ * Fast enough to track the book, slow enough to be cheap; the per-config
+ * `requoteMs` throttles it further. It only runs when MM_ENABLED is set.
+ */
+const MARKET_MAKER_INTERVAL_MS = 10_000;
 /**
  * Agentic trading, on its own slow interval.
  *
@@ -117,6 +125,9 @@ async function main(): Promise<void> {
     `  protection    ${config.PERPS_ENABLED ? `every ${PROTECTION_SWEEP_INTERVAL_MS}ms` : 'disabled'}`,
   );
   console.info(
+    `  market maker  ${config.MM_ENABLED ? `every ${MARKET_MAKER_INTERVAL_MS}ms` : 'disabled'}`,
+  );
+  console.info(
     `  custody       ${config.CUSTODY_PROVIDER === 'disabled' ? 'disabled' : `every ${CUSTODY_SWEEP_INTERVAL_MS}ms`}`,
   );
 
@@ -135,6 +146,12 @@ async function main(): Promise<void> {
     // Slower than the position sync: a policy's state follows volatility over
     // hours, not the tick-by-tick mark, and every pass costs candle requests.
     loop('protection', PROTECTION_SWEEP_INTERVAL_MS, sweepProtectionPolicies);
+  }
+
+  // The market-making book. Off unless MM_ENABLED is set deliberately
+  // (docs/adr/0007); it trades FLT's own capital behind a kill switch.
+  if (config.MM_ENABLED && config.PERPS_ENABLED) {
+    loop('mm', MARKET_MAKER_INTERVAL_MS, runMarketMakerPass);
   }
 
   // Only when FLT actually holds client funds. With custody off there is no

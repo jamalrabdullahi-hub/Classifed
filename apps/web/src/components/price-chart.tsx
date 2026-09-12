@@ -3,6 +3,7 @@
 import {
   CandlestickSeries,
   HistogramSeries,
+  LineSeries,
   createChart,
   LineStyle,
   type CandlestickData,
@@ -15,6 +16,7 @@ import {
 } from 'lightweight-charts';
 import { useEffect, useRef, useState } from 'react';
 import type { Candle, CandleInterval, PerpCandleInterval } from '@flt/core/ports';
+import { indicatorLines, type IndicatorSpec } from '@/lib/indicators';
 
 /**
  * Price chart.
@@ -52,6 +54,8 @@ interface PriceChartProps {
    * first. A table of two numbers cannot answer that at a glance.
    */
   priceLines?: PriceLineSpec[];
+  /** Overlay indicators (SMA/EMA/Bollinger) selected by the user. */
+  indicators?: IndicatorSpec[];
 }
 
 export interface PriceLineSpec {
@@ -80,6 +84,7 @@ interface Palette {
   border: string;
   positive: string;
   negative: string;
+  accent: string;
 }
 
 function readPalette(): Palette {
@@ -93,6 +98,7 @@ function readPalette(): Palette {
     border: token('--border', '#e3e6ec'),
     positive: token('--positive', '#12783f'),
     negative: token('--negative', '#c02a37'),
+    accent: token('--accent', '#4f8cff'),
   };
 }
 
@@ -110,12 +116,14 @@ export function PriceChart({
   precision,
   height = 380,
   priceLines = [],
+  indicators = [],
 }: PriceChartProps) {
   const container = useRef<HTMLDivElement>(null);
   const chart = useRef<IChartApi | null>(null);
   const priceSeries = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeSeries = useRef<ISeriesApi<'Histogram'> | null>(null);
   const drawnLines = useRef<Map<string, IPriceLine>>(new Map());
+  const indicatorSeries = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
   /**
    * Read by the series' autoscale provider, which runs on every redraw and
    * cannot close over React state without going stale.
@@ -276,6 +284,8 @@ export function PriceChart({
       chart.current = null;
       priceSeries.current = null;
       volumeSeries.current = null;
+      // The chart owns the indicator series; removing it removed them too.
+      indicatorSeries.current.clear();
     };
   }, [palette, height, interval, precision]);
 
@@ -360,6 +370,60 @@ export function PriceChart({
       series.applyOptions({ autoscaleInfoProvider: autoscaleProvider.current });
     }
   }, [priceLines, palette]);
+
+  /**
+   * Indicator overlays, reconciled by key like the price lines.
+   *
+   * Re-derived whenever the chart is rebuilt (interval/height/precision changes
+   * tear it down), so the series list is never remembered across a rebuild. The
+   * colours come from the same DOM-read palette, because the canvas cannot
+   * resolve a CSS variable.
+   */
+  useEffect(() => {
+    const api = chart.current;
+    if (!api || !palette) return;
+
+    const colors = [palette.accent, palette.positive, palette.negative, palette.subtle];
+
+    const wanted = new Map<
+      string,
+      { points: { time: number; value: number }[]; color: string; width: 1 | 2 }
+    >();
+    indicators.forEach((spec, index) => {
+      const color = colors[index % colors.length]!;
+      for (const line of indicatorLines(spec, candles)) {
+        wanted.set(line.key, {
+          points: line.points,
+          color,
+          width: line.key.endsWith(':m') ? 2 : 1,
+        });
+      }
+    });
+
+    for (const [key, series] of indicatorSeries.current) {
+      if (!wanted.has(key)) {
+        api.removeSeries(series);
+        indicatorSeries.current.delete(key);
+      }
+    }
+
+    for (const [key, spec] of wanted) {
+      let series = indicatorSeries.current.get(key);
+      if (!series) {
+        series = api.addSeries(LineSeries, {
+          color: spec.color,
+          lineWidth: spec.width,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        indicatorSeries.current.set(key, series);
+      } else {
+        series.applyOptions({ color: spec.color, lineWidth: spec.width });
+      }
+      series.setData(spec.points.map((point) => ({ time: point.time as UTCTimestamp, value: point.value })));
+    }
+  }, [indicators, candles, palette, interval, height, precision]);
 
   return (
     <div

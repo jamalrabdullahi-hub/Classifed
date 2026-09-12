@@ -6,6 +6,12 @@ import type { Candle, PerpCandleInterval } from '@flt/core/ports';
 import { cn } from '@flt/ui';
 import { ApiError, get } from '@/lib/api';
 import { PriceChart, type PriceLineSpec } from '@/components/price-chart';
+import {
+  INDICATOR_TYPES,
+  indicatorPolicyFor,
+  type IndicatorSpec,
+  type IndicatorType,
+} from '@/lib/indicators';
 
 /**
  * The terminal's chart panel.
@@ -38,6 +44,7 @@ export function PerpChart({
   height = 360,
   priceLines = [],
   historyNote,
+  tier = 'FREE',
 }: {
   symbol: string;
   height?: number;
@@ -53,12 +60,16 @@ export function PerpChart({
    * carries a basis over the spot the contract marks against.
    */
   historyNote?: string | null;
+  /** Subscription tier, for the indicator allowance. */
+  tier?: string;
 }) {
   const t = useTranslations('perpChartPanel');
   const [interval, setInterval_] = useState<PerpCandleInterval>('15m');
   const [candles, setCandles] = useState<Candle[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [indicators, setIndicators] = useState<IndicatorSpec[]>([]);
+  const policy = indicatorPolicyFor(tier);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,6 +100,23 @@ export function PerpChart({
     };
   }, [symbol, interval]);
 
+  function addIndicator(type: IndicatorType): void {
+    if (!policy.allowed.includes(type)) return;
+    if (indicators.length >= policy.max) return;
+    const id =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${type}-${Date.now()}`;
+    setIndicators((current) => [
+      ...current,
+      { id, type, period: INDICATOR_TYPES[type].defaultPeriod },
+    ]);
+  }
+
+  function removeIndicator(id: string): void {
+    setIndicators((current) => current.filter((spec) => spec.id !== id));
+  }
+
   // Price precision follows magnitude: a $79,000 contract and a $0.14 one need
   // different axes, and a fixed two places makes one of them unreadable.
   const last = candles[candles.length - 1]?.close ?? 0;
@@ -113,7 +141,40 @@ export function PerpChart({
             {option}
           </button>
         ))}
+        <span className="mx-1 h-3.5 w-px bg-[var(--border)]" aria-hidden="true" />
+        {policy.allowed.map((type) => (
+          <button
+            key={type}
+            type="button"
+            onClick={() => addIndicator(type)}
+            disabled={indicators.length >= policy.max}
+            aria-label={`Add ${INDICATOR_TYPES[type].label}`}
+            className="rounded-[3px] px-2 py-1 font-[family-name:var(--font-mono)] text-[10.5px] text-[var(--text-subtle)] transition-colors hover:text-[var(--text-muted)] disabled:opacity-40"
+          >
+            +{INDICATOR_TYPES[type].label}
+          </button>
+        ))}
+        <span className="ml-auto pr-1 font-[family-name:var(--font-mono)] text-[9.5px] text-[var(--text-subtle)]">
+          {indicators.length}/{policy.max}
+        </span>
       </div>
+
+      {indicators.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-[var(--border)] px-2 py-1">
+          {indicators.map((spec) => (
+            <button
+              key={spec.id}
+              type="button"
+              onClick={() => removeIndicator(spec.id)}
+              aria-label={`Remove ${INDICATOR_TYPES[spec.type].label} ${spec.period}`}
+              className="flex items-center gap-1 rounded-[3px] bg-[var(--surface-raised)] px-1.5 py-0.5 font-[family-name:var(--font-mono)] text-[10px] text-[var(--text-muted)] hover:text-[var(--text)]"
+            >
+              {INDICATOR_TYPES[spec.type].label} {spec.period}
+              <span aria-hidden="true">×</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <div className="flex-1">
         {!loading && !error && candles.length === 0 ? (
@@ -131,6 +192,7 @@ export function PerpChart({
             precision={precision}
             height={height}
             priceLines={priceLines}
+            indicators={indicators}
           />
         )}
       </div>

@@ -59,6 +59,12 @@ export default async function PerpMarketPage({
     ? await entitlementsFor(user.id)
     : fromPlan(SubscriptionTier.FREE, null, null);
   const canTrade = Boolean(user) && entitlements.perpsAccess;
+  // Level 2 (the live order book) is a paid tool: BASIC and above get it; FREE
+  // and guests get a blurred teaser instead.
+  const level2Locked =
+    entitlements.tier !== SubscriptionTier.BASIC &&
+    entitlements.tier !== SubscriptionTier.PRO &&
+    entitlements.tier !== SubscriptionTier.ELITE;
 
   const { symbol } = await params;
   const venues = perpVenues();
@@ -108,6 +114,8 @@ export default async function PerpMarketPage({
         canTrade={canTrade}
         guest={!user}
         requiresBridgedCollateral={venue.requiresBridgedCollateral}
+        level2Locked={level2Locked}
+        tier={entitlements.tier}
       />
 
       <p className="text-[11px] leading-relaxed text-[var(--text-subtle)]">

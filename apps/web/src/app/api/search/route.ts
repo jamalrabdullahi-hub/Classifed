@@ -114,7 +114,7 @@ export const GET = handler({}, async ({ request }) => {
       kind: 'perp',
       symbol: market.symbol,
       name: displayName(market.symbol, market.name),
-      href: `/ganacsi/${market.symbol}`,
+      href: `/ganacsi/${encodeURIComponent(market.symbol)}`,
       detail: t('perpDetail', {
         assetClass: market.assetClass.toLowerCase(),
         leverage: Math.min(market.maxLeverage, config.PERP_MAX_LEVERAGE),

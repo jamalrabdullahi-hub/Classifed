@@ -57,5 +57,5 @@ export default async function GanacsiIndexPage() {
     markets.find((market) => market.symbol === DEFAULT_SYMBOL) ??
     markets[0]!;
 
-  redirect(`/ganacsi/${chosen.symbol}`);
+  redirect(`/ganacsi/${encodeURIComponent(chosen.symbol)}`);
 }

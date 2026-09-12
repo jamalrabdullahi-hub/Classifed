@@ -38,6 +38,8 @@ export type {
   PerpMarket,
   PerpOrder,
   PerpPositionSnapshot,
+  MarketMakerConfig,
+  MakerFill,
   ProtectionPolicy,
   ProtectionEvent,
   ProtectionLedgerEntry,

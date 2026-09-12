@@ -208,6 +208,13 @@ export const AuditAction = {
   AGENT_TRADING_KILL_SWITCHED: 'agent_trading.kill_switched',
   AGENT_TRADING_ORDER_SUBMITTED: 'agent_trading.order_submitted',
 
+  // Market making — an automated book trading FLT's own capital (docs/adr/0007).
+  MARKET_MAKER_ENABLED: 'market_maker.enabled',
+  MARKET_MAKER_DISABLED: 'market_maker.disabled',
+  MARKET_MAKER_HALTED: 'market_maker.halted',
+  MARKET_MAKER_RESUMED: 'market_maker.resumed',
+  MARKET_MAKER_UPDATED: 'market_maker.updated',
+
   // Security
   RATE_LIMITED: 'security.rate_limited',
   QUOTE_TAMPERED: 'security.quote_tampered',

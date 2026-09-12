@@ -17,7 +17,13 @@ import type {
   PerpAccountSummary,
   PerpMarket,
   PerpPosition,
-  PerpVenue,
+  MarketMakingVenue,
+  MakerAction,
+  MakerCancel,
+  MakerCancelRequest,
+  MakerQuoteRequest,
+  OpenOrder,
+  VenueFill,
   PrepareCloseRequest,
   PrepareLeverageRequest,
   PrepareOrderRequest,
@@ -90,12 +96,14 @@ const MARKETS: MockMarketSpec[] = [
   { symbol: 'DOGE', name: 'Dogecoin', price: '0.14238', maxLeverage: 10, sizeDecimals: 0, minSize: '10', fundingRate: '-0.0000087' },
 ];
 
-export class MockPerpVenue implements PerpVenue {
+export class MockPerpVenue implements MarketMakingVenue {
   readonly meta: ProviderMeta = {
     slug: MOCK_SLUG,
     name: 'Simulated perpetuals (development)',
     isMock: true,
   };
+
+  readonly supportsMarketMaking = true as const;
 
   readonly settlementChainId = 8453;
   readonly requiresBridgedCollateral = false;
@@ -401,6 +409,51 @@ export class MockPerpVenue implements PerpVenue {
         builderAddress: null,
       },
     };
+  }
+
+  /**
+   * The simulator rests no orders.
+   *
+   * Nothing in it signs or submits, so there is no book to report. A runner test
+   * that needs a populated book stubs this; the honest default is empty.
+   */
+  async getOpenOrders(): Promise<OpenOrder[]> {
+    return [];
+  }
+
+  async getFills(): Promise<VenueFill[]> {
+    return [];
+  }
+
+  async prepareMakerQuote(request: MakerQuoteRequest): Promise<MakerAction> {
+    const market = await this.requireMarket(request.symbol);
+    return {
+      kind: 'maker-quotes',
+      endpoint: MOCK_ENDPOINT,
+      quotes: [
+        {
+          assetId: market.venueAssetId,
+          symbol: market.symbol,
+          isBuy: request.isBuy,
+          price: request.price,
+          size: request.size,
+          cloid: request.cloid,
+        },
+      ],
+    };
+  }
+
+  async prepareMakerCancel(request: MakerCancelRequest): Promise<MakerAction> {
+    const cancels: MakerCancel[] = [];
+    for (const cancel of request.cancels) {
+      const market = await this.requireMarket(cancel.symbol);
+      cancels.push({
+        assetId: market.venueAssetId,
+        oid: cancel.oid ?? null,
+        cloid: cancel.cloid ?? null,
+      });
+    }
+    return { kind: 'maker-cancel', endpoint: MOCK_ENDPOINT, cancels };
   }
 
   async health(): Promise<{ ok: boolean; detail?: string }> {

@@ -1138,6 +1138,96 @@ model PerpOrder {
   @@map("perp_orders")
 }
 
+/// FLT's automated market-making book — its own capital, not a participant's.
+///
+/// See docs/adr/0007-automated-market-making.md. One row per market the book
+/// quotes. The kill switch is a column here rather than a deploy: an automated
+/// system that trades real money needs an off that works without shipping code,
+/// and a persisted flag survives the process that set it.
+model MarketMakerConfig {
+  id String @id
+
+  /// The venue the book runs on, e.g. "hyperliquid".
+  venueSlug String
+  /// The single market the book quotes, e.g. "BTC".
+  symbol    String
+
+  /// Whether the runner quotes at all.
+  isEnabled Boolean @default(false)
+  /// Set by the kill switch. When true the runner cancels and stops quoting.
+  halted       Boolean   @default(false)
+  haltedReason String?
+  haltedAt     DateTime?
+
+  /// Half the base spread, in basis points.
+  halfSpreadBps   Int
+  /// How many levels each side.
+  levels          Int    @default(3)
+  /// Size per level, in contracts.
+  levelSize       String
+  /// Extra spread added per level, in basis points.
+  levelStepBps    Int    @default(2)
+  /// The most the book will hold, in contracts (sign enforced in code).
+  maxInventory    String
+  /// The most the book may lose in a day, in USD. Breaching it trips the halt.
+  maxDailyLossUsd String
+  /// Requote cadence, in milliseconds.
+  requoteMs       Int    @default(5000)
+
+  /// Bookkeeping for the runner and the profit distribution.
+  lastRunAt         DateTime?
+  lastDistributedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  fills MakerFill[]
+
+  @@unique([venueSlug, symbol])
+  @@map("market_maker_configs")
+}
+
+/// One executed trade on the book, from the venue's own record.
+///
+/// Deliberately fills only. A resting order is read live from the venue
+/// (`getOpenOrders`), and persisting every quote at a multi-second requote
+/// cadence would make an order table a log of cancellations. The fill is the
+/// economic event — it moves inventory and carries the venue's realized PnL —
+/// so it is the thing worth keeping, deduped on the venue's trade id.
+model MakerFill {
+  id       String @id
+  configId String
+
+  venueSlug String
+  symbol    String
+
+  /// The venue's order id and the client order id the quote carried, when known.
+  venueOid Int?
+  cloid    String?
+  /// The venue's trade id — the dedup key that makes ingestion idempotent.
+  venueTid String
+  /// The venue's settlement hash, when it reports one.
+  venueHash String?
+
+  isBuy  Boolean
+  price  String
+  size   String
+  /// The venue fee, in USD.
+  feeUsd String
+  /// Realized PnL the venue books on this fill, in USD. Zero on an opening add.
+  closedPnlUsd String @default("0")
+
+  filledAt DateTime
+
+  createdAt DateTime @default(now())
+
+  config MarketMakerConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@unique([venueSlug, venueTid])
+  @@index([configId, filledAt])
+  @@map("maker_fills")
+}
+
 /// A cached copy of a position the venue holds, refreshed by the worker.
 ///
 /// The venue is the source of truth and this is explicitly a snapshot, not a

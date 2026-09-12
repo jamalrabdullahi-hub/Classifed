@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { cn } from '@flt/ui';
+import Link from 'next/link';
+import { Button, cn } from '@flt/ui';
 import { ApiError, get } from '@/lib/api';
 
 /**
@@ -54,6 +55,7 @@ export function OrderBook({
   markPrice = null,
   onPriceClick,
   emptyNote = null,
+  level2Locked = false,
 }: {
   symbol: string;
   depth?: number;
@@ -68,12 +70,15 @@ export function OrderBook({
    * broken panel, and the fix is to say which it is.
    */
   emptyNote?: string | null;
+  /** FREE/guest: show a static blurred teaser instead of the live ladder. */
+  level2Locked?: boolean;
 }) {
   const t = useTranslations('orderBookPanel');
   const [book, setBook] = useState<Book | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (level2Locked) return;
     let cancelled = false;
 
     async function load() {
@@ -96,7 +101,11 @@ export function OrderBook({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [symbol, depth]);
+  }, [symbol, depth, level2Locked]);
+
+  if (level2Locked) {
+    return <LockedLevel2 />;
+  }
 
   if (error && !book) {
     return <PanelMessage>{error}</PanelMessage>;
@@ -220,6 +229,68 @@ function Row({
     >
       {content}
     </button>
+  );
+}
+
+/**
+ * Level 2, locked.
+ *
+ * A static, deliberately-unreadable mock of the ladder — the *shape* of Level 2
+ * without the data — behind an upsell. FREE and guests get this; BASIC and
+ * above get the live book. It does not fetch, so a locked reader costs the venue
+ * nothing.
+ */
+function LockedLevel2() {
+  const rows = [
+    { p: '1.0918', s: '2.41', t: '8.72' },
+    { p: '1.0916', s: '1.10', t: '6.31' },
+    { p: '1.0914', s: '3.82', t: '5.21' },
+    { p: '1.0912', s: '0.94', t: '1.39' },
+    { p: '1.0910', s: '5.02', t: '0.45' },
+  ];
+
+  return (
+    <div className="relative h-full overflow-hidden text-[11px]">
+      <div className="select-none blur-[3px]" aria-hidden="true">
+        <div className="grid grid-cols-[1fr_1fr_1fr] px-2.5 py-1.5 font-[family-name:var(--font-mono)] text-[9.5px] uppercase tracking-[0.09em] text-[var(--text-subtle)]">
+          <span>Price</span>
+          <span className="text-right">Size</span>
+          <span className="text-right">Total</span>
+        </div>
+        {rows.map((row) => (
+          <div
+            key={row.p}
+            className="grid grid-cols-[1fr_1fr_1fr] px-2.5 py-[2px] font-[family-name:var(--font-mono)] text-[var(--negative)]"
+          >
+            <span>{row.p}</span>
+            <span className="text-right text-[var(--text-muted)]">{row.s}</span>
+            <span className="text-right text-[var(--text-subtle)]">{row.t}</span>
+          </div>
+        ))}
+        <div className="my-0.5 border-y border-[var(--border)] px-2.5 py-1.5 font-[family-name:var(--font-mono)] text-[13px] font-semibold text-[var(--text)]">
+          1.0920
+        </div>
+        {[...rows].reverse().map((row) => (
+          <div
+            key={`b${row.p}`}
+            className="grid grid-cols-[1fr_1fr_1fr] px-2.5 py-[2px] font-[family-name:var(--font-mono)] text-[var(--positive)]"
+          >
+            <span>{row.p}</span>
+            <span className="text-right text-[var(--text-muted)]">{row.s}</span>
+            <span className="text-right text-[var(--text-subtle)]">{row.t}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-[var(--canvas)]/70 px-4 text-center">
+        <p className="max-w-[82%] text-[12px] font-medium leading-snug text-[var(--text)]">
+          Enhance your trading with Level 2 data
+        </p>
+        <Button asChild variant="primary" size="sm">
+          <Link href="/qorshayaal">Buy here</Link>
+        </Button>
+      </div>
+    </div>
   );
 }
 

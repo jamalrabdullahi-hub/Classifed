@@ -21,7 +21,13 @@ import type {
   PerpMarket,
   PerpPosition,
   PerpSide,
-  PerpVenue,
+  MarketMakingVenue,
+  MakerAction,
+  MakerCancel,
+  MakerCancelRequest,
+  MakerQuoteRequest,
+  OpenOrder,
+  VenueFill,
   PrepareCloseRequest,
   PrepareLeverageRequest,
   PrepareOrderRequest,
@@ -185,12 +191,55 @@ const agentSchema = z.array(
   }),
 );
 
-export class HyperliquidPerpVenue implements PerpVenue {
+/** A resting order, as `/info` reports it. */
+const openOrderSchema = z.object({
+  coin: z.string(),
+  side: z.enum(['B', 'A']),
+  limitPx: z.string(),
+  sz: z.string(),
+  oid: z.coerce.number(),
+  timestamp: z.coerce.number(),
+  origSz: z.string(),
+  cloid: z.string().nullish(),
+  reduceOnly: z.literal(true).nullish(),
+});
+
+/** A trade, as `/info userFills` reports it. */
+const userFillSchema = z.object({
+  coin: z.string(),
+  px: z.string(),
+  sz: z.string(),
+  side: z.enum(['B', 'A']),
+  time: z.coerce.number(),
+  closedPnl: z.string(),
+  hash: z.string(),
+  oid: z.coerce.number(),
+  crossed: z.boolean(),
+  fee: z.string(),
+  tid: z.coerce.number(),
+});
+
+/**
+ * A client order id is `0x` followed by 32 hex characters. Reject a malformed
+ * one here rather than let the venue refuse the whole batch it was part of.
+ */
+function assertCloid(cloid: string): string {
+  if (!/^0x[0-9a-fA-F]{32}$/.test(cloid)) {
+    throw new ValidationError('A client order id must be 0x followed by 32 hex characters', {
+      cloid,
+    });
+  }
+  return cloid;
+}
+
+export class HyperliquidPerpVenue implements MarketMakingVenue {
   readonly meta: ProviderMeta = {
     slug: HYPERLIQUID_SLUG,
     name: 'Hyperliquid',
     isMock: false,
   };
+
+  readonly supportsMarketMaking = true as const;
 
   readonly settlementChainId = HYPERLIQUID_CHAIN_ID;
   readonly requiresBridgedCollateral = true;
@@ -665,6 +714,101 @@ export class HyperliquidPerpVenue implements PerpVenue {
         builderAddress: null,
       },
     };
+  }
+
+  /**
+   * The orders the account is resting.
+   *
+   * Read, not signed: `/info` needs no key. The maker uses this to decide what
+   * to cancel before it re-quotes, so it must reflect the venue, not our memory
+   * of what we sent.
+   */
+  async getOpenOrders(account: PerpAccountRef): Promise<OpenOrder[]> {
+    const raw = z
+      .array(openOrderSchema)
+      .parse(await this.info({ type: 'openOrders', user: account.address }));
+
+    return raw.map((order) => ({
+      symbol: order.coin,
+      oid: order.oid,
+      cloid: order.cloid ?? null,
+      isBuy: order.side === 'B',
+      price: order.limitPx,
+      size: order.sz,
+    }));
+  }
+
+  /**
+   * The account's recent fills.
+   *
+   * Read and then filtered here: the venue returns a fixed recent window, and
+   * the caller (the worker) dedups on `venueTid` anyway, so this is a source of
+   * truth rather than an incrementing feed.
+   */
+  async getFills(account: PerpAccountRef, since?: Date): Promise<VenueFill[]> {
+    const raw = z
+      .array(userFillSchema)
+      .parse(await this.info({ type: 'userFills', user: account.address }));
+
+    const sinceMs = since ? since.getTime() : 0;
+    return raw
+      .filter((fill) => fill.time >= sinceMs)
+      .map((fill) => ({
+        venueTid: String(fill.tid),
+        venueOid: fill.oid ?? null,
+        symbol: fill.coin,
+        isBuy: fill.side === 'B',
+        price: fill.px,
+        size: fill.sz,
+        feeUsd: fill.fee,
+        closedPnlUsd: fill.closedPnl,
+        filledAt: new Date(fill.time),
+        venueHash: fill.hash ?? null,
+      }));
+  }
+
+  /**
+   * Prepares one post-only quote.
+   *
+   * The price and size are the maker's own decision (computed in core from the
+   * ladder); this only clamps them to what the venue will accept, so a
+   * mis-rounded quote is corrected here rather than rejected there.
+   */
+  async prepareMakerQuote(request: MakerQuoteRequest): Promise<MakerAction> {
+    const market = await this.requireMarket(request.symbol);
+    return {
+      kind: 'maker-quotes',
+      endpoint: `${this.baseUrl()}/exchange`,
+      quotes: [
+        {
+          assetId: market.venueAssetId,
+          symbol: market.symbol,
+          isBuy: request.isBuy,
+          price: this.roundPrice(request.price, market),
+          size: this.roundSize(request.size, market),
+          cloid: assertCloid(request.cloid),
+        },
+      ],
+    };
+  }
+
+  /** Prepares cancels for the orders the maker is pulling before it re-quotes. */
+  async prepareMakerCancel(request: MakerCancelRequest): Promise<MakerAction> {
+    const cancels: MakerCancel[] = [];
+    for (const cancel of request.cancels) {
+      const market = await this.requireMarket(cancel.symbol);
+      if (cancel.oid == null && !cancel.cloid) {
+        throw new ValidationError('A cancel needs an order id or a client order id', {
+          symbol: cancel.symbol,
+        });
+      }
+      cancels.push({
+        assetId: market.venueAssetId,
+        oid: cancel.oid ?? null,
+        cloid: cancel.cloid ? assertCloid(cancel.cloid) : null,
+      });
+    }
+    return { kind: 'maker-cancel', endpoint: `${this.baseUrl()}/exchange`, cancels };
   }
 
   async health(): Promise<{ ok: boolean; detail?: string }> {
