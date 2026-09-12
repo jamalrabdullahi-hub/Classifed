@@ -111,7 +111,7 @@ export async function prepareSubscription(
   }
 
   const token = await prisma.token.findFirst({
-    where: { chainId, address: tokenAddress.toLowerCase() },
+    where: { chainId, address: { equals: tokenAddress, mode: 'insensitive' } },
   });
   if (!token) {
     throw new ValidationError(
@@ -220,7 +220,7 @@ export async function confirmSubscription(
       where: { userId: actor.id, verifiedAt: { not: null } },
     }),
     prisma.token.findFirst({
-      where: { chainId: subscription.chainId, address: subscription.tokenAddress },
+      where: { chainId: subscription.chainId, address: { equals: subscription.tokenAddress, mode: 'insensitive' } },
     }),
   ]);
 

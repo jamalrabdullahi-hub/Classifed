@@ -146,7 +146,7 @@ export async function preparePurchase(
   if (!market || !market.isEnabled) throw new NotFoundError('Market');
 
   const token = await prisma.token.findFirst({
-    where: { chainId: settings.premiumChainId, address: tokenAddress.toLowerCase() },
+    where: { chainId: settings.premiumChainId, address: { equals: tokenAddress, mode: 'insensitive' } },
   });
   if (!token) {
     throw new ValidationError(
@@ -297,7 +297,7 @@ export async function confirmPurchase(
   if (!wallet) throw new NotFoundError('Wallet');
 
   const token = await prisma.token.findFirst({
-    where: { chainId: policy.premiumChainId, address: policy.premiumTokenAddress },
+    where: { chainId: policy.premiumChainId, address: { equals: policy.premiumTokenAddress, mode: 'insensitive' } },
   });
   if (!token) throw new ValidationError('Premium token is no longer in the registry');
 

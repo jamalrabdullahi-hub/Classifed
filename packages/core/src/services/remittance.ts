@@ -143,7 +143,7 @@ export async function createRemittance(
   }
 
   const [token, wallet, kyc] = await Promise.all([
-    prisma.token.findFirst({ where: { chainId, address: tokenAddress.toLowerCase() } }),
+    prisma.token.findFirst({ where: { chainId, address: { equals: tokenAddress, mode: 'insensitive' } } }),
     prisma.wallet.findFirst({
       where: { id: input.walletId, userId: user.id, verifiedAt: { not: null } },
     }),
