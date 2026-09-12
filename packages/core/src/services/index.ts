@@ -148,6 +148,7 @@ export {
   assertPerpsEnabled,
   effectiveMaxLeverage,
   assertLeveragedCover,
+  assertCanOpenPerp,
   listOfferedMarkets,
   getOfferedMarket,
   prepareOpen,

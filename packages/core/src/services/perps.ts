@@ -175,6 +175,37 @@ export async function assertLeveragedCover(params: {
 }
 
 /**
+ * The plan-level gate every opening path shares.
+ *
+ * A leveraged open has to clear several ceilings, and this applies the two that
+ * belong to the participant's plan — perps access and the plan's leverage cap —
+ * plus the daily opening allowance. It exists so the *live* custody path (the
+ * execute route) enforces the same plan limits the prepare path applied; before
+ * this, `/api/perps/orders/execute` opened positions with no entitlement check
+ * at all.
+ *
+ * The insurance gate is deliberately separate (`assertLeveragedCover`):
+ * insurance is a product rule, not a plan tier.
+ */
+export async function assertCanOpenPerp(params: {
+  userId: string;
+  leverage: number;
+}): Promise<void> {
+  const entitlements = await entitlementsFor(params.userId);
+  assertPerpsAllowed(entitlements);
+  assertLeverageAllowed(entitlements, params.leverage);
+
+  const openedToday = await prisma.perpOrder.count({
+    where: {
+      userId: params.userId,
+      kind: PerpOrderKind.OPEN,
+      submittedAt: { gte: startOfUtcDay() },
+    },
+  });
+  assertDailyTradesRemaining(entitlements, openedToday);
+}
+
+/**
  * The markets FLT offers, joined to live venue data.
  *
  * The registry row decides *whether* a market is offered; the venue decides

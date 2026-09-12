@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { prisma } from '@flt/db';
 import { resolveTradingWallet } from '@flt/core/services/wallets';
-import { resolveOfferedMarket } from '@flt/core/services/perps';
+import { assertCanOpenPerp, resolveOfferedMarket } from '@flt/core/services/perps';
 import { RateLimits } from '@flt/core/services/ratelimit';
 import { perpVenues, openCustodyPerpPosition } from '@flt/providers';
 import { contractsForUsd } from '@flt/core/protection';
@@ -49,6 +49,12 @@ export const POST = handler(
     if (body.marginMode !== 'ISOLATED') {
       throw new ValidationError('Only isolated margin is available');
     }
+
+    // The participant's plan must permit perps and this leverage, and the daily
+    // opening allowance must not be spent. The live custody path previously
+    // skipped this; it is the same gate the prepare path applies, so the two
+    // entry points cannot disagree.
+    await assertCanOpenPerp({ userId: user.id, leverage: body.leverage });
 
     const offered = await resolveOfferedMarket(perpVenues(), body.symbol);
     if (!offered) throw new NotFoundError('Market');
