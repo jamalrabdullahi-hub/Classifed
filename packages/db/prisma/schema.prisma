@@ -429,6 +429,16 @@ model KycDocument {
   kycProfileId String
   documentType String
   /// Provider-side handle. Not a file path, not a URL we can dereference.
+  /// Content hash, so the same document re-uploaded is recognisable.
+  sha256      String?
+  mimeType    String?
+  sizeBytes   Int?
+  /// The storage key (a filename under KYC_DOCUMENT_DIR). Cleared when purged.
+  storageKey  String?
+  /// When the retention job may delete the stored blob (submission + N years).
+  retentionUntil DateTime?
+  /// Set when the blob has been deleted; the metadata row is kept for audit.
+  purgedAt    DateTime?
   externalRef  String?
   uploadedAt   DateTime @default(now())
 

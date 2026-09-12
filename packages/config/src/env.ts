@@ -241,6 +241,28 @@ const schema = z.object({
   KYC_API_BASE_URL: z.string().optional(),
   KYC_API_KEY: z.string().optional(),
   KYC_WEBHOOK_SECRET: z.string().optional(),
+  /**
+   * Where uploaded identity documents are stored, encrypted at rest. Cheap and
+   * local by default (the VPS disk); point at a mounted volume or a synced
+   * directory to move it without touching code.
+   */
+  KYC_DOCUMENT_DIR: z.string().default('data/kyc-documents'),
+  /**
+   * How long an uploaded document is kept before the retention job purges it.
+   * 1825 days = 5 years, the BSA/CIP recordkeeping floor. Whether the clock
+   * runs from submission or from account closure is a legal decision; this is
+   * the number a deployment sets to match it.
+   */
+  KYC_DOCUMENT_RETENTION_DAYS: z.coerce.number().int().min(30).max(3650).default(1825),
+  /** Hard cap on one uploaded document, in bytes. */
+  KYC_DOCUMENT_MAX_BYTES: z.coerce.number().int().min(10000).max(20000000).default(4000000),
+  /**
+   * A sanctions/PEP list file (OFAC SDN, UN Consolidated, CBS Somalia) the
+   * worker loads and screens against: newline-delimited names or a JSON array
+   * of strings. Unset = a small bundled seed, which is a placeholder, not a
+   * licensed list.
+   */
+  SANCTIONS_LIST_PATH: z.string().optional(),
 
   // ── Mail ─────────────────────────────────────────────────────────────────
   MAIL_PROVIDER: z.enum(['console', 'resend']).default('console'),

@@ -411,6 +411,11 @@
     "dismiss": "Dismiss"
   },
   "verifyForm": {
+    "uploadTitle": "Photo of your document",
+    "uploadHint": "A clear photo of the document above. Images are shrunk before upload and stored encrypted.",
+    "uploading": "Uploading...",
+    "uploaded": "Document uploaded",
+    "uploadFailed": "Could not upload. Try a smaller file.",
     "stepOf": "Step {current} of {total}",
     "stepTitle1": "Your identity",
     "stepTitle2": "Where you live",

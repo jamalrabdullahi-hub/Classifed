@@ -53,3 +53,4 @@ export type {
   CustodyWithdrawal,
   CustodyWithdrawalRequest,
 } from './custody';
+export type { DocumentStore, DocumentStoreMeta } from './documents';

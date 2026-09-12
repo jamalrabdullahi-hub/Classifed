@@ -20,6 +20,8 @@ import { ResendMailProvider } from './mail/resend';
 import type { MailProvider } from './mail/types';
 import { PrivyCustodyProvider } from './custody/privy-custody';
 import type { CustodyProvider } from './custody/types';
+import { LocalDocumentStore } from './storage/local-document-store';
+import type { DocumentStore } from '@flt/core/ports';
 
 /**
  * The ONLY module in the codebase permitted to name a concrete vendor.
@@ -48,6 +50,7 @@ interface Registry {
 const globalForProviders = globalThis as unknown as {
   fltProviders?: Registry;
   fltOstium?: OstiumVenue;
+  fltDocumentStore?: DocumentStore;
 };
 
 function build(): Registry {
@@ -222,7 +225,14 @@ export function riskEngine(): RiskEngine {
   return registry().risk;
 }
 
+/** The document store. Always available — the local disk needs no config. */
+export function documentStore(): DocumentStore {
+  globalForProviders.fltDocumentStore ??= new LocalDocumentStore();
+  return globalForProviders.fltDocumentStore;
+}
+
 /** Test-only. Forces every adapter to be rebuilt from the current environment. */
 export function resetProviders(): void {
   globalForProviders.fltProviders = undefined;
+  globalForProviders.fltDocumentStore = undefined;
 }

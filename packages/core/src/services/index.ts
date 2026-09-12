@@ -67,6 +67,8 @@ export {
   mayTrade,
   type SubmitKycInput,
 } from './kyc';
+export { attachDocument, purgeExpiredDocuments, type AttachDocumentInput } from './kyc-documents';
+export { loadSanctionsList, screenSanctionedName, sanctionedCountries, normalizeName, type SanctionsList } from './sanctions';
 export {
   createLinkChallenge,
   completeLink,

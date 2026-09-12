@@ -134,6 +134,7 @@ export async function submitKyc(
   const idNumberLast4 = idNumber.slice(-4);
 
   const screening = screenCustomer({
+    legalName: (input.legalFirstName + ' ' + input.legalLastName).trim(),
     countryCode: input.countryCode,
     isPoliticallyExposed: input.isPoliticallyExposed,
   });

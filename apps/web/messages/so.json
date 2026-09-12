@@ -411,6 +411,11 @@
     "dismiss": "Xir"
   },
   "verifyForm": {
+    "uploadTitle": "Sawir dukumentigaaga",
+    "uploadHint": "Sawir cad oo dukumentiga kore ah. Sawirrada waa la yareeyaa ka hor inta aan la soo gelin, si ammaan ah ayaa loo kaydiyaa.",
+    "uploading": "Waa la soo gelinayaa...",
+    "uploaded": "Dukumentiga waa la soo geliyey",
+    "uploadFailed": "Lama soo gelin karin. Isku day fayl yar.",
     "stepOf": "Tallaabo {current} ee {total}",
     "stepTitle1": "Aqoonsigaaga",
     "stepTitle2": "Meesha aad deggan tahay",

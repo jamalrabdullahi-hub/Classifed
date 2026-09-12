@@ -14,7 +14,7 @@ const TRANSFER = parseAbiItem(
 );
 
 const CHUNK = 2_000n;
-const RANGE = 6_000n; // ~3 hours on Base
+
 
 async function main(): Promise<void> {
   const client = createPublicClient({ chain: base, transport: http('https://mainnet.base.org') });

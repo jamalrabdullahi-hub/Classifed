@@ -1,4 +1,4 @@
-import { HIGH_RISK_KYC_COUNTRIES } from './kyc';
+import { sanctionedCountries, screenSanctionedName } from './sanctions';
 
 /**
  * Layered KYC requirements: United States and Somalia (FGS).
@@ -130,7 +130,7 @@ export function requiredFieldsFor(jurisdictions: readonly KycJurisdiction[]): st
  * The static sanctions/high-risk country set. Kept as a re-export so a real,
  * licensed list can replace it in one place without touching callers.
  */
-export const SANCTIONED_COUNTRY_CODES: ReadonlySet<string> = HIGH_RISK_KYC_COUNTRIES;
+/** The sanctioned/high-risk countries in force come from ./sanctions. */
 
 export interface ScreeningResult {
   status: 'CLEAR' | 'REVIEW';
@@ -148,15 +148,22 @@ export interface ScreeningResult {
  * auto-declines; it routes to a human.
  */
 export function screenCustomer(input: {
+  legalName?: string;
   countryCode?: string | null;
   isPoliticallyExposed?: boolean;
 }): ScreeningResult {
   const country = (input.countryCode ?? '').toUpperCase();
-  if (SANCTIONED_COUNTRY_CODES.has(country)) {
+  if (sanctionedCountries().has(country)) {
     return { status: 'REVIEW', reason: `Country ${country} is on the high-risk / sanctioned list.` };
   }
   if (input.isPoliticallyExposed) {
     return { status: 'REVIEW', reason: 'Customer self-attested as politically exposed.' };
+  }
+  if (input.legalName) {
+    const nameHit = screenSanctionedName(input.legalName);
+    if (nameHit.matched) {
+      return { status: 'REVIEW', reason: 'Name matches the sanctions list (' + nameHit.source + ').' };
+    }
   }
   return { status: 'CLEAR', reason: null };
 }

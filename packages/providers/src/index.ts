@@ -9,6 +9,7 @@ export {
   mailProvider,
   custodyProvider,
   riskEngine,
+  documentStore,
   resetProviders,
 } from './registry';
 
@@ -19,4 +20,5 @@ export * from './history/index';
 export * from './kyc/index';
 export * from './mail/index';
 export * from './custody/index';
+export * from './storage/index';
 export * from './wallet-provisioning/index';

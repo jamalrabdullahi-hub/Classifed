@@ -8,6 +8,7 @@ import { sweepProtectionPolicies } from './protection';
 import { sweepCustodyDeposits } from './custody';
 import { processWithdrawals } from './withdrawals';
 import { runReconciliation } from './reconciliation';
+import { runDocumentRetention } from './retention';
 
 /**
  * The FLT worker.
@@ -52,6 +53,8 @@ const CUSTODY_SWEEP_INTERVAL_MS = 30_000;
  * tick — a pass a few minutes apart is plenty and keeps the chain reads cheap.
  */
 const RECONCILIATION_INTERVAL_MS = 300_000;
+/** Retention purge runs slowly: a document's clock is measured in years. */
+const DOCUMENT_RETENTION_INTERVAL_MS = 21_600_000;
 /**
  * Agentic trading, on its own slow interval.
  *
@@ -125,6 +128,7 @@ async function main(): Promise<void> {
   loop('monitor', config.WORKER_POLL_INTERVAL_MS, runMonitorPass);
   loop('housekeeping', HOUSEKEEPING_INTERVAL_MS, runHousekeeping);
   loop('market', MARKET_DATA_INTERVAL_MS, refreshMarketData);
+  loop('documents', DOCUMENT_RETENTION_INTERVAL_MS, runDocumentRetention);
 
   if (config.PERPS_ENABLED) {
     loop('perps', PERP_SYNC_INTERVAL_MS, syncPerpetuals);
