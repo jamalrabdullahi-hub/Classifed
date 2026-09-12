@@ -78,7 +78,7 @@ export function PerpChart({
     async function load() {
       try {
         const next = await get<{ candles: Candle[] }>(
-          `/api/perps/markets/${symbol}/candles?interval=${interval}&limit=240`,
+          `/api/perps/markets/${encodeURIComponent(symbol)}/candles?interval=${interval}&limit=240`,
         );
         if (cancelled) return;
         setCandles(next.candles);

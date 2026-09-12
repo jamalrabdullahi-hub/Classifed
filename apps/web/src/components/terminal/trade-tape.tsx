@@ -34,7 +34,7 @@ export function TradeTape({ symbol, limit = 26 }: { symbol: string; limit?: numb
     async function load() {
       try {
         const next = await get<{ trades: Trade[] }>(
-          `/api/perps/markets/${symbol}/trades?limit=${limit}`,
+          `/api/perps/markets/${encodeURIComponent(symbol)}/trades?limit=${limit}`,
         );
         if (!cancelled) setTrades(next.trades);
       } catch {

@@ -182,7 +182,7 @@ export function ProtectionPanel({
     async function load() {
       try {
         const next = await get<Calculation>(
-          `/api/perps/markets/${symbol}/protection?${query}`,
+          `/api/perps/markets/${encodeURIComponent(symbol)}/protection?${query}`,
         );
         if (!cancelled) {
           setCalculation(next);

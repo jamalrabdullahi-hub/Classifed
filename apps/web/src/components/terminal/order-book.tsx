@@ -83,7 +83,7 @@ export function OrderBook({
 
     async function load() {
       try {
-        const next = await get<Book>(`/api/perps/markets/${symbol}/book?depth=${depth}`);
+        const next = await get<Book>(`/api/perps/markets/${encodeURIComponent(symbol)}/book?depth=${depth}`);
         if (!cancelled) {
           setBook(next);
           setError(null);

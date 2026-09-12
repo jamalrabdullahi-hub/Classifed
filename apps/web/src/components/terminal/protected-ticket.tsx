@@ -219,7 +219,7 @@ export function ProtectedTicket({
     void (async () => {
       try {
         const data = await get<{ candles: Candle[] }>(
-          `/api/perps/markets/${symbol}/candles?interval=1h&limit=400`,
+          `/api/perps/markets/${encodeURIComponent(symbol)}/candles?interval=1h&limit=400`,
         );
         if (!cancelled) setCandles(data.candles);
       } catch {
