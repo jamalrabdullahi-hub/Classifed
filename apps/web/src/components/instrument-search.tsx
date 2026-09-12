@@ -18,8 +18,16 @@ import { get } from '@/lib/api';
  * Server-side rather than client-side: there are 2,675 spot tokens on Base
  * alone, and shipping that list to the browser to filter it would cost more
  * than the search it replaces.
+ *
+ * ## Opening it from anywhere
+ *
+ * A trader reaches for the market switcher constantly, so it is reachable
+ * without finding the mouse: `/` focuses it from anywhere on the page (the
+ * convention every terminal shares), and ⌘K / Ctrl-K does the same for the
+ * muscle memory that key built everywhere else. A hint chip shows the `/` key
+ * so the shortcut is discoverable rather than folklore. The `/` binding is
+ * ignored while the user is already typing, so it never eats a character.
  */
-
 interface Result {
   kind: 'spot' | 'perp';
   symbol: string;
@@ -52,6 +60,7 @@ export function InstrumentSearch({
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(0);
   const container = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const latest = useRef(0);
 
   // Debounced: a query fires on a keystroke pause rather than on every key, so
@@ -83,6 +92,25 @@ export function InstrumentSearch({
     return () => clearTimeout(timer);
   }, [query]);
 
+  // Focus from anywhere: `/` (when not already typing) and ⌘K / Ctrl-K.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const typing =
+        target !== null &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+
+      const isCommandK = (event.metaKey || event.ctrlKey) && (event.key === 'k' || event.key === 'K');
+      if (isCommandK || (event.key === '/' && !typing)) {
+        event.preventDefault();
+        inputRef.current?.focus();
+        setOpen(true);
+      }
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     function onPointerDown(event: MouseEvent) {
@@ -112,6 +140,7 @@ export function InstrumentSearch({
       <div className="flex items-center gap-1.5 rounded-[var(--radius)] border border-[var(--border)] px-2 py-1 focus-within:border-[var(--text-muted)]">
         <Search className="size-3 shrink-0 text-[var(--text-subtle)]" />
         <input
+          ref={inputRef}
           value={query}
           autoFocus={autoFocus}
           onChange={(event) => {
@@ -132,7 +161,9 @@ export function InstrumentSearch({
               const chosen = flat[highlighted];
               if (chosen) go(chosen);
             } else if (event.key === 'Escape') {
+              event.preventDefault();
               setOpen(false);
+              inputRef.current?.blur();
             }
           }}
           placeholder={placeholder}
@@ -142,6 +173,14 @@ export function InstrumentSearch({
           aria-controls="instrument-search-results"
           className="w-full bg-transparent font-[family-name:var(--font-mono)] text-[11px] text-[var(--text)] outline-none placeholder:text-[var(--text-subtle)]"
         />
+        {query ? null : (
+          <kbd
+            aria-hidden="true"
+            className="hidden shrink-0 rounded-[3px] border border-[var(--border)] px-1 font-[family-name:var(--font-mono)] text-[9px] leading-4 text-[var(--text-subtle)] sm:inline-block"
+          >
+            /
+          </kbd>
+        )}
       </div>
 
       {open && query.trim() && flat.length === 0 ? (
@@ -184,10 +223,10 @@ export function InstrumentSearch({
                       >
                         <span className="flex min-w-0 items-baseline gap-2">
                           <span className="font-[family-name:var(--font-mono)] text-[11.5px] text-[var(--text)]">
-                            {result.symbol}
+                            <Match text={result.symbol} query={query} />
                           </span>
                           <span className="truncate text-[10px] text-[var(--text-subtle)]">
-                            {result.name}
+                            <Match text={result.name} query={query} />
                           </span>
                         </span>
                         <span className="flex shrink-0 items-center gap-1.5">
@@ -216,5 +255,29 @@ export function InstrumentSearch({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Bold the part of a result the query matched.
+ *
+ * Highlighting the hit is what turns a list of similar-looking tickers into a
+ * readable one — "BTC" and "WBTC" differ by one letter, and which letter the
+ * query landed on is the whole reason a result is where it is.
+ */
+function Match({ text, query }: { text: string; query: string }) {
+  const needle = query.trim().toUpperCase();
+  const haystack = text.toUpperCase();
+  const index = needle ? haystack.indexOf(needle) : -1;
+  if (index < 0) return <>{text}</>;
+
+  return (
+    <>
+      {text.slice(0, index)}
+      <mark className="bg-transparent font-semibold text-[var(--text)]">
+        {text.slice(index, index + needle.length)}
+      </mark>
+      {text.slice(index + needle.length)}
+    </>
   );
 }
