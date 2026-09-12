@@ -3,6 +3,7 @@ import { env } from '@flt/config';
 import { Decimal, newId } from '@flt/core/domain';
 import { ProviderNotConfiguredError, ValidationError } from '@flt/core/domain';
 import { lockFunds, unlockFunds } from '@flt/core/services/ledger';
+import { assertLeveragedCover } from '@flt/core/services/perps';
 import { HyperliquidPerpVenue } from './hyperliquid';
 import { closeCustodyPerpPosition as placeClose, placeCustodyPerpOrder } from './place-order';
 import type { OrderPreview, PerpOrderIntent } from './types';
@@ -60,6 +61,18 @@ export async function openCustodyPerpPosition(params: {
   if (margin.lessThanOrEqualTo(0)) {
     throw new ValidationError('The venue returned a non-positive margin requirement');
   }
+
+  /**
+   * Insurance is mandatory on leveraged opens. Refuse before anything is
+   * reserved or broadcast, so an uncovered order never reaches the venue.
+   */
+  await assertLeveragedCover({
+    userId: params.userId,
+    marketId: params.marketId,
+    leverage: params.intent.leverage,
+    reduceOnly: params.intent.reduceOnly,
+    symbol: params.intent.symbol,
+  });
 
   const orderId = newId();
   const lockReference = `perp-open:${orderId}`;

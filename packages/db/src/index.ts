@@ -61,6 +61,9 @@ export type {
   FiatDeposit,
   CustodyDeposit,
   Withdrawal,
+  TradingAlgorithm,
+  UserAlgorithm,
+  AlgorithmRun,
 } from '@prisma/client';
 
 export {
@@ -102,4 +105,6 @@ export {
   FiatDepositStatus,
   CustodyDepositStatus,
   WithdrawalStatus,
+  AlgorithmStatus,
+  AlgorithmStrategy,
 } from '@prisma/client';

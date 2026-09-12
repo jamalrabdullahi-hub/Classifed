@@ -215,6 +215,13 @@ export const AuditAction = {
   MARKET_MAKER_RESUMED: 'market_maker.resumed',
   MARKET_MAKER_UPDATED: 'market_maker.updated',
 
+  // Trading algorithms — participant-bought strategies the worker runs.
+  ALGORITHM_PURCHASED: 'algorithm.purchased',
+  ALGORITHM_STATUS_CHANGED: 'algorithm.status_changed',
+  ALGORITHM_CANCELLED: 'algorithm.cancelled',
+  ALGORITHM_ORDER_PLACED: 'algorithm.order.placed',
+  ALGORITHM_ORDER_REFUSED: 'algorithm.order.refused',
+
   // Security
   RATE_LIMITED: 'security.rate_limited',
   QUOTE_TAMPERED: 'security.quote_tampered',
@@ -238,6 +245,7 @@ export const AuditAction = {
   ADMIN_PROVIDER_ENABLED: 'admin.provider.enabled',
   ADMIN_CHAIN_TOGGLED: 'admin.chain.toggled',
   ADMIN_FEE_CHANGED: 'admin.fee.changed',
+  ADMIN_ALGORITHM_CHANGED: 'admin.algorithm.changed',
   /// An operator moving real custodied capital onto a named account — the one
   /// path that writes a balance no deposit produced, so it is audited as such.
   ADMIN_LEDGER_ADJUSTED: 'admin.ledger.adjusted',

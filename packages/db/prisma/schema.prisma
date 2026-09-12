@@ -244,6 +244,7 @@ model User {
   referredBy         Referral?              @relation("ReferredBy")
   referralEarnings   ReferralEarning[]      @relation("ReferralEarnings")
   passiveCash        PassiveCashAccount?
+  userAlgorithms     UserAlgorithm[]
 
   @@index([accountStatus])
   @@index([createdAt])
@@ -2503,4 +2504,157 @@ model Withdrawal {
   @@index([status, createdAt])
   @@index([userId, createdAt])
   @@map("withdrawals")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Trading algorithms
+//
+// FLT offers a small catalog of strategy templates. A participant buys one,
+// which debits their ledger balance; the worker then runs the strategy on their
+// behalf and places perp orders against their account. Every order it places is
+// subject to the same leverage, entitlement, balance and insurance rules as a
+// manual one — buying an algorithm buys the strategy, never a bypass of the
+// risk checks.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Lifecycle of a purchased algorithm.
+enum AlgorithmStatus {
+  /// Bought and running. The worker may place orders for it.
+  ACTIVE
+  /// Bought but paused by the participant. No new orders, position untouched.
+  PAUSED
+  /// The paid period ended. Nothing runs until it is bought again.
+  EXPIRED
+  /// Stopped by the participant or an operator. Terminal until re-purchased.
+  CANCELLED
+}
+
+/// The built-in strategy a catalog entry runs.
+///
+/// Deliberately a closed set. A purchased algorithm is an FLT-authored,
+/// reviewed strategy, not arbitrary participant code — the worker signs real
+/// orders with a server-held key, so the strategies that can reach it are
+/// enumerated here rather than described by the buyer.
+enum AlgorithmStrategy {
+  /// Long when the fast average is above the slow one, short when below.
+  MA_CROSSOVER
+  /// Fade a move away from its average, on the expectation it reverts.
+  MEAN_REVERSION
+  /// Follow the sign of a lookback return.
+  MOMENTUM
+}
+
+/// A trading algorithm FLT offers for sale.
+model TradingAlgorithm {
+  id String @id
+  /// URL-safe identifier used in routes and API paths.
+  slug String @unique
+
+  name        String
+  /// One or two lines shown under the name in the marketplace.
+  description String
+  strategy    AlgorithmStrategy
+  /// Strategy parameters (window lengths, thresholds), as JSON so a new
+  /// strategy shape needs no new column.
+  params Json @default("{}")
+
+  /// The venue symbols this algorithm may trade. Empty is meaningless, so the
+  /// service refuses a row with none.
+  symbols String[]
+
+  /// The most leverage any order it places may use. Bounded again, at run
+  /// time, by the participant's plan and the platform cap.
+  maxLeverage Int @default(1)
+  /// The most notional (USD) it may hold open per position, as a decimal
+  /// string — never a float.
+  maxNotionalUsd String
+  /// The price to buy it, in USD, as a decimal string.
+  priceUsd String
+  /// How long a purchase runs, in days. Null is open-ended.
+  periodDays Int?
+
+  isActive   Boolean @default(false)
+  isFeatured Boolean @default(false)
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subscriptions UserAlgorithm[]
+
+  @@index([isActive])
+  @@map("trading_algorithms")
+}
+
+/// One participant's purchase of one algorithm.
+///
+/// The row is the accounting fact: what was charged, under which ledger
+/// reference, and for how long. Re-buying after a cancel reactivates the row
+/// rather than inserting a second, so `(userId, algorithmId)` stays one row and
+/// the runner can never pick up two subscriptions for the same participant and
+/// strategy.
+model UserAlgorithm {
+  id String @id
+
+  userId      String
+  algorithmId String
+
+  status AlgorithmStatus @default(ACTIVE)
+
+  /// What was actually charged, recorded rather than re-derived — a later price
+  /// change must not rewrite what somebody paid.
+  pricePaidUsd String
+  /// The ledger transfer this debit was posted under, so the charge and the
+  /// subscription are trivially reconcilable.
+  ledgerReference String
+
+  startsAt DateTime  @default(now())
+  endsAt   DateTime?
+
+  /// When the runner last evaluated this subscription. Drives the cadence so a
+  /// burst of purchases drains fairly rather than starving the oldest.
+  lastRunAt DateTime?
+
+  cancelledAt  DateTime?
+  cancelReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  algorithm TradingAlgorithm @relation(fields: [algorithmId], references: [id], onDelete: Restrict)
+  runs      AlgorithmRun[]
+
+  @@index([userId, algorithmId])
+  @@index([status, lastRunAt])
+  @@map("user_algorithms")
+}
+
+/// One decision the runner made for a subscription.
+///
+/// The idempotency and audit record both: which symbol, which signal, and what
+/// was (or was not) placed. `signal` plus `decidedAt` is what makes "did the bot
+/// already act on this bar" answerable after a crash.
+model AlgorithmRun {
+  id              String @id
+  userAlgorithmId String
+
+  symbol String
+  side   PerpSide
+  /// The signal that triggered this decision, e.g. "MA_CROSSOVER_LONG".
+  signal String
+
+  /// The perp order placed, when one was. Null when the run only evaluated, or
+  /// was refused by a guardrail.
+  perpOrderId String?
+  status      String
+  /// Why nothing was placed, when nothing was (the guardrail's name).
+  reason String?
+
+  decidedAt DateTime @default(now())
+
+  userAlgorithm UserAlgorithm @relation(fields: [userAlgorithmId], references: [id], onDelete: Cascade)
+
+  @@index([userAlgorithmId, decidedAt])
+  @@map("algorithm_runs")
 }

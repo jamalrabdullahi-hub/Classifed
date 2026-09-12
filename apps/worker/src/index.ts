@@ -10,6 +10,7 @@ import { processWithdrawals } from './withdrawals';
 import { runReconciliation } from './reconciliation';
 import { runDocumentRetention } from './retention';
 import { runMarketMakerPass } from './market-maker';
+import { runAlgorithmPass } from './algorithms';
 
 /**
  * The FLT worker.
@@ -63,6 +64,15 @@ const DOCUMENT_RETENTION_INTERVAL_MS = 21_600_000;
  * `requoteMs` throttles it further. It only runs when MM_ENABLED is set.
  */
 const MARKET_MAKER_INTERVAL_MS = 10_000;
+/**
+ * Participant algorithms, on a slow interval.
+ *
+ * The strategies read hourly bars, so there is nothing to gain from a fast
+ * tick — the per-subscription throttle is an hour regardless. This interval
+ * only decides how promptly a pass starts, and a minute is plenty. Runs only
+ * when ALGORITHMS_ENABLED is set.
+ */
+const ALGORITHMS_INTERVAL_MS = 60_000;
 /**
  * Agentic trading, on its own slow interval.
  *
@@ -128,6 +138,9 @@ async function main(): Promise<void> {
     `  market maker  ${config.MM_ENABLED ? `every ${MARKET_MAKER_INTERVAL_MS}ms` : 'disabled'}`,
   );
   console.info(
+    `  algorithms    ${config.ALGORITHMS_ENABLED && config.PERPS_ENABLED ? `every ${ALGORITHMS_INTERVAL_MS}ms` : 'disabled'}`,
+  );
+  console.info(
     `  custody       ${config.CUSTODY_PROVIDER === 'disabled' ? 'disabled' : `every ${CUSTODY_SWEEP_INTERVAL_MS}ms`}`,
   );
 
@@ -152,6 +165,12 @@ async function main(): Promise<void> {
   // (docs/adr/0007); it trades FLT's own capital behind a kill switch.
   if (config.MM_ENABLED && config.PERPS_ENABLED) {
     loop('mm', MARKET_MAKER_INTERVAL_MS, runMarketMakerPass);
+  }
+
+  // Participant algorithms. Off unless ALGORITHMS_ENABLED is set: this pass
+  // places real orders on participants' behalf, so a deployment opts in.
+  if (config.ALGORITHMS_ENABLED && config.PERPS_ENABLED) {
+    loop('algorithms', ALGORITHMS_INTERVAL_MS, runAlgorithmPass);
   }
 
   // Only when FLT actually holds client funds. With custody off there is no

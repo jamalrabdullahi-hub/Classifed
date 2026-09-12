@@ -209,6 +209,21 @@ const schema = z.object({
    */
   PROTECTION_MODE: z.enum(['off', 'optional', 'required']).default('off'),
 
+  // ── Trading algorithms ─────────────────────────────────────────────────
+
+  /**
+   * Whether the worker runs participant-bought algorithms.
+   *
+   * Off by default and deliberately so: this is the one worker pass that places
+   * real orders on participants' behalf, so a deployment must say so rather
+   * than inherit it. It also needs perps and custody — the runner trades the
+   * pooled venue account, so with either off it would have nothing to trade.
+   */
+  ALGORITHMS_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+
   /**
    * FLT's cut, in basis points of the participant's contribution, charged on
    * top of it. 1000 = 10%. Never deducted from the contribution: the pool must
@@ -349,6 +364,15 @@ function load(): Env {
     }
     if (value.MM_ENABLED && !value.MM_VENUE_ACCOUNT) {
       problems.push('MM_ENABLED requires MM_VENUE_ACCOUNT');
+    }
+    // Algorithms place real orders on participants' behalf, so they need a real
+    // venue and perps; the runner trades the pooled account and can do nothing
+    // useful without them.
+    if (value.ALGORITHMS_ENABLED && !value.PERPS_ENABLED) {
+      problems.push('ALGORITHMS_ENABLED requires PERPS_ENABLED');
+    }
+    if (value.ALGORITHMS_ENABLED && value.PERP_VENUE === 'mock') {
+      problems.push('ALGORITHMS_ENABLED cannot run against PERP_VENUE=mock');
     }
     if (value.PERP_BUILDER_FEE_BPS > 0 && !value.HYPERLIQUID_BUILDER_ADDRESS) {
       problems.push('PERP_BUILDER_FEE_BPS requires HYPERLIQUID_BUILDER_ADDRESS');

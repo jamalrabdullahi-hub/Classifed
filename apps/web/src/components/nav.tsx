@@ -21,6 +21,7 @@ import {
   Sparkles,
   PiggyBank,
   Gift,
+  Bot,
   X,
 } from 'lucide-react';
 import { cn } from '@flt/ui';
@@ -89,6 +90,16 @@ const TRADE = { href: '/ganacsi', key: 'trade', icon: Gauge } as const;
  */
 const REFERRALS = { href: '/jeedin', key: 'referrals', icon: Gift } as const;
 
+/**
+ * Automatic trading is a destination, not a setting.
+ *
+ * It is where a participant buys a strategy and watches it run, so it sits
+ * beside Trade in the primary bar rather than behind the avatar. Shown only to
+ * a signed-in account: buying needs a session and a funded balance, and a guest
+ * would only be bounced to /gal.
+ */
+const AUTO_TRADING = { href: '/ganacsi-otomaatig', key: 'autoTrading', icon: Bot } as const;
+
 const ACCOUNT = [
   { href: '/lacag-fadhiya', key: 'passiveCash', icon: PiggyBank },
   { href: '/akoon', key: 'account', icon: Settings },
@@ -120,7 +131,7 @@ export function TopNav({
   // worse first impression than not showing the tab at all.
   const primary = guest
     ? [tradeItem, PLANS]
-    : [...PRIMARY, tradeItem, WALLET, DEPOSIT, WITHDRAW, PLANS, REFERRALS];
+    : [...PRIMARY, tradeItem, AUTO_TRADING, WALLET, DEPOSIT, WITHDRAW, PLANS, REFERRALS];
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--canvas)]/85 backdrop-blur-md">

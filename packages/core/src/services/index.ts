@@ -147,6 +147,7 @@ export { getCandles, type CandleSeries } from './candles';
 export {
   assertPerpsEnabled,
   effectiveMaxLeverage,
+  assertLeveragedCover,
   listOfferedMarkets,
   getOfferedMarket,
   prepareOpen,
@@ -158,3 +159,23 @@ export {
   type PreparedOrderResult,
   type PerpWarning,
 } from './perps';
+export {
+  listAlgorithms,
+  getAlgorithmBySlug,
+  purchaseAlgorithm,
+  listUserAlgorithms,
+  setAlgorithmStatus,
+  computeSignal,
+  readStrategyParams,
+  recordAlgorithmRun,
+  touchAlgorithmRun,
+  listAllAlgorithms,
+  createAlgorithm,
+  updateAlgorithm,
+  type AlgorithmView,
+  type UserAlgorithmView,
+  type SignalResult,
+  type StrategyParams,
+  type AlgorithmRunInput,
+  type AlgorithmWriteInput,
+} from './algorithms';

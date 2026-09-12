@@ -63,6 +63,7 @@ export const PERMISSIONS = {
   MANAGE_FEES: 'manage_fees',
   MANAGE_ADMINS: 'manage_admins',
   MANAGE_SUBSCRIPTIONS: 'manage_subscriptions',
+  MANAGE_ALGORITHMS: 'manage_algorithms',
   MANAGE_PLATFORM_SETTINGS: 'manage_platform_settings',
   MANAGE_PAYOUTS: 'manage_payouts',
   /// Moving real custodied capital onto a named account (an ADJUSTMENT) — the

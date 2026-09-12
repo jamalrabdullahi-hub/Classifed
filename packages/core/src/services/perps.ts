@@ -1,6 +1,7 @@
 import {
   PerpOrderKind,
   PerpOrderStatus,
+  ProtectionState,
   type PerpMarket as PerpMarketRow,
   type PerpOrder,
   type User,
@@ -110,6 +111,67 @@ export function assertPerpsEnabled(): void {
 /** The leverage FLT will actually allow on a market: the lower of the two caps. */
 export function effectiveMaxLeverage(market: { maxLeverage: number }): number {
   return Math.min(market.maxLeverage, env().PERP_MAX_LEVERAGE);
+}
+
+/**
+ * The protection states that count as live cover.
+ *
+ * CREATED is deliberately absent: an unpaid policy is not cover, and neither
+ * are the terminal states. The set matches the worker's recalculation sweep so
+ * "has cover" means the same thing everywhere.
+ */
+const LIVE_PROTECTION_STATES: ProtectionState[] = [
+  ProtectionState.ACTIVE,
+  ProtectionState.WARNING,
+  ProtectionState.PROTECTION_ACTIVE,
+  ProtectionState.REBALANCE_REQUIRED,
+  ProtectionState.POSITION_REDUCTION,
+];
+
+/**
+ * Refuses a leveraged open that has no insurance.
+ *
+ * Insurance is mandatory on every leveraged position. The product's waterfall
+ * is "cover first, then margin", and a position with no live policy has nothing
+ * between the mark and the venue's liquidation price — the boundary the whole
+ * protection design exists to place. So an open at more than 1x with no live
+ * policy on the market is refused here, not warned about.
+ *
+ * Two deliberate exceptions:
+ *   - A 1x open is not leveraged, so it is not gated.
+ *   - An exit (reduce-only) is never blocked. A rule that could trap somebody
+ *     in a leveraged position is a hazard, not a risk control.
+ *
+ * This is the single gate every opening path calls — the custody execute route
+ * and the algorithm runner — so a new entry point cannot forget it the way the
+ * custody path originally did (only the prepare path checked protection).
+ */
+export async function assertLeveragedCover(params: {
+  userId: string;
+  marketId: string;
+  leverage: number;
+  reduceOnly?: boolean;
+  /** For the error message only; the policy is resolved by market id. */
+  symbol?: string;
+}): Promise<void> {
+  if (params.leverage <= 1 || params.reduceOnly) return;
+
+  const policy = await prisma.protectionPolicy.findFirst({
+    where: {
+      userId: params.userId,
+      marketId: params.marketId,
+      state: { in: LIVE_PROTECTION_STATES },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (!policy) {
+    throw new ValidationError(
+      'Leveraged trading requires an active protection policy on this market. ' +
+        'Buy cover for this position, then open it.',
+      { marketId: params.marketId, leverage: params.leverage, symbol: params.symbol ?? null },
+    );
+  }
 }
 
 /**

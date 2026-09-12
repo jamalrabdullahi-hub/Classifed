@@ -3,6 +3,7 @@ import {
   AccountStatus,
   AccountType,
   AdminRole,
+  AlgorithmStrategy,
   FeeType,
   KycStatus,
   PrismaClient,
@@ -356,6 +357,91 @@ async function main(): Promise<void> {
 
     console.info(`  user       ${userEmail} / ${userPassword}`);
   }
+
+  // ── Trading algorithms ───────────────────────────────────────────────────
+  // A small starter catalog, created INACTIVE. Publishing an automated strategy
+  // is a deliberate operator decision — a seed that switched one on would let a
+  // fresh environment trade on a strategy nobody reviewed.
+  const ALGORITHMS = [
+    {
+      slug: 'btc-momentum',
+      name: 'BTC Momentum',
+      description:
+        'Follows the sign of the 24-hour return on BTC. Long when the last day rose, short when it fell.',
+      strategy: AlgorithmStrategy.MOMENTUM,
+      params: { lookback: 24, thresholdBps: 100 },
+      symbols: ['BTC'],
+      maxLeverage: 2,
+      maxNotionalUsd: '500',
+      priceUsd: '20',
+      periodDays: 30,
+      isFeatured: true,
+    },
+    {
+      slug: 'eth-mean-reversion',
+      name: 'ETH Mean Reversion',
+      description:
+        'Fades moves away from ETH\u2019s 24-hour average — buys a dip below it, sells a spike above it.',
+      strategy: AlgorithmStrategy.MEAN_REVERSION,
+      params: { window: 24 },
+      symbols: ['ETH'],
+      maxLeverage: 2,
+      maxNotionalUsd: '500',
+      priceUsd: '20',
+      periodDays: 30,
+      isFeatured: false,
+    },
+    {
+      slug: 'btc-ma-crossover',
+      name: 'BTC MA Crossover',
+      description:
+        'Long when the 12-hour average crosses above the 48-hour one, short when it crosses back below.',
+      strategy: AlgorithmStrategy.MA_CROSSOVER,
+      params: { fast: 12, slow: 48 },
+      symbols: ['BTC'],
+      maxLeverage: 2,
+      maxNotionalUsd: '500',
+      priceUsd: '25',
+      periodDays: 30,
+      isFeatured: false,
+    },
+  ];
+
+  for (const algorithm of ALGORITHMS) {
+    await prisma.tradingAlgorithm.upsert({
+      where: { slug: algorithm.slug },
+      create: {
+        id: randomUUID(),
+        slug: algorithm.slug,
+        name: algorithm.name,
+        description: algorithm.description,
+        strategy: algorithm.strategy,
+        params: algorithm.params,
+        symbols: algorithm.symbols,
+        maxLeverage: algorithm.maxLeverage,
+        maxNotionalUsd: algorithm.maxNotionalUsd,
+        priceUsd: algorithm.priceUsd,
+        periodDays: algorithm.periodDays,
+        isActive: false,
+        isFeatured: algorithm.isFeatured,
+      },
+      // Never re-enable on reseed: an operator's activation is theirs, not the
+      // seed's. Only the descriptive fields are refreshed.
+      update: {
+        name: algorithm.name,
+        description: algorithm.description,
+        strategy: algorithm.strategy,
+        params: algorithm.params,
+        symbols: algorithm.symbols,
+        maxLeverage: algorithm.maxLeverage,
+        maxNotionalUsd: algorithm.maxNotionalUsd,
+        priceUsd: algorithm.priceUsd,
+        periodDays: algorithm.periodDays,
+        isFeatured: algorithm.isFeatured,
+      },
+    });
+  }
+  console.info(`  algorithms ${ALGORITHMS.length} (inactive until an operator enables them)`);
 
   console.info(`  admin      ${adminEmail}`);
   if (generated) {
