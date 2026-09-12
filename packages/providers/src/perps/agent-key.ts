@@ -82,43 +82,43 @@ async function writePerpsAgentKey(venueSlug: string, key: PerpsAgentKey): Promis
   });
 }
 
-/**
- * The omnibus as a viem account — the *owner* of the FLT venue account, and the
- * signer of the agent authorisation.
- *
- * Same delegation-free path as `sendOmnibusTransaction`: the omnibus is FLT's
- * own wallet, so there is no participant consent to record.
- */
-async function omnibusOwnerAccount() {
-  const { OMNIBUS_EVM_ADDRESS, OMNIBUS_EVM_WALLET_ID } = env();
-  if (!OMNIBUS_EVM_ADDRESS || !OMNIBUS_EVM_WALLET_ID) {
-    throw new ProviderNotConfiguredError(
-      'privy-custody',
-      'OMNIBUS_EVM_ADDRESS and OMNIBUS_EVM_WALLET_ID must be set to authorise the perps agent',
-    );
-  }
-  return createViemAccount(privyClient(), {
-    walletId: OMNIBUS_EVM_WALLET_ID,
-    address: OMNIBUS_EVM_ADDRESS as Hex,
-  });
+/** The owner a new agent key is authorised by, and which can then trade through it. */
+export interface AgentOwner {
+  walletId: string;
+  address: string;
 }
 
 /**
- * Mints an agent key and has the omnibus authorise it on the venue, then stores
- * it. Idempotence is at the venue (a re-authorisation replaces the prior agent);
- * calling this twice simply rotates.
+ * Mints an agent key and has `owner` authorise it on the venue, then stores it
+ * under `venueSlug`. Idempotence is at the venue (a re-authorisation replaces
+ * the prior agent); calling this twice simply rotates.
  *
  * Nothing is stored until the venue accepts the authorisation, so a failure
  * leaves no key we cannot use.
+ *
+ * ## One function, two owners
+ *
+ * The generic form. `authorizePerpsAgent` is this with the **omnibus** as owner,
+ * for the participants' pooled venue account. A dedicated account — the market
+ * maker's, docs/adr/0007 §2 — calls it with **its own** owner, so the key it
+ * receives can trade only that account and never the pooled one. Using the same
+ * function is the point: the difference is which wallet signs, not a second
+ * implementation that could drift.
  */
-export async function authorizePerpsAgent(venueSlug: string): Promise<PerpsAgentKey> {
+export async function authorizeAgentFor(
+  venueSlug: string,
+  owner: AgentOwner,
+): Promise<PerpsAgentKey> {
   const privateKey = generatePrivateKey();
   const address = privateKeyToAccount(privateKey).address;
 
-  const owner = await omnibusOwnerAccount();
+  const ownerAccount = await createViemAccount(privyClient(), {
+    walletId: owner.walletId,
+    address: owner.address as Hex,
+  });
   const client = new hl.ExchangeClient({
     transport: new hl.HttpTransport(),
-    wallet: owner,
+    wallet: ownerAccount,
   });
 
   await client.approveAgent({ agentAddress: address, agentName: AGENT_NAME });
@@ -126,4 +126,23 @@ export async function authorizePerpsAgent(venueSlug: string): Promise<PerpsAgent
   const key: PerpsAgentKey = { address, privateKey };
   await writePerpsAgentKey(venueSlug, key);
   return key;
+}
+
+/**
+ * Authorises an agent for the participants' pooled venue account, which the
+ * omnibus owns. Same delegation-free path as `sendOmnibusTransaction`: the
+ * omnibus is FLT's own wallet, so there is no participant consent to record.
+ */
+export async function authorizePerpsAgent(venueSlug: string): Promise<PerpsAgentKey> {
+  const { OMNIBUS_EVM_ADDRESS, OMNIBUS_EVM_WALLET_ID } = env();
+  if (!OMNIBUS_EVM_ADDRESS || !OMNIBUS_EVM_WALLET_ID) {
+    throw new ProviderNotConfiguredError(
+      'privy-custody',
+      'OMNIBUS_EVM_ADDRESS and OMNIBUS_EVM_WALLET_ID must be set to authorise the perps agent',
+    );
+  }
+  return authorizeAgentFor(venueSlug, {
+    walletId: OMNIBUS_EVM_WALLET_ID,
+    address: OMNIBUS_EVM_ADDRESS,
+  });
 }

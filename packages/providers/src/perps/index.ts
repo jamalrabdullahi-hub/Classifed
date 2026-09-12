@@ -32,7 +32,13 @@ export {
   readMakerFills,
   readMakerPositions,
 } from './market-maker';
-export { authorizePerpsAgent, readPerpsAgentKey, type PerpsAgentKey } from './agent-key';
+export {
+  authorizeAgentFor,
+  authorizePerpsAgent,
+  readPerpsAgentKey,
+  type AgentOwner,
+  type PerpsAgentKey,
+} from './agent-key';
 export { fundHyperliquidFromArbitrum } from './fund-venue';
 export {
   placeCustodyPerpOrder,
