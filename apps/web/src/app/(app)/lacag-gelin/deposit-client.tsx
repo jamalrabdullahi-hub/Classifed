@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { Building2, Check, Clock, Copy, X } from 'lucide-react';
+import { ArrowUpRight, Check, Clock, Copy, Smartphone, Wallet, X } from 'lucide-react';
 import {
+  AddressChip,
   Badge,
   Button,
   Card,
@@ -39,51 +41,50 @@ interface Instructions {
   ussdCode?: string | null;
 }
 
-const METHODS = ['ACH', 'WIRE', 'EVC', 'CASH'] as const;
-
 /**
- * Requesting a deposit, and the reference that makes it findable.
+ * Adding money — two ways, kept simple.
  *
- * The reference is the whole mechanism: an operator matching a bank statement
- * has the participant's name and an amount, and neither is unique. Without a
- * code on the transfer, attributing money to an account is guesswork, and
- * guesswork about whose money this is has exactly one acceptable error rate.
+ * **Crypto.** Send USDC or USDT on Base to your own FLT address; the balance is
+ * credited once we have confirmed it on-chain.
  *
- * The screen is deliberate about the delay. Nothing here credits anything —
- * the balance appears when a person has seen the money and sent the crypto —
- * and somebody who transfers a thousand dollars expecting an instant balance
- * will otherwise conclude the platform lost it.
+ * **EVC (mobile money).** Pay by EVC Plus USSD to FLT's merchant number — your
+ * phone shows the name FTL-IT on the prompt — then tell us the number you paid
+ * from and the amount, and we match it to your payment.
+ *
+ * Nothing here credits anything by itself: a crypto deposit is credited on a
+ * mined receipt, and an EVC payment when an operator has seen it on the
+ * statement. The copy says so, because a participant who expects an instant
+ * balance will otherwise conclude the platform lost their money.
  */
 export function DepositClient({
   available,
   minUsd,
   feeBps,
-  instructions,
   walletAddress,
+  explorerUrl,
+  evcMerchantNumber,
   history,
 }: {
   available: boolean;
   minUsd: string;
   feeBps: number;
-  instructions: string;
   walletAddress: string;
+  explorerUrl?: string;
+  evcMerchantNumber: string;
   history: HistoryRow[];
 }) {
   const t = useTranslations('deposit');
 
-  const [method, setMethod] = useState<(typeof METHODS)[number]>('EVC');
+  const [tab, setTab] = useState<'crypto' | 'fiat'>('crypto');
   const [amount, setAmount] = useState('');
-  const [payerName, setPayerName] = useState('');
-  const [payerPhone, setPayerPhone] = useState('');
+  const [phone, setPhone] = useState('');
   const [issued, setIssued] = useState<Instructions | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'address' | 'reference' | null>(null);
 
   const amountNumber = Number(amount);
   const belowMinimum = Boolean(amount) && amountNumber < Number(minUsd);
-  // Shown before they commit, because a fee discovered afterwards reads as a
-  // shortfall rather than a price.
   const estimatedFee = Number.isFinite(amountNumber)
     ? ((amountNumber * feeBps) / 10_000).toFixed(2)
     : '0.00';
@@ -97,10 +98,9 @@ export function DepositClient({
     try {
       setIssued(
         await post<Instructions>('/api/deposits', {
-          method,
+          method: 'EVC',
           amountFiat: amount.trim(),
-          payerName: payerName.trim(),
-          payerPhone: payerPhone.trim(),
+          payerPhone: phone.trim(),
         }),
       );
     } catch (caught) {
@@ -110,20 +110,69 @@ export function DepositClient({
     }
   }
 
-  async function copyReference() {
-    if (!issued) return;
+  async function copy(what: 'address' | 'reference') {
+    const value = what === 'address' ? walletAddress : issued?.reference;
+    if (!value) return;
     try {
-      await navigator.clipboard.writeText(issued.reference);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2_000);
+      await navigator.clipboard.writeText(value);
+      setCopied(what);
+      setTimeout(() => setCopied(null), 2_000);
     } catch {
       // On screen and selectable; this is a convenience.
     }
   }
 
-  if (issued) {
-    return (
-      <div className="mx-auto w-full max-w-lg space-y-4">
+  const tabButton = (key: 'crypto' | 'fiat', icon: React.ReactNode, label: string) => (
+    <button
+      type="button"
+      onClick={() => setTab(key)}
+      aria-pressed={tab === key}
+      className={
+        'flex items-center justify-center gap-2 rounded-[var(--radius-md)] border px-3 py-2.5 text-[13px] font-medium transition-colors ' +
+        (tab === key
+          ? 'border-[var(--text)] bg-[var(--surface-raised)] text-[var(--text)]'
+          : 'border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]')
+      }
+    >
+      {icon}
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="mx-auto w-full max-w-lg space-y-4">
+      <div className="grid grid-cols-2 gap-2">
+        {tabButton('crypto', <Wallet className="size-4" />, t('cryptoOption'))}
+        {tabButton('fiat', <Smartphone className="size-4" />, t('fiatOption'))}
+      </div>
+
+      {tab === 'crypto' ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('cryptoTitle')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{t('cryptoIntro')}</p>
+
+            <div className="rounded-[var(--radius-md)] border border-[var(--border-strong)] bg-[var(--surface-sunken)] p-4">
+              <p className="text-[11px] uppercase tracking-[0.08em] text-[var(--text-subtle)]">
+                {t('yourAddress')}
+              </p>
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <AddressChip address={walletAddress} explorerUrl={explorerUrl} />
+                <Button variant="secondary" size="sm" onClick={() => void copy('address')}>
+                  {copied === 'address' ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                  {copied === 'address' ? t('copied') : t('copy')}
+                </Button>
+              </div>
+            </div>
+
+            <Notice tone="info" title={t('cryptoNoticeTitle')}>
+              {t('cryptoNotice')}
+            </Notice>
+          </CardContent>
+        </Card>
+      ) : issued ? (
         <Card>
           <CardHeader>
             <CardTitle>{t('sendItTitle')}</CardTitle>
@@ -139,17 +188,13 @@ export function DepositClient({
               </p>
             </div>
 
-            <Button variant="secondary" size="sm" block onClick={() => void copyReference()}>
-              {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-              {copied ? t('copied') : t('copyReference')}
+            <Button variant="secondary" size="sm" block onClick={() => void copy('reference')}>
+              {copied === 'reference' ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+              {copied === 'reference' ? t('copied') : t('copyReference')}
             </Button>
 
             <div className="divide-y divide-[var(--border)]">
-              <DetailRow
-                label={t('amount')}
-                value={`${issued.amountFiat} ${issued.currency}`}
-                emphasis
-              />
+              <DetailRow label={t('amount')} value={`${issued.amountFiat} ${issued.currency}`} emphasis />
             </div>
 
             {issued.ussdCode ? (
@@ -163,130 +208,91 @@ export function DepositClient({
               </div>
             ) : null}
 
-            {instructions ? (
-              <div className="rounded-[var(--radius-md)] border border-[var(--border)] p-3">
-                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-subtle)]">
-                  {t('whereToSend')}
-                </p>
-                {/* Whitespace preserved: an operator wrote this as an address
-                    block, and reflowing it turns account numbers into prose. */}
-                <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--text)]">
-                  {instructions}
-                </p>
-              </div>
-            ) : null}
-
             <Notice tone="warning" icon={<Clock className="size-4" />} title={t('pendingTitle')}>
               {t('pendingBody')}
             </Notice>
 
-            {/* The timeframe and a way to reach a person, on the screen they
-                are looking at when they have just parted with money. */}
-            <p className="text-center text-[11.5px] leading-relaxed text-[var(--text-subtle)]">
-              {t('supportNote')}
-            </p>
+            <p className="text-center text-[11.5px] leading-relaxed text-[var(--text-subtle)]">{t('supportNote')}</p>
+
+            <Button variant="ghost" size="sm" block onClick={() => setIssued(null)}>
+              {t('backToForm')}
+            </Button>
           </CardContent>
         </Card>
-      </div>
-    );
-  }
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('fiatTitle')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!available ? (
+              <Notice tone="warning" title={t('unavailableTitle')}>
+                {t('unavailableBody')}
+              </Notice>
+            ) : null}
 
-  return (
-    <div className="mx-auto w-full max-w-lg space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('formTitle')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">
-            {t('intro', { address: `${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}` })}
-          </p>
+            <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{t('fiatIntro')}</p>
 
-          {error ? <Notice tone="negative">{error}</Notice> : null}
+            <ol className="ml-1 list-decimal space-y-1.5 pl-4 text-[13px] leading-relaxed text-[var(--text-muted)]">
+              <li>{t('evcStep1', { merchant: evcMerchantNumber })}</li>
+              <li>{t('evcStep2')}</li>
+            </ol>
 
-          <Field label={t('method')}>
-            {(props) => (
-              <select
-                {...props}
-                value={method}
-                onChange={(event) => setMethod(event.target.value as typeof method)}
-                className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-transparent px-3 py-2 text-[13px] text-[var(--text)] outline-none focus:border-[var(--text-muted)]"
-              >
-                {METHODS.map((entry) => (
-                  <option key={entry} value={entry}>
-                    {t(`methods.${entry}` as 'methods.ACH')}
-                  </option>
-                ))}
-              </select>
-            )}
-          </Field>
+            <Notice tone="info" icon={<Smartphone className="size-4" />}>
+              {t('evcPrompt')}
+            </Notice>
 
-          <Field label={t('payerName')} description={t('payerNameHint')}>
-            {(props) => (
-              <Input
-                {...props}
-                value={payerName}
-                onChange={(event) => setPayerName(event.target.value)}
-                autoComplete="name"
-              />
-            )}
-          </Field>
+            {error ? <Notice tone="negative">{error}</Notice> : null}
 
-          <Field label={t('payerPhone')} description={t('payerPhoneHint')}>
-            {(props) => (
-              <Input
-                {...props}
-                value={payerPhone}
-                onChange={(event) => setPayerPhone(event.target.value)}
-                inputMode="tel"
-                autoComplete="tel"
-                placeholder="6xxxxxxx"
-                className="num"
-              />
-            )}
-          </Field>
+            <Field label={t('payerPhone')} description={t('payerPhoneHint')}>
+              {(props) => (
+                <Input
+                  {...props}
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="6xxxxxxx"
+                  className="num"
+                />
+              )}
+            </Field>
 
-          <Field label={t('amountLabel')} description={t('minimum', { min: minUsd })}>
-            {(props) => (
-              <Input
-                {...props}
-                value={amount}
-                onChange={(event) => setAmount(event.target.value.replace(/[^\d.]/g, ''))}
-                inputMode="decimal"
-                placeholder="1000"
-                className="num"
-              />
-            )}
-          </Field>
+            <Field label={t('amountLabel')} description={t('minimum', { min: minUsd })}>
+              {(props) => (
+                <Input
+                  {...props}
+                  value={amount}
+                  onChange={(event) => setAmount(event.target.value.replace(/[^\d.]/g, ''))}
+                  inputMode="decimal"
+                  placeholder="1000"
+                  className="num"
+                />
+              )}
+            </Field>
 
-          {amount && !belowMinimum ? (
-            <div className="divide-y divide-[var(--border)]">
-              <DetailRow label={t('feeLabel', { pct: (feeBps / 100).toFixed(2) })} value={`$${estimatedFee}`} />
-              <DetailRow label={t('youReceive')} value={`$${estimatedNet}`} emphasis />
-            </div>
-          ) : null}
+            {amount && !belowMinimum ? (
+              <div className="divide-y divide-[var(--border)]">
+                <DetailRow label={t('feeLabel', { pct: (feeBps / 100).toFixed(2) })} value={`$${estimatedFee}`} />
+                <DetailRow label={t('youReceive')} value={`$${estimatedNet}`} emphasis />
+              </div>
+            ) : null}
 
-          {belowMinimum ? <Notice tone="warning">{t('belowMinimum', { min: minUsd })}</Notice> : null}
+            {belowMinimum ? <Notice tone="warning">{t('belowMinimum', { min: minUsd })}</Notice> : null}
 
-          <Button
-            variant="primary"
-            block
-            size="lg"
-            loading={busy}
-            disabled={
-              !available ||
-              !amount ||
-              belowMinimum ||
-              payerName.trim().length < 2 ||
-              payerPhone.trim().length < 7
-            }
-            onClick={() => void submit()}
-          >
-            <Building2 className="size-4" />
-            {t('getReference')}
-          </Button>
-        </CardContent>
-      </Card>
+            <Button
+              variant="primary"
+              block
+              size="lg"
+              loading={busy}
+              disabled={!available || !amount || belowMinimum || phone.trim().length < 7}
+              onClick={() => void submit()}
+            >
+              {t('getReference')}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {history.length > 0 ? (
         <Card>
@@ -331,6 +337,24 @@ export function DepositClient({
           </CardContent>
         </Card>
       ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('withdrawGuideTitle')}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3.5">
+          <ol className="ml-1 list-decimal space-y-1.5 pl-4 text-[13px] leading-relaxed text-[var(--text-muted)]">
+            <li>{t('withdrawStep1')}</li>
+            <li>{t('withdrawStep2')}</li>
+          </ol>
+          <Button asChild variant="secondary" size="sm">
+            <Link href="/lacag-qaadasho">
+              {t('goToWithdraw')}
+              <ArrowUpRight className="size-3.5" />
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

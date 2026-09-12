@@ -14,7 +14,7 @@ export interface DepositRow {
   netUsd: string | null;
   reference: string;
   status: string;
-  payerName: string;
+  payerName: string | null;
   payerPhone: string;
   omnibusAddress: string | null;
   omnibusChainId: number;
@@ -110,7 +110,7 @@ export function FiatDepositQueue({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[13px] font-medium text-[var(--text)]">
-            {row.payerName} <span className="num text-[var(--text-muted)]">{row.payerPhone}</span>
+            {row.payerName ? row.payerName : '-'} <span className="num text-[var(--text-muted)]">{row.payerPhone}</span>
           </p>
           <p className="truncate text-[11px] text-[var(--text-subtle)]">
             {row.email} · {row.method}

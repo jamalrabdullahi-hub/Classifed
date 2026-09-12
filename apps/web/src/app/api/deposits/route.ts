@@ -41,7 +41,7 @@ export const POST = handler(
       method: z.nativeEnum(FiatDepositMethod),
       amountFiat: z.string().trim().regex(/^\d+(\.\d{1,2})?$/, 'Enter an amount like 1000 or 1000.50'),
       currency: z.string().trim().length(3).optional(),
-      payerName: z.string().trim().min(2).max(120),
+      payerName: z.string().trim().max(120).optional(),
       payerPhone: z.string().trim().min(7).max(24),
     }),
     rateLimit: { rule: RateLimits.WALLET_LINK, scope: 'deposit-request' },

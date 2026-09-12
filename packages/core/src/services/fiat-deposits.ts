@@ -77,7 +77,7 @@ export async function requestFiatDeposit(
     method: FiatDepositMethod;
     amountFiat: string;
     currency?: string;
-    payerName: string;
+    payerName?: string;
     payerPhone: string;
   },
 ): Promise<DepositInstructions> {
@@ -115,10 +115,10 @@ export async function requestFiatDeposit(
     );
   }
 
-  const payerName = input.payerName.trim();
+  const payerName = (input.payerName ? input.payerName : '').trim();
   const payerPhone = input.payerPhone.trim().replace(/[^\d+]/g, '');
 
-  if (payerName.length < 2) {
+  if (payerName.length === 1) {
     throw new ValidationError('Give the name on the account the money is coming from');
   }
   if (payerPhone.replace(/\D/g, '').length < 7) {
@@ -132,7 +132,7 @@ export async function requestFiatDeposit(
       method: input.method,
       currency: (input.currency ?? 'USD').toUpperCase(),
       amountFiat: amount.toFixed(),
-      payerName,
+      payerName: payerName.length > 0 ? payerName : null,
       payerPhone,
       reference: depositReference(),
     },

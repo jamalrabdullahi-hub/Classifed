@@ -2199,7 +2199,7 @@ model FiatDeposit {
   /// This is what an operator matches against a bank or EVC statement. The
   /// reference code is the primary key of that match, but people forget to
   /// include it, and a name and number are what make a line findable anyway.
-  payerName  String
+  payerName  String?
   payerPhone String
 
   /// What actually arrived, set when an operator confirms it. Kept separate
