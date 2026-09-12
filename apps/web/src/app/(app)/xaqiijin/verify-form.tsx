@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
-import { Clock, ShieldCheck, XCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Clock, ShieldCheck, XCircle } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import {
   Button,
@@ -14,23 +14,27 @@ import {
   Field,
   Input,
   Notice,
+  cn,
 } from '@flt/ui';
 import { ApiError, post } from '@/lib/api';
 
 /**
- * Identity verification.
+ * Identity verification — four steps.
  *
- * The copy is deliberately plain about what happens next: a person reviews the
- * submission. Phase 1 does not run automated checks, and implying that it does
- * would misrepresent how the decision is made.
+ *   1. Identity  — legal name, date of birth, nationality, residence.
+ *   2. Address   — residential address + phone.
+ *   3. Document  — identity document type, issuing country, number.
+ *   4. Risk      — occupation, purpose, expected volume, PEP (EDD if high-risk).
  *
- * Fields collected here mirror the required-information list in the AML/CFT
- * Procedures (P-01): identity, residence, occupation, purpose, and expected
- * activity. This is a duplicate, deliberately small list — kept in sync by
- * hand with `HIGH_RISK_KYC_COUNTRIES` in `@flt/core/services/kyc`, which a
- * client component cannot import directly since that module pulls in the
- * Prisma client. Its only job here is knowing when to show the
- * source-of-funds field before a round trip tells the user it's required.
+ * The field set is the union of the US (BSA/CIP) and Somalia (FGS/CBS)
+ * requirements — see `@flt/core/services/kyc-jurisdiction`. It is duplicated
+ * here (like HIGH_RISK_COUNTRY_CODES) because a client component cannot import
+ * a server module that pulls in Prisma; its only job client-side is validating
+ * a step before advancing, so a mistake here costs a round trip, not a
+ * compliance gap (the server re-validates the union).
+ *
+ * The copy stays plain about what happens next: a person reviews the
+ * submission. Phase 1 runs no automated approval.
  */
 const HIGH_RISK_COUNTRY_CODES = new Set(['KP', 'IR', 'MM', 'AF', 'SY']);
 
@@ -41,6 +45,8 @@ const VOLUME_BANDS = [
   '$25,000–$100,000/month',
   'Over $100,000/month',
 ];
+
+const ID_TYPES = ['PASSPORT', 'NATIONAL_ID', 'DRIVERS_LICENSE'] as const;
 
 export function VerifyForm({
   status,
@@ -54,11 +60,18 @@ export function VerifyForm({
   const router = useRouter();
   const t = useTranslations('verifyForm');
   const locale = useLocale();
+
+  const [step, setStep] = useState(1);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
+  const [nationalityCode, setNationalityCode] = useState('');
   const [countryCode, setCountryCode] = useState('');
   const [residenceAddress, setResidenceAddress] = useState('');
+  const [phone, setPhone] = useState('');
+  const [idType, setIdType] = useState<(typeof ID_TYPES)[number]>('PASSPORT');
+  const [idCountry, setIdCountry] = useState('');
+  const [idNumber, setIdNumber] = useState('');
   const [occupation, setOccupation] = useState('');
   const [accountPurpose, setAccountPurpose] = useState('');
   const [expectedMonthlyVolume, setExpectedMonthlyVolume] = useState('');
@@ -70,18 +83,37 @@ export function VerifyForm({
 
   const eddLikely = isPoliticallyExposed || HIGH_RISK_COUNTRY_CODES.has(countryCode.toUpperCase());
 
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault();
+  const stepValid = [
+    firstName.trim().length > 0 &&
+      lastName.trim().length > 0 &&
+      Boolean(dateOfBirth) &&
+      nationalityCode.trim().length === 2 &&
+      countryCode.trim().length === 2,
+    residenceAddress.trim().length >= 5 && phone.trim().length >= 7,
+    idCountry.trim().length === 2 && idNumber.trim().length >= 3,
+    occupation.trim().length >= 2 &&
+      accountPurpose.trim().length >= 5 &&
+      Boolean(expectedMonthlyVolume) &&
+      (!isPoliticallyExposed || pepDetails.trim().length >= 10) &&
+      (!eddLikely || sourceOfFundsEvidence.trim().length >= 20),
+  ];
+  const canAdvance = stepValid[step - 1];
+
+  async function submit() {
     setError(null);
     setPending(true);
-
     try {
       await post('/api/kyc', {
         legalFirstName: firstName,
         legalLastName: lastName,
         dateOfBirth,
+        nationalityCode: nationalityCode.toUpperCase(),
         countryCode: countryCode.toUpperCase(),
         residenceAddress,
+        phone,
+        idType,
+        idCountry: idCountry.toUpperCase(),
+        idNumber,
         occupation,
         accountPurpose,
         expectedMonthlyVolume,
@@ -95,6 +127,15 @@ export function VerifyForm({
     } finally {
       setPending(false);
     }
+  }
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (step < 4) {
+      if (canAdvance) setStep(step + 1);
+      return;
+    }
+    void submit();
   }
 
   if (status === 'APPROVED') {
@@ -136,6 +177,9 @@ export function VerifyForm({
     );
   }
 
+  const selectClass =
+    'w-full rounded-[var(--radius)] border border-[var(--border)] bg-transparent px-2 py-1.5 text-[13px] text-[var(--text)] outline-none focus:border-[var(--text-muted)]';
+
   return (
     <Card>
       <CardHeader>
@@ -152,167 +196,231 @@ export function VerifyForm({
           </Notice>
         ) : null}
 
+        {/* Progress header */}
+        <div className="mb-5 flex items-center gap-2" aria-hidden="true">
+          {[1, 2, 3, 4].map((s) => (
+            <div key={s} className="flex flex-1 items-center gap-2">
+              <span
+                className={cn(
+                  'flex size-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold',
+                  s < step
+                    ? 'border-[var(--positive-border)] bg-[var(--positive-subtle)] text-[var(--positive)]'
+                    : s === step
+                      ? 'border-[var(--text)] text-[var(--text)]'
+                      : 'border-[var(--border)] text-[var(--text-subtle)]',
+                )}
+              >
+                {s < step ? <Check className="size-3" /> : s}
+              </span>
+              {s < 4 ? (
+                <span
+                  className={cn('h-px flex-1', s < step ? 'bg-[var(--positive-border)]' : 'bg-[var(--border)]')}
+                />
+              ) : null}
+            </div>
+          ))}
+        </div>
+
+        <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--text-subtle)]">
+          {t('stepOf', { current: step, total: 4 })} · {t(`stepTitle${step}` as 'stepTitle1')}
+        </p>
+
         <form onSubmit={onSubmit} className="space-y-4">
           {error ? <Notice tone="negative">{error}</Notice> : null}
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={t('legalFirstName')} required>
-              {(props) => (
-                <Input
-                  {...props}
-                  value={firstName}
-                  onChange={(event) => setFirstName(event.target.value)}
-                  autoComplete="given-name"
-                  required
-                />
-              )}
-            </Field>
-
-            <Field label={t('legalLastName')} required>
-              {(props) => (
-                <Input
-                  {...props}
-                  value={lastName}
-                  onChange={(event) => setLastName(event.target.value)}
-                  autoComplete="family-name"
-                  required
-                />
-              )}
-            </Field>
-          </div>
-
-          <Field label={t('dateOfBirth')} description={t('dateOfBirthHint')} required>
-            {(props) => (
-              <Input
-                {...props}
-                type="date"
-                value={dateOfBirth}
-                onChange={(event) => setDateOfBirth(event.target.value)}
-                autoComplete="bday"
-                required
-              />
-            )}
-          </Field>
-
-          <Field
-            label={t('countryOfResidence')}
-            description={t('countryHint')}
-            required
-          >
-            {(props) => (
-              <Input
-                {...props}
-                value={countryCode}
-                onChange={(event) => setCountryCode(event.target.value.toUpperCase().slice(0, 2))}
-                maxLength={2}
-                autoComplete="country"
-                className="uppercase"
-                required
-              />
-            )}
-          </Field>
-
-          <Field label={t('residenceAddress')} description={t('residenceAddressHint')} required>
-            {(props) => (
-              <Input
-                {...props}
-                value={residenceAddress}
-                onChange={(event) => setResidenceAddress(event.target.value)}
-                autoComplete="street-address"
-                required
-              />
-            )}
-          </Field>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={t('occupation')} required>
-              {(props) => (
-                <Input
-                  {...props}
-                  value={occupation}
-                  onChange={(event) => setOccupation(event.target.value)}
-                  autoComplete="organization-title"
-                  required
-                />
-              )}
-            </Field>
-
-            <Field label={t('expectedMonthlyVolume')} required>
-              {(props) => (
-                <select
-                  {...props}
-                  value={expectedMonthlyVolume}
-                  onChange={(event) => setExpectedMonthlyVolume(event.target.value)}
-                  required
-                  className="w-full rounded-[var(--radius)] border border-[var(--border)] bg-transparent px-2 py-1.5 text-[13px] text-[var(--text)] outline-none focus:border-[var(--text-muted)]"
-                >
-                  <option value="" disabled>
-                    {t('selectOne')}
-                  </option>
-                  {VOLUME_BANDS.map((band) => (
-                    <option key={band} value={band}>
-                      {band}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </Field>
-          </div>
-
-          <Field label={t('accountPurpose')} description={t('accountPurposeHint')} required>
-            {(props) => (
-              <Input
-                {...props}
-                value={accountPurpose}
-                onChange={(event) => setAccountPurpose(event.target.value)}
-                required
-              />
-            )}
-          </Field>
-
-          <label className="flex cursor-pointer items-start gap-2 rounded-[var(--radius)] border border-[var(--border)] p-2.5 text-[12px] text-[var(--text)] hover:border-[var(--text-muted)]">
-            <input
-              type="checkbox"
-              checked={isPoliticallyExposed}
-              onChange={(event) => setIsPoliticallyExposed(event.target.checked)}
-              className="mt-0.5 size-3.5 shrink-0 accent-[var(--text)]"
-            />
-            <span>{t('pepQuestion')}</span>
-          </label>
-
-          {isPoliticallyExposed ? (
-            <Field label={t('pepDetails')} description={t('pepDetailsHint')} required>
-              {(props) => (
-                <Input
-                  {...props}
-                  value={pepDetails}
-                  onChange={(event) => setPepDetails(event.target.value)}
-                  required
-                />
-              )}
-            </Field>
+          {step === 1 ? (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label={t('legalFirstName')} required>
+                  {(props) => (
+                    <Input {...props} value={firstName} onChange={(e) => setFirstName(e.target.value)} autoComplete="given-name" required />
+                  )}
+                </Field>
+                <Field label={t('legalLastName')} required>
+                  {(props) => (
+                    <Input {...props} value={lastName} onChange={(e) => setLastName(e.target.value)} autoComplete="family-name" required />
+                  )}
+                </Field>
+              </div>
+              <Field label={t('dateOfBirth')} description={t('dateOfBirthHint')} required>
+                {(props) => (
+                  <Input {...props} type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} autoComplete="bday" required />
+                )}
+              </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label={t('nationality')} description={t('nationalityHint')} required>
+                  {(props) => (
+                    <Input
+                      {...props}
+                      value={nationalityCode}
+                      onChange={(e) => setNationalityCode(e.target.value.toUpperCase().slice(0, 2))}
+                      maxLength={2}
+                      autoComplete="country"
+                      className="uppercase"
+                      required
+                    />
+                  )}
+                </Field>
+                <Field label={t('countryOfResidence')} description={t('countryHint')} required>
+                  {(props) => (
+                    <Input
+                      {...props}
+                      value={countryCode}
+                      onChange={(e) => setCountryCode(e.target.value.toUpperCase().slice(0, 2))}
+                      maxLength={2}
+                      autoComplete="country"
+                      className="uppercase"
+                      required
+                    />
+                  )}
+                </Field>
+              </div>
+            </>
           ) : null}
 
-          {eddLikely ? (
-            <Field label={t('sourceOfFunds')} description={t('sourceOfFundsHint')} required>
-              {(props) => (
-                <Input
-                  {...props}
-                  value={sourceOfFundsEvidence}
-                  onChange={(event) => setSourceOfFundsEvidence(event.target.value)}
-                  required
-                />
-              )}
-            </Field>
+          {step === 2 ? (
+            <>
+              <Field label={t('residenceAddress')} description={t('residenceAddressHint')} required>
+                {(props) => (
+                  <Input {...props} value={residenceAddress} onChange={(e) => setResidenceAddress(e.target.value)} autoComplete="street-address" required />
+                )}
+              </Field>
+              <Field label={t('phone')} description={t('phoneHint')} required>
+                {(props) => (
+                  <Input
+                    {...props}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    inputMode="tel"
+                    autoComplete="tel"
+                    placeholder="+252 6x xxx xxxx"
+                    className="num"
+                    required
+                  />
+                )}
+              </Field>
+            </>
           ) : null}
 
-          <Button type="submit" variant="primary" block loading={pending}>
-            {t('submitForReview')}
-          </Button>
+          {step === 3 ? (
+            <>
+              <Field label={t('idType')} required>
+                {(props) => (
+                  <select
+                    {...props}
+                    value={idType}
+                    onChange={(e) => setIdType(e.target.value as typeof idType)}
+                    required
+                    className={selectClass}
+                  >
+                    {ID_TYPES.map((entry) => (
+                      <option key={entry} value={entry}>
+                        {t(`idType.${entry}` as 'idType.PASSPORT')}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </Field>
+              <Field label={t('idCountry')} description={t('idCountryHint')} required>
+                {(props) => (
+                  <Input
+                    {...props}
+                    value={idCountry}
+                    onChange={(e) => setIdCountry(e.target.value.toUpperCase().slice(0, 2))}
+                    maxLength={2}
+                    className="uppercase"
+                    required
+                  />
+                )}
+              </Field>
+              <Field label={t('idNumber')} description={t('idNumberHint')} required>
+                {(props) => (
+                  <Input {...props} value={idNumber} onChange={(e) => setIdNumber(e.target.value)} className="num" required />
+                )}
+              </Field>
+            </>
+          ) : null}
 
-          <p className="text-[11px] leading-relaxed text-[var(--text-subtle)]">
-            {t('footerNote')}
-          </p>
+          {step === 4 ? (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label={t('occupation')} required>
+                  {(props) => (
+                    <Input {...props} value={occupation} onChange={(e) => setOccupation(e.target.value)} autoComplete="organization-title" required />
+                  )}
+                </Field>
+                <Field label={t('expectedMonthlyVolume')} required>
+                  {(props) => (
+                    <select
+                      {...props}
+                      value={expectedMonthlyVolume}
+                      onChange={(e) => setExpectedMonthlyVolume(e.target.value)}
+                      required
+                      className={selectClass}
+                    >
+                      <option value="" disabled>
+                        {t('selectOne')}
+                      </option>
+                      {VOLUME_BANDS.map((band) => (
+                        <option key={band} value={band}>
+                          {band}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </Field>
+              </div>
+              <Field label={t('accountPurpose')} description={t('accountPurposeHint')} required>
+                {(props) => (
+                  <Input {...props} value={accountPurpose} onChange={(e) => setAccountPurpose(e.target.value)} required />
+                )}
+              </Field>
+              <label className="flex cursor-pointer items-start gap-2 rounded-[var(--radius)] border border-[var(--border)] p-2.5 text-[12px] text-[var(--text)] hover:border-[var(--text-muted)]">
+                <input
+                  type="checkbox"
+                  checked={isPoliticallyExposed}
+                  onChange={(e) => setIsPoliticallyExposed(e.target.checked)}
+                  className="mt-0.5 size-3.5 shrink-0 accent-[var(--text)]"
+                />
+                <span>{t('pepQuestion')}</span>
+              </label>
+              {isPoliticallyExposed ? (
+                <Field label={t('pepDetails')} description={t('pepDetailsHint')} required>
+                  {(props) => (
+                    <Input {...props} value={pepDetails} onChange={(e) => setPepDetails(e.target.value)} required />
+                  )}
+                </Field>
+              ) : null}
+              {eddLikely ? (
+                <Field label={t('sourceOfFunds')} description={t('sourceOfFundsHint')} required>
+                  {(props) => (
+                    <Input {...props} value={sourceOfFundsEvidence} onChange={(e) => setSourceOfFundsEvidence(e.target.value)} required />
+                  )}
+                </Field>
+              ) : null}
+            </>
+          ) : null}
+
+          <div className="flex items-center gap-2 pt-1">
+            {step > 1 ? (
+              <Button type="button" variant="secondary" onClick={() => setStep(step - 1)}>
+                <ArrowLeft className="size-3.5" />
+                {t('back')}
+              </Button>
+            ) : null}
+            {step < 4 ? (
+              <Button type="button" variant="primary" block disabled={!canAdvance} onClick={() => setStep(step + 1)}>
+                {t('next')}
+                <ArrowRight className="size-3.5" />
+              </Button>
+            ) : (
+              <Button type="submit" variant="primary" block loading={pending} disabled={!canAdvance}>
+                {t('submitForReview')}
+              </Button>
+            )}
+          </div>
+
+          <p className="text-[11px] leading-relaxed text-[var(--text-subtle)]">{t('footerNote')}</p>
         </form>
       </CardContent>
     </Card>

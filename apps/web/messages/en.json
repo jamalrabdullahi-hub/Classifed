@@ -411,6 +411,26 @@
     "dismiss": "Dismiss"
   },
   "verifyForm": {
+    "stepOf": "Step {current} of {total}",
+    "stepTitle1": "Your identity",
+    "stepTitle2": "Where you live",
+    "stepTitle3": "Your document",
+    "stepTitle4": "About your activity",
+    "next": "Next",
+    "back": "Back",
+    "nationality": "Nationality",
+    "nationalityHint": "The country of your nationality.",
+    "phone": "Phone number",
+    "phoneHint": "A number we can reach you on.",
+    "idType": {
+      "PASSPORT": "Passport",
+      "NATIONAL_ID": "National ID",
+      "DRIVERS_LICENSE": "Driving licence"
+    },
+    "idCountry": "Issuing country",
+    "idCountryHint": "The country that issued the document.",
+    "idNumber": "Document number",
+    "idNumberHint": "Stored securely. Only the last four digits stay readable.",
     "submitError": "Could not submit. Try again.",
     "verifiedTitle": "Identity verified",
     "verifiedBody": "Your account is approved for trading.",

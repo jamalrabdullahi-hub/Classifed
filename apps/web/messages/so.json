@@ -411,6 +411,26 @@
     "dismiss": "Xir"
   },
   "verifyForm": {
+    "stepOf": "Tallaabo {current} ee {total}",
+    "stepTitle1": "Aqoonsigaaga",
+    "stepTitle2": "Meesha aad deggan tahay",
+    "stepTitle3": "Dukumentigaaga",
+    "stepTitle4": "Wax yar oo ku saabsan dhaqdhaqaaqaaga",
+    "next": "Xiga",
+    "back": "Dib",
+    "nationality": "Jinsiyad",
+    "nationalityHint": "Dalka jinsiyadaada.",
+    "phone": "Lambarka telefoon",
+    "phoneHint": "Lambar aan kugula soo xiriiri karno.",
+    "idType": {
+      "PASSPORT": "Baasaboor",
+      "NATIONAL_ID": "Aqoonsi qaran",
+      "DRIVERS_LICENSE": "Shati wadista"
+    },
+    "idCountry": "Dalka soo saaray",
+    "idCountryHint": "Dalka soo saaray dukumentiga.",
+    "idNumber": "Lambarka dukumentiga",
+    "idNumberHint": "Si ammaan ah ayaa loo kaydiyaa. Keliya afarta lambar ee ugu dambeeya ayaa la akhriyi karaa.",
     "submitError": "Lama gudbin karin. Isku day mar kale.",
     "verifiedTitle": "Aqoonsiga waa la xaqiijiyay",
     "verifiedBody": "Akoonkaaga waa loo ansixiyay ganacsiga.",

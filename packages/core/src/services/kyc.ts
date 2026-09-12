@@ -18,6 +18,12 @@ import {
 import { newId } from '../domain/id';
 import { accountStateMachine, kycStateMachine } from '../domain/state';
 import { AuditAction, audit } from './audit';
+import { createHash } from 'node:crypto';
+import {
+  jurisdictionsFor,
+  requiredFieldsFor,
+  screenCustomer,
+} from './kyc-jurisdiction';
 
 /**
  * KYC onboarding.
@@ -60,10 +66,15 @@ export interface SubmitKycInput {
   legalLastName: string;
   dateOfBirth: Date;
   countryCode: string;
+  nationalityCode: string;
+  phone?: string;
   residenceAddress: string;
   occupation: string;
   accountPurpose: string;
   expectedMonthlyVolume: string;
+  idType: string;
+  idNumber: string;
+  idCountry: string;
   isPoliticallyExposed: boolean;
   pepDetails?: string;
   /** Only required once risk-tiering (below) lands the profile on EDD. */
@@ -96,6 +107,36 @@ export async function submitKyc(
 
   const riskTier = computeRiskTier(input);
   const eddRequired = riskTier === KycRiskTier.HIGH;
+  // Layered regimes (US + Somalia) from nationality + residence; require the
+  // union of their fields so a gap is caught here, not by a regulator later.
+  const jurisdictions = jurisdictionsFor({
+    nationalityCode: input.nationalityCode,
+    residenceCode: input.countryCode,
+  });
+  const requiredFields = requiredFieldsFor(jurisdictions);
+  const missing = requiredFields.filter((field) => {
+    const value = (input as unknown as Record<string, unknown>)[field];
+    if (value instanceof Date) return Number.isNaN(value.getTime());
+    if (typeof value !== 'string') return true;
+    return value.trim().length === 0;
+  });
+  if (missing.length > 0) {
+    throw new ValidationError(
+      'Missing required information: ' + missing.join(', '),
+      { fields: missing },
+    );
+  }
+
+  // The identity number is recorded only as a hash and its last four digits;
+  // the clear value never reaches the database.
+  const idNumber = input.idNumber.trim();
+  const idNumberHash = createHash('sha256').update(idNumber.toUpperCase()).digest('hex');
+  const idNumberLast4 = idNumber.slice(-4);
+
+  const screening = screenCustomer({
+    countryCode: input.countryCode,
+    isPoliticallyExposed: input.isPoliticallyExposed,
+  });
 
   // P-06: source-of-funds evidence is required before an EDD-track
   // submission can even reach the reviewer — not optional context the
@@ -123,6 +164,15 @@ export async function submitKyc(
         legalLastName: input.legalLastName,
         dateOfBirth: input.dateOfBirth,
         countryCode: input.countryCode.toUpperCase(),
+        nationalityCode: input.nationalityCode.toUpperCase(),
+        phone: input.phone ? input.phone : null,
+        idType: input.idType,
+        idCountry: input.idCountry.toUpperCase(),
+        idNumberHash: idNumberHash,
+        idNumberLast4: idNumberLast4,
+        jurisdictions: jurisdictions,
+        screeningStatus: screening.status,
+        screeningReason: screening.reason,
         residenceAddress: input.residenceAddress,
         occupation: input.occupation,
         accountPurpose: input.accountPurpose,
@@ -140,6 +190,15 @@ export async function submitKyc(
         legalLastName: input.legalLastName,
         dateOfBirth: input.dateOfBirth,
         countryCode: input.countryCode.toUpperCase(),
+        nationalityCode: input.nationalityCode.toUpperCase(),
+        phone: input.phone ? input.phone : null,
+        idType: input.idType,
+        idCountry: input.idCountry.toUpperCase(),
+        idNumberHash: idNumberHash,
+        idNumberLast4: idNumberLast4,
+        jurisdictions: jurisdictions,
+        screeningStatus: screening.status,
+        screeningReason: screening.reason,
         residenceAddress: input.residenceAddress,
         occupation: input.occupation,
         accountPurpose: input.accountPurpose,
@@ -182,6 +241,8 @@ export async function submitKyc(
       countryCode: profile.countryCode,
       riskTier: profile.riskTier,
       eddRequired: profile.eddRequired,
+      jurisdictions: profile.jurisdictions,
+      screeningStatus: profile.screeningStatus,
     },
   });
 

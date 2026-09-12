@@ -37,6 +37,12 @@ export interface QueuedProfile {
   isPoliticallyExposed: boolean;
   pepDetails: string | null;
   sourceOfFundsEvidence: string | null;
+  jurisdictions: string[];
+  nationalityCode: string | null;
+  idType: string | null;
+  idNumberLast4: string | null;
+  idCountry: string | null;
+  screeningStatus: string | null;
 }
 
 /**
@@ -172,6 +178,7 @@ export function KycQueue({
                       <dd className="inline">{profile.sourceOfFundsEvidence}</dd>
                     </div>
                   ) : null}
+                <p>Regimes: {profile.jurisdictions.length > 0 ? profile.jurisdictions.join(' + ') : null}. ID: {profile.idType ? profile.idType : null}{profile.idNumberLast4 ? ' ending ' + profile.idNumberLast4 : null}{profile.idCountry ? ' (' + profile.idCountry + ')' : null}. Screening: {profile.screeningStatus ? profile.screeningStatus : null}</p>
                 </dl>
               </div>
 

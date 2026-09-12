@@ -392,6 +392,17 @@ model KycProfile {
   riskTier               KycRiskTier @default(LOW)
   eddRequired             Boolean     @default(false)
   sourceOfFundsEvidence  String?
+  /// Layered compliance: which regimes apply, from nationality + residence. See services/kyc-jurisdiction.ts.
+  jurisdictions    String[]
+  nationalityCode  String?
+  phone            String?
+  /// Identity document. The number is stored only as a hash + last four, never in the clear.
+  idType           String?
+  idCountry        String?
+  idNumberHash     String?
+  idNumberLast4    String?
+  screeningStatus  String?
+  screeningReason  String?
 
   submittedAt      DateTime?
   decidedAt        DateTime?

@@ -59,6 +59,12 @@ export default async function KycQueuePage() {
             isPoliticallyExposed: profile.isPoliticallyExposed,
             pepDetails: profile.pepDetails,
             sourceOfFundsEvidence: profile.sourceOfFundsEvidence,
+            jurisdictions: profile.jurisdictions,
+            nationalityCode: profile.nationalityCode,
+            idType: profile.idType,
+            idNumberLast4: profile.idNumberLast4,
+            idCountry: profile.idCountry,
+            screeningStatus: profile.screeningStatus,
           }))}
         />
       )}
