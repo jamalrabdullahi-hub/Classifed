@@ -21,7 +21,6 @@ import {
   Sparkles,
   PiggyBank,
   Gift,
-  Send,
   X,
 } from 'lucide-react';
 import { cn } from '@flt/ui';
@@ -61,14 +60,14 @@ const DEPOSIT = { href: '/lacag-gelin', key: 'deposit', icon: Banknote } as cons
 const WITHDRAW = { href: '/lacag-qaadasho', key: 'withdraw', icon: ArrowDownToLine } as const;
 
 /**
- * Sending money home is a destination in its own right, not an account setting.
+ * Plans is a destination, not a setting.
  *
- * It carries the only badge in the bar. That is a deliberate ration: a nav
- * where several items shout is a nav where none of them do, so the flag is
- * spent on the one thing a new arrival would not otherwise know this platform
- * does at all.
+ * It sits in the primary bar rather than the account menu because it is
+ * something a user acts on — comparing and buying a plan — not a preference
+ * they set once. Remittance (/xawilaad) is still reachable by URL; it gave up
+ * its tab to make room.
  */
-const REMITTANCE = { href: '/xawilaad', key: 'remittance', icon: Send, badgeKey: 'remittanceBadge' } as const;
+const PLANS = { href: '/qorshayaal', key: 'plans', icon: Sparkles } as const;
 
 /**
  * The terminal is where trading happens, so it carries the name.
@@ -91,7 +90,6 @@ const TRADE = { href: '/ganacsi', key: 'trade', icon: Gauge } as const;
 const REFERRALS = { href: '/jeedin', key: 'referrals', icon: Gift } as const;
 
 const ACCOUNT = [
-  { href: '/qorshayaal', key: 'plans', icon: Sparkles },
   { href: '/lacag-fadhiya', key: 'passiveCash', icon: PiggyBank },
   { href: '/akoon', key: 'account', icon: Settings },
 ] as const;
@@ -121,8 +119,8 @@ export function TopNav({
   // sign in — every other tab would just bounce them to /gal, which is a
   // worse first impression than not showing the tab at all.
   const primary = guest
-    ? [tradeItem, ACCOUNT[0]]
-    : [...PRIMARY, tradeItem, WALLET, DEPOSIT, WITHDRAW, REMITTANCE, REFERRALS];
+    ? [tradeItem, PLANS]
+    : [...PRIMARY, tradeItem, WALLET, DEPOSIT, WITHDRAW, PLANS, REFERRALS];
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--canvas)]/85 backdrop-blur-md">
@@ -145,11 +143,6 @@ export function TopNav({
               )}
             >
               {t(item.key)}
-              {'badgeKey' in item ? (
-                <span className="text-[10px] font-semibold leading-none text-[var(--positive)]">
-                  {t(item.badgeKey)}
-                </span>
-              ) : null}
             </Link>
           ))}
         </nav>
@@ -192,11 +185,6 @@ export function TopNav({
             >
               <Icon className="size-4" />
               {t(item.key)}
-              {'badgeKey' in item ? (
-                <span className="text-[11px] font-semibold text-[var(--positive)]">
-                  {t(item.badgeKey)}
-                </span>
-              ) : null}
             </Link>
             );
           })}
