@@ -35,6 +35,15 @@
     "actionDeposit": "Dhigo",
     "actionSecure": "Deji"
   },
+  "promos": {
+    "upgradeHeadline": "Qorshahaagu wuxuu ku xaddidan yahay {maxLeverage}x",
+    "upgradeBody": "Xubnuhu waxay helaan leverage badan, ilaa 25% dhimis khidmad kasta, iyo falanqayn horumarsan. Ganacsi maalmaha badan oo dhimistu way dabooli doontaa qorshaha.",
+    "upgradeCta": "Eeg qorshayaasha",
+    "referralHeadline": "Shabakadaadu way ku bixisaa",
+    "referralBody": "Ku casuum saaxiibbadaada link-gaaga oo kaso uruuri {pct}% khidmad kasta oo ay bixiyaan. Ganacsi kasta, inta ay ganacsanayaan.",
+    "referralCta": "Hel link-gaaga",
+    "dismiss": "Iska tuur"
+  },
   "home": {
     "eyebrow": "Ganacsi aan qofna hayn lacagtaada",
     "title": "Ka ganacso boorsadaada",

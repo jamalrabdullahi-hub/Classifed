@@ -7,9 +7,11 @@ import { annualisedFundingRate } from '@flt/core/domain';
 import { listAllOfferedMarkets, resolveOfferedMarket } from '@flt/core/services/perps';
 import { perpVenues } from '@flt/providers';
 import { entitlementsFor, fromPlan } from '@flt/core/services/entitlements';
+import { REFERRAL_SHARE_BPS } from '@flt/core/services/referrals';
 import { currentUser } from '@/server/session';
 import { PerpTerminal } from '@/components/terminal/perp-terminal';
 import { RememberMarket } from '@/components/terminal/remember-market';
+import { TradePromos } from '@/components/trade-promos';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,6 +75,13 @@ export default async function PerpMarketPage({
     <div className="space-y-4">
       {/* Records the market so a bare /ganacsi comes back here. */}
       <RememberMarket symbol={market.symbol} />
+
+      <TradePromos
+        tier={entitlements.tier}
+        maxLeverage={entitlements.maxLeverage}
+        signedIn={Boolean(user)}
+        shareBps={REFERRAL_SHARE_BPS}
+      />
 
       <PerpTerminal
         market={{

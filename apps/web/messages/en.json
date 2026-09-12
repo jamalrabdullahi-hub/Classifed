@@ -35,6 +35,15 @@
     "actionDeposit": "Deposit",
     "actionSecure": "Set up"
   },
+  "promos": {
+    "upgradeHeadline": "Your plan is capped at {maxLeverage}x",
+    "upgradeBody": "Members get more leverage, up to 25% off every fee, and advanced analytics. Trade most days and the discount covers the plan.",
+    "upgradeCta": "See plans",
+    "referralHeadline": "Your network pays you",
+    "referralBody": "Invite friends with your link and earn {pct}% of every fee they pay. Every trade, for as long as they trade.",
+    "referralCta": "Get your link",
+    "dismiss": "Dismiss"
+  },
   "home": {
     "eyebrow": "Non-custodial trading",
     "title": "Trade from your own wallet",
