@@ -21,6 +21,8 @@ TimeoutStopSec=30
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
+StateDirectory=flt-exchange
+Environment=KYC_DOCUMENT_DIR=/var/lib/flt-exchange/kyc-documents
 ProtectHome=true
 ProtectKernelTunables=true
 ProtectKernelModules=true
