@@ -4,11 +4,12 @@ import { Decimal, DomainError } from '@flt/core/domain';
 import { AuditAction, audit } from '@flt/core/services/audit';
 import {
   accrueAlgorithmFees,
-  computeSignal,
+  evaluateStrategy,
   readStrategyParams,
   recordAlgorithmRun,
   settleDueAlgorithmFees,
   touchAlgorithmRun,
+  type CompositeSpec,
   type SignalResult,
 } from '@flt/core/services';
 import { resolveTradingWallet } from '@flt/core/services/wallets';
@@ -129,7 +130,13 @@ async function runAlgoSubscription(
   venues: PerpVenue[],
 ): Promise<{ opened: number; closed: number; refused: number }> {
   const summary = { opened: 0, closed: 0, refused: 0 };
-  const params = readStrategyParams(subscription.strategyParams ?? algorithm.params);
+  const descriptor = {
+    strategyType: algorithm.strategyType,
+    strategy: algorithm.strategy,
+    params: readStrategyParams(subscription.strategyParams ?? algorithm.params),
+    composition: (algorithm.composition as CompositeSpec | null) ?? null,
+    expression: algorithm.expression,
+  };
 
   const pre = await prepareAccount(subscription.userId);
   if (!pre) throw new Error('account not ready');
@@ -140,7 +147,7 @@ async function runAlgoSubscription(
     const { venue, row, market } = offered;
 
     const candles = await venue.getCandles(market.symbol, CANDLE_INTERVAL, CANDLE_LIMIT);
-    const signal = computeSignal(algorithm.strategy, params, candles);
+    const signal = evaluateStrategy(descriptor, candles);
     if (!signal) continue;
 
     await act(subscription, algorithm, pre, {

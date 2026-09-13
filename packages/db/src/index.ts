@@ -64,6 +64,7 @@ export type {
   TradingAlgorithm,
   UserAlgorithm,
   AlgorithmRun,
+  CreatorEarning,
 } from '@prisma/client';
 
 export {
@@ -108,4 +109,6 @@ export {
   AlgorithmStatus,
   AlgorithmStrategy,
   AlgorithmKind,
+  AlgorithmVisibility,
+  AlgorithmStrategyType,
 } from '@prisma/client';

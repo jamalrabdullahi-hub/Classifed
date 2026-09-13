@@ -245,6 +245,7 @@ model User {
   referralEarnings   ReferralEarning[]      @relation("ReferralEarnings")
   passiveCash        PassiveCashAccount?
   userAlgorithms     UserAlgorithm[]
+  createdAlgorithms  TradingAlgorithm[]
 
   @@index([accountStatus])
   @@index([createdAt])
@@ -2555,6 +2556,29 @@ enum AlgorithmKind {
   AI
 }
 
+/// Who can see and activate an offering.
+enum AlgorithmVisibility {
+  /// FLT-authored, shown to everyone.
+  FLT
+  /// A participant's private offering — only its creator can activate it.
+  PRIVATE
+  /// Published by a participant: live for everyone, and the creator earns a
+  /// share of the fees it generates.
+  PUBLIC
+  /// Published, awaiting operator review before it may go PUBLIC.
+  PENDING_REVIEW
+}
+
+/// How an Algo offering computes its signal.
+enum AlgorithmStrategyType {
+  /// One of the built-in deterministic strategies.
+  BUILTIN
+  /// A vote over several built-in strategies ("mix").
+  COMPOSITE
+  /// A participant-written expression in the restricted strategy language.
+  CUSTOM
+}
+
 /// A trading algorithm FLT offers for sale.
 model TradingAlgorithm {
   id String @id
@@ -2601,10 +2625,29 @@ model TradingAlgorithm {
   isActive   Boolean @default(false)
   isFeatured Boolean @default(false)
 
+  /// Who can see it. FLT offerings are everyone's; PRIVATE is the creator's
+  /// own; PUBLIC is a shared, credited offering; PENDING_REVIEW awaits approval.
+  visibility AlgorithmVisibility @default(FLT)
+
+  /// The creator's share of the management fee this offering generates, in
+  /// basis points. 5000 = 50%. Zero for FLT offerings.
+  revenueShareBps Int @default(0)
+
+  /// How the signal is computed — built-in strategy, composition, or expression.
+  strategyType AlgorithmStrategyType @default(BUILTIN)
+  /// The members of a COMPOSITE strategy.
+  composition Json?
+  /// The expression of a CUSTOM strategy (restricted DSL).
+  expression String?
+
+  /// The participant who authored it, or null for FLT.
+  creatorId String?
+
   createdById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  creator       User?            @relation(fields: [creatorId], references: [id], onDelete: SetNull)
   subscriptions UserAlgorithm[]
 
   @@index([isActive])
@@ -2634,6 +2677,9 @@ model UserAlgorithm {
   /// Management fee accrued but not yet charged, in USD. Resets on each
   /// settlement; charged on exit and monthly while running.
   accruedFeeUsd Decimal @default(0) @db.Decimal(18, 8)
+  /// Running total of creator revenue this subscription has generated for a
+  /// published offering's author. Display only; the money is on the ledger.
+  creatorEarningsUsd Decimal @default(0) @db.Decimal(18, 8)
   /// When the fee was last accrued up to. The next settlement bills the gap.
   feeAccruedAt DateTime @default(now())
 
@@ -2691,4 +2737,27 @@ model AlgorithmRun {
 
   @@index([userAlgorithmId, decidedAt])
   @@map("algorithm_runs")
+}
+
+/// A creator's share of a management fee a published offering generated.
+///
+/// One row per fee settlement, deduped on the settlement reference so a retried
+/// settlement never pays a creator twice. The money itself is posted to the
+/// creator's ledger balance; this is the record of why.
+model CreatorEarning {
+  id String @id
+
+  /// The offering's author, and the participant whose fee produced this share.
+  creatorId        String
+  algorithmId      String
+  subscriberUserId String
+
+  /// The fee-settlement reference this came from. Unique — idempotent.
+  settlementRef String @unique
+  amountUsd     Decimal @db.Decimal(18, 8)
+
+  createdAt DateTime @default(now())
+
+  @@index([creatorId, createdAt])
+  @@map("creator_earnings")
 }

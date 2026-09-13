@@ -2,6 +2,8 @@ import {
   AlgorithmKind,
   AlgorithmStatus,
   AlgorithmStrategy,
+  AlgorithmStrategyType,
+  AlgorithmVisibility,
   LedgerAccountKind,
   LedgerTransferKind,
   SubscriptionTier,
@@ -13,6 +15,7 @@ import {
   type UserAlgorithm,
 } from '@flt/db';
 import { resolveAiSettings } from './platform-settings';
+import { compileExpression, evaluateExpression } from './strategy-dsl';
 import type { Candle } from '../ports/history';
 import { ForbiddenError, NotFoundError, ValidationError } from '../domain/errors';
 import { newId } from '../domain/id';
@@ -101,6 +104,14 @@ export interface AlgorithmView {
   promptRails: string[];
   periodDays: number;
   isFeatured: boolean;
+  /** Who can see it, and whether the creator earns a share. */
+  visibility: AlgorithmVisibility;
+  revenueShareBps: number;
+  /** How the signal is computed. */
+  strategyType: AlgorithmStrategyType;
+  composition: unknown;
+  expression: string | null;
+  creatorId: string | null;
 }
 
 function toView(algorithm: TradingAlgorithm): AlgorithmView {
@@ -122,13 +133,28 @@ function toView(algorithm: TradingAlgorithm): AlgorithmView {
     promptRails: rails,
     periodDays: algorithm.periodDays ?? DEFAULT_PERIOD_DAYS,
     isFeatured: algorithm.isFeatured,
+    visibility: algorithm.visibility,
+    revenueShareBps: algorithm.revenueShareBps,
+    strategyType: algorithm.strategyType,
+    composition: algorithm.composition,
+    expression: algorithm.expression,
+    creatorId: algorithm.creatorId,
   };
 }
 
-/** The active offerings, featured first. */
-export async function listAlgorithms(): Promise<AlgorithmView[]> {
+/**
+ * The offerings a caller may see: FLT's, every published one, and their own.
+ */
+export async function listAlgorithms(userId?: string): Promise<AlgorithmView[]> {
   const rows = await prisma.tradingAlgorithm.findMany({
-    where: { isActive: true },
+    where: {
+      isActive: true,
+      OR: [
+        { visibility: AlgorithmVisibility.FLT },
+        { visibility: AlgorithmVisibility.PUBLIC },
+        ...(userId ? [{ creatorId: userId }] : []),
+      ],
+    },
     orderBy: [{ isFeatured: 'desc' }, { kind: 'asc' }, { name: 'asc' }],
   });
   return rows.map(toView);
@@ -397,15 +423,18 @@ export async function settleDueAlgorithmFees(): Promise<{ settled: number; skipp
     if (period.lessThanOrEqualTo(0)) continue;
 
     let accrued = new Decimal(row.accruedFeeUsd.toString());
+    let index = 0;
     while (accrued.greaterThanOrEqualTo(period)) {
+      const reference = `algorithm-fee:${row.id}:${row.feeAccruedAt.getTime()}:${index}`;
       try {
-        await chargeFee(row.userId, period, row.id, `Algorithm fee (month) — ${row.algorithm.name}`);
+        await chargeFee(row, period, reference, `Algorithm fee (month) — ${row.algorithm.name}`);
         accrued = accrued.minus(period);
         await prisma.userAlgorithm.update({
           where: { id: row.id },
           data: { accruedFeeUsd: accrued.toFixed() },
         });
         settled += 1;
+        index += 1;
       } catch (error) {
         // Short balance: leave the fee accrued and try again next pass.
         skipped += 1;
@@ -440,13 +469,10 @@ export async function settleAlgorithmFee(
   const owed = new Decimal(row.accruedFeeUsd.toString()).plus(fresh);
   if (owed.lessThanOrEqualTo(0)) return new Decimal(0);
 
+  const reference = `algorithm-fee:${row.id}:exit:${row.feeAccruedAt.getTime()}`;
+
   try {
-    await chargeFee(
-      row.userId,
-      owed,
-      row.id,
-      `Algorithm fee (exit) — ${row.algorithm.name}: ${options.reason}`,
-    );
+    await chargeFee(row, owed, reference, `Algorithm fee (exit) — ${row.algorithm.name}: ${options.reason}`);
   } catch (error) {
     // The fee is still owed; leave the accrual in place so a later pass can
     // collect it once the balance can cover it.
@@ -468,13 +494,25 @@ export async function settleAlgorithmFee(
   return owed;
 }
 
-/** Debits the participant's balance into FLT revenue. Pre-checks sufficiency. */
+/** The creator's split of a settled fee, when the offering is a published one. */
+function creatorSplitFor(algorithm: TradingAlgorithm): { creatorId: string; bps: number } | null {
+  if (algorithm.visibility !== AlgorithmVisibility.PUBLIC) return null;
+  if (!algorithm.creatorId || algorithm.revenueShareBps <= 0) return null;
+  return { creatorId: algorithm.creatorId, bps: algorithm.revenueShareBps };
+}
+
+/**
+ * Debits the subscriber's balance, splitting the fee between FLT and — for a
+ * published offering — its creator. Pre-checks sufficiency. Idempotent on the
+ * reference, so a retried settlement never pays a creator twice.
+ */
 async function chargeFee(
-  userId: string,
+  row: UserAlgorithm & { algorithm: TradingAlgorithm },
   amount: Decimal,
-  subscriptionId: string,
+  reference: string,
   memo: string,
 ): Promise<void> {
+  const userId = row.userId;
   const balance = await clientBalance(userId, BILLING_ASSET);
   if (balance.available.lessThan(amount)) {
     throw new ValidationError(
@@ -483,31 +521,53 @@ async function chargeFee(
     );
   }
 
-  const reference = `algorithm-fee:${subscriptionId}:${Date.now()}`;
+  const split = creatorSplitFor(row.algorithm);
+  const creatorShare = split ? amount.times(new Decimal(split.bps).dividedBy(10_000)) : new Decimal(0);
+  const retained = amount.minus(creatorShare);
 
   await prisma.$transaction(async (tx) => {
     const available = await accountFor(
       { kind: LedgerAccountKind.USER_AVAILABLE, userId, asset: BILLING_ASSET },
       tx,
     );
-    const revenue = await accountFor(
-      { kind: LedgerAccountKind.FEE_REVENUE, asset: BILLING_ASSET },
-      tx,
-    );
+    const revenue = await accountFor({ kind: LedgerAccountKind.FEE_REVENUE, asset: BILLING_ASSET }, tx);
 
-    await postTransfer(
-      {
-        kind: LedgerTransferKind.FEE,
-        reference,
-        memo,
-        entries: [
-          { accountId: available.id, amount },
-          { accountId: revenue.id, amount: amount.negated() },
-        ],
-      },
-      tx,
-    );
+    const entries = [
+      { accountId: available.id, amount },
+      { accountId: revenue.id, amount: retained.negated() },
+    ];
+
+    if (split && creatorShare.greaterThan(0)) {
+      const creatorAvailable = await accountFor(
+        { kind: LedgerAccountKind.USER_AVAILABLE, userId: split.creatorId, asset: BILLING_ASSET },
+        tx,
+      );
+      entries.push({ accountId: creatorAvailable.id, amount: creatorShare.negated() });
+    }
+
+    await postTransfer({ kind: LedgerTransferKind.FEE, reference, memo, entries }, tx);
   });
+
+  if (split && creatorShare.greaterThan(0)) {
+    try {
+      await prisma.creatorEarning.create({
+        data: {
+          id: newId(),
+          creatorId: split.creatorId,
+          algorithmId: row.algorithm.id,
+          subscriberUserId: userId,
+          settlementRef: reference,
+          amountUsd: creatorShare,
+        },
+      });
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error;
+    }
+    await prisma.userAlgorithm.update({
+      where: { id: row.id },
+      data: { creatorEarningsUsd: { increment: creatorShare.toFixed() } },
+    });
+  }
 }
 
 // ── Strategy (deterministic / Algo offering) ────────────────────────────────
@@ -636,6 +696,45 @@ export interface AlgorithmWriteInput {
   periodDays?: number | null;
   isActive?: boolean;
   isFeatured?: boolean;
+  strategyType?: AlgorithmStrategyType;
+  composition?: CompositeSpec | null;
+  expression?: string | null;
+}
+
+/** The offerings awaiting operator review before publishing. */
+export async function listPendingOfferings(): Promise<TradingAlgorithm[]> {
+  return prisma.tradingAlgorithm.findMany({
+    where: { visibility: AlgorithmVisibility.PENDING_REVIEW },
+    orderBy: { createdAt: 'asc' },
+  });
+}
+
+/** Approve a published offering to PUBLIC, or reject it back to PRIVATE. */
+export async function reviewOffering(
+  admin: AdminUser,
+  slug: string,
+  approve: boolean,
+): Promise<TradingAlgorithm> {
+  const row = await prisma.tradingAlgorithm.findUnique({ where: { slug } });
+  if (!row) throw new NotFoundError('Offering');
+
+  const updated = await prisma.tradingAlgorithm.update({
+    where: { id: row.id },
+    data: approve
+      ? { visibility: AlgorithmVisibility.PUBLIC }
+      : { visibility: AlgorithmVisibility.PRIVATE, revenueShareBps: 0 },
+  });
+
+  await audit(prisma, {
+    action: AuditAction.ADMIN_ALGORITHM_CHANGED,
+    actorType: 'ADMIN',
+    actorAdminId: admin.id,
+    entityType: 'trading_algorithm',
+    entityId: row.id,
+    after: { approve, visibility: updated.visibility },
+  });
+
+  return updated;
 }
 
 export async function listAllAlgorithms(): Promise<TradingAlgorithm[]> {
@@ -678,6 +777,9 @@ export async function createAlgorithm(
       managementFeeBps: input.managementFeeBps ?? 200,
       // The AI offering is Pro-only, enforced in code as well as the row.
       requiresPro: input.requiresPro ?? kind === AlgorithmKind.AI,
+      strategyType: input.strategyType ?? undefined,
+      composition: (input.composition ?? undefined) as never,
+      expression: input.expression ?? undefined,
       systemPrompt: input.systemPrompt ?? null,
       promptRails: (input.promptRails ?? []) as never,
       periodDays: input.periodDays ?? DEFAULT_PERIOD_DAYS,
@@ -740,4 +842,223 @@ export async function updateAlgorithm(
   });
 
   return row;
+}
+
+// ── Composable / custom strategies ─────────────────────────────────────────
+
+export interface CompositeMember {
+  strategy: AlgorithmStrategy;
+  params?: StrategyParams;
+  weight?: number;
+}
+export interface CompositeSpec {
+  members: CompositeMember[];
+  combine?: 'MAJORITY' | 'WEIGHTED';
+}
+
+export interface StrategyDescriptor {
+  strategyType: AlgorithmStrategyType;
+  strategy: AlgorithmStrategy;
+  params: StrategyParams;
+  composition?: CompositeSpec | null;
+  expression?: string | null;
+}
+
+/**
+ * Turns candles into a direction using whichever strategy type the offering
+ * declares — a built-in, a vote over several, or a restricted-language
+ * expression. Pure, and the one place the runner and the backtester both call.
+ */
+export function evaluateStrategy(desc: StrategyDescriptor, candles: Candle[]): SignalResult | null {
+  if (desc.strategyType === AlgorithmStrategyType.COMPOSITE) {
+    const spec = desc.composition;
+    if (!spec || !Array.isArray(spec.members) || spec.members.length === 0) return null;
+    let longScore = 0;
+    let shortScore = 0;
+    for (const member of spec.members) {
+      const signal = computeSignal(member.strategy, member.params ?? {}, candles);
+      if (!signal) continue;
+      const weight = spec.combine === 'WEIGHTED' ? Math.max(0, member.weight ?? 1) : 1;
+      if (signal.side === 'LONG') longScore += weight;
+      else shortScore += weight;
+    }
+    if (longScore === 0 && shortScore === 0) return null;
+    const side = longScore >= shortScore ? 'LONG' : 'SHORT';
+    return { side, signal: `COMPOSITE_${side}` };
+  }
+
+  if (desc.strategyType === AlgorithmStrategyType.CUSTOM) {
+    if (!desc.expression) return null;
+    const value = evaluateExpression(desc.expression, candles);
+    if (value === null || value === 0) return null;
+    const side = value > 0 ? 'LONG' : 'SHORT';
+    return { side, signal: `CUSTOM_${side}` };
+  }
+
+  return computeSignal(desc.strategy, desc.params, candles);
+}
+
+// ── Participant-authored offerings ─────────────────────────────────────────
+
+/** The creator's share of an offering's fee, in basis points (50%). */
+const CREATOR_REVENUE_SHARE_BPS = 5_000;
+
+function slugify(value: string): string {
+  const base = value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 40);
+  return base.length >= 2 ? base : 'algo';
+}
+
+export interface CreateOfferingInput {
+  name: string;
+  description?: string;
+  symbols: string[];
+  maxLeverage: number;
+  maxNotionalUsd: string;
+  strategyType: AlgorithmStrategyType;
+  strategy?: AlgorithmStrategy;
+  params?: Record<string, unknown>;
+  composition?: CompositeSpec | null;
+  expression?: string | null;
+  managementFeeBps?: number;
+}
+
+/**
+ * "Push to algo": turns a backtested configuration into an offering the
+ * participant owns and can activate. It starts PRIVATE; publishing is a
+ * separate, deliberate step.
+ */
+export async function createOfferingFromBacktest(
+  user: User,
+  input: CreateOfferingInput,
+): Promise<TradingAlgorithm> {
+  assertMayTrade(user);
+
+  const name = input.name.trim();
+  if (name.length < 2) throw new ValidationError('Give the algo a name');
+  if (input.symbols.length === 0) throw new ValidationError('Choose at least one symbol');
+  const maxNotional = new Decimal(input.maxNotionalUsd);
+  if (!maxNotional.isFinite() || maxNotional.lessThanOrEqualTo(0)) {
+    throw new ValidationError('Set a positive max notional');
+  }
+
+  if (input.strategyType === AlgorithmStrategyType.CUSTOM) {
+    if (!input.expression) throw new ValidationError('Write an expression');
+    compileExpression(input.expression);
+  }
+  if (input.strategyType === AlgorithmStrategyType.COMPOSITE) {
+    if (!input.composition || input.composition.members.length === 0) {
+      throw new ValidationError('Add at least one strategy to the mix');
+    }
+  }
+
+  let slug = `${slugify(name)}-${newId().replace(/-/g, '').slice(-6)}`;
+  while (await prisma.tradingAlgorithm.findUnique({ where: { slug } })) {
+    slug = `${slugify(name)}-${newId().replace(/-/g, '').slice(-6)}`;
+  }
+
+  const row = await prisma.tradingAlgorithm.create({
+    data: {
+      id: newId(),
+      slug,
+      kind: AlgorithmKind.ALGO,
+      name,
+      description: input.description?.trim() || `${name} — a participant-authored strategy.`,
+      strategy: input.strategy ?? AlgorithmStrategy.MOMENTUM,
+      params: (input.params ?? {}) as never,
+      symbols: input.symbols,
+      maxLeverage: input.maxLeverage,
+      maxNotionalUsd: maxNotional.toFixed(),
+      managementFeeBps: input.managementFeeBps ?? 200,
+      requiresPro: false,
+      strategyType: input.strategyType,
+      composition: (input.composition ?? null) as never,
+      expression: input.expression ?? null,
+      visibility: AlgorithmVisibility.PRIVATE,
+      revenueShareBps: 0,
+      creatorId: user.id,
+      isActive: true,
+      isFeatured: false,
+    },
+  });
+
+  await audit(prisma, {
+    action: AuditAction.ALGORITHM_PURCHASED,
+    actorType: 'USER',
+    actorUserId: user.id,
+    entityType: 'trading_algorithm',
+    entityId: row.id,
+    after: { created: row.slug, strategyType: row.strategyType, visibility: row.visibility },
+  });
+
+  return row;
+}
+
+export interface CreatorOfferingView {
+  slug: string;
+  name: string;
+  visibility: AlgorithmVisibility;
+  revenueShareBps: number;
+  earningsUsd: string;
+}
+
+/** The participant's own offerings, with the revenue they have generated. */
+export async function listMyOfferings(userId: string): Promise<CreatorOfferingView[]> {
+  const rows = await prisma.tradingAlgorithm.findMany({
+    where: { creatorId: userId },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  const out: CreatorOfferingView[] = [];
+  for (const row of rows) {
+    const agg = await prisma.creatorEarning.aggregate({
+      where: { algorithmId: row.id },
+      _sum: { amountUsd: true },
+    });
+    out.push({
+      slug: row.slug,
+      name: row.name,
+      visibility: row.visibility,
+      revenueShareBps: row.revenueShareBps,
+      earningsUsd: new Decimal(agg._sum.amountUsd?.toString() ?? '0').toFixed(2),
+    });
+  }
+  return out;
+}
+
+/**
+ * Publishes or unpublishes a participant's offering.
+ *
+ * Publishing puts it in PENDING_REVIEW with a 50% creator share; an operator
+ * approves it to PUBLIC. Unpublishing returns it to PRIVATE and clears the
+ * share. Only the creator can do this.
+ */
+export async function setAlgorithmPublished(
+  user: User,
+  slug: string,
+  publish: boolean,
+  context: { ip?: string | null; userAgent?: string | null; requestId?: string | null } = {},
+): Promise<TradingAlgorithm> {
+  const row = await prisma.tradingAlgorithm.findFirst({ where: { slug, creatorId: user.id } });
+  if (!row) throw new NotFoundError('Offering');
+
+  const updated = await prisma.tradingAlgorithm.update({
+    where: { id: row.id },
+    data: publish
+      ? { visibility: AlgorithmVisibility.PENDING_REVIEW, revenueShareBps: CREATOR_REVENUE_SHARE_BPS }
+      : { visibility: AlgorithmVisibility.PRIVATE, revenueShareBps: 0 },
+  });
+
+  await audit(prisma, {
+    action: publish ? AuditAction.ALGORITHM_STATUS_CHANGED : AuditAction.ALGORITHM_CANCELLED,
+    actorType: 'USER',
+    actorUserId: user.id,
+    entityType: 'trading_algorithm',
+    entityId: row.id,
+    after: { publish, visibility: updated.visibility, revenueShareBps: updated.revenueShareBps },
+    ip: context.ip ?? null,
+    userAgent: context.userAgent ?? null,
+    requestId: context.requestId ?? null,
+  });
+
+  return updated;
 }

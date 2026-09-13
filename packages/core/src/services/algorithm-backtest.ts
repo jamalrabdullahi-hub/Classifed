@@ -1,7 +1,7 @@
-import type { AlgorithmStrategy } from '@flt/db';
+import { AlgorithmStrategyType, type AlgorithmStrategy } from '@flt/db';
 import type { Candle } from '../ports/history';
 import { Decimal } from '../domain/money';
-import { computeSignal, type StrategyParams } from './algorithms';
+import { evaluateStrategy, type CompositeSpec, type StrategyParams } from './algorithms';
 
 /**
  * Backtesting.
@@ -20,8 +20,11 @@ import { computeSignal, type StrategyParams } from './algorithms';
  */
 
 export interface BacktestInput {
+  strategyType?: AlgorithmStrategyType;
   strategy: AlgorithmStrategy;
   params: StrategyParams;
+  composition?: CompositeSpec | null;
+  expression?: string | null;
   /** Oldest first, newest last. */
   candles: Candle[];
   leverage: number;
@@ -76,7 +79,16 @@ export function backtest(input: BacktestInput): BacktestResult {
   const curve: EquityPoint[] = [{ time: candles[0]!.time, equity: equity.toNumber() }];
 
   for (let i = 1; i < candles.length; i += 1) {
-    const signal = computeSignal(input.strategy, input.params, candles.slice(0, i + 1));
+    const signal = evaluateStrategy(
+      {
+        strategyType: input.strategyType ?? AlgorithmStrategyType.BUILTIN,
+        strategy: input.strategy,
+        params: input.params,
+        composition: input.composition ?? null,
+        expression: input.expression ?? null,
+      },
+      candles.slice(0, i + 1),
+    );
     const next = signal ? (signal.side === 'LONG' ? 1 : -1) : direction;
 
     if (next !== direction) {
