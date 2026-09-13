@@ -229,24 +229,42 @@ async function reconcileCustodyOrders(
   positions: Array<{ symbol: string; side: string; size: string; entryPrice: string }>,
   venueSlug: string,
 ): Promise<number> {
-  const outstanding = await prisma.perpOrder.findMany({
-    where: { venueSlug, status: PerpOrderStatus.SUBMITTED },
+  const orders = await prisma.perpOrder.findMany({
+    where: { venueSlug, status: { in: [PerpOrderStatus.SUBMITTED, PerpOrderStatus.FILLED] } },
     include: { market: { select: { symbol: true } } },
   });
 
+  // The size the pool should hold once every attributed order is reflected:
+  // opens add, closes subtract. A close has landed when the venue's position has
+  // shrunk to this — which generalises the old "position vanished" rule to the
+  // partial, per-participant exit a pooled account actually gets.
+  const expectedNet = new Map<string, Decimal>();
+  for (const order of orders) {
+    const symbol = order.market.symbol;
+    const size = new Decimal(order.size || '0');
+    const delta = order.kind === 'CLOSE' ? size.negated() : size;
+    expectedNet.set(symbol, (expectedNet.get(symbol) ?? new Decimal(0)).plus(delta));
+  }
+  const poolBySymbol = new Map(positions.map((p) => [p.symbol, new Decimal(p.size).abs()]));
+  const TOLERANCE = new Decimal('0.00000001');
+
   let reconciled = 0;
 
-  for (const order of outstanding) {
-    const position = positions.find((p) => p.symbol === order.market.symbol);
+  for (const order of orders) {
+    if (order.status !== PerpOrderStatus.SUBMITTED) continue;
+    const symbol = order.market.symbol;
+    const pool = poolBySymbol.get(symbol) ?? new Decimal(0);
+    const net = (expectedNet.get(symbol) ?? new Decimal(0)).abs();
 
     if (order.kind === 'CLOSE') {
-      if (position) continue;
+      // The close has landed once the pool no longer exceeds the net of all
+      // attributed orders. Settle BEFORE marking filled: a settle that fails
+      // leaves the order outstanding so the next pass retries, rather than a
+      // close recorded as done with its margin still reserved.
+      if (pool.greaterThan(net.plus(TOLERANCE))) continue;
 
       const margin = new Decimal(order.marginRequired ?? '0');
       if (margin.greaterThan(0)) {
-        // Settle BEFORE marking filled: a settle that fails leaves the order
-        // outstanding so the next pass retries, rather than a close recorded as
-        // done with its margin still reserved.
         await settlePerpRealized({
           userId: order.userId,
           reference: `perp-close:${order.id}`,
@@ -264,7 +282,9 @@ async function reconcileCustodyOrders(
       continue;
     }
 
-    if (position) {
+    // An OPEN order marks filled once the pool holds anything for the market;
+    // its margin was already reserved at open.
+    if (pool.greaterThan(0)) {
       await prisma.perpOrder.update({
         where: { id: order.id },
         data: { status: PerpOrderStatus.FILLED, settledAt: new Date() },

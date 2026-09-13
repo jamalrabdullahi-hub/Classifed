@@ -77,11 +77,12 @@ function venueRejection(error: unknown): DomainError {
 /** Closes (or reduces) the omnibus's position on a market. */
 export async function closeCustodyPerpPosition(
   symbol: string,
+  size: string | null = null,
   slippageBps = 100,
 ): Promise<{ venueOrderId: string | null }> {
   const { venue, account, agent } = await venueAndAgent();
   try {
-    const action = await venue.prepareClose({ address: account, symbol, size: null, slippageBps });
+    const action = await venue.prepareClose({ address: account, symbol, size, slippageBps });
     const venueOrderId = await submitPrepared(venue.meta.slug, agent.privateKey, action);
     return { venueOrderId };
   } catch (error) {

@@ -21,7 +21,7 @@ const intent = {
 async function main(): Promise<void> {
   if (process.argv.includes('--close')) {
     console.info('closing the BTC position...');
-    const closed = await closeCustodyPerpPosition('BTC', 100);
+    const closed = await closeCustodyPerpPosition('BTC', null, 100);
     console.info(`  close order id: ${closed.venueOrderId}`);
     return;
   }
@@ -36,7 +36,7 @@ async function main(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 6000));
 
   console.info('closing the position...');
-  const closed = await closeCustodyPerpPosition('BTC', 100);
+  const closed = await closeCustodyPerpPosition('BTC', null, 100);
   console.info(`  close order id: ${closed.venueOrderId}`);
   console.info('\ndone — check positions with hl-account-check.');
 }

@@ -140,11 +140,13 @@ export async function closeCustodyPerpOrder(params: {
   walletId: string;
   marketId: string;
   symbol: string;
+  /** Contracts to close, or null to close the whole pooled position. */
+  size?: string | null;
   /** The margin reserved when the position opened, recorded for the settle. */
   margin: Decimal;
   slippageBps?: number;
 }): Promise<{ venueOrderId: string | null; orderId: string }> {
-  const { venueOrderId } = await placeClose(params.symbol, params.slippageBps ?? 100);
+  const { venueOrderId } = await placeClose(params.symbol, params.size ?? null, params.slippageBps ?? 100);
   const orderId = newId();
 
   await prisma.perpOrder.create({
@@ -159,7 +161,7 @@ export async function closeCustodyPerpOrder(params: {
       venueOrderId,
       submittedAt: new Date(),
       side: 'SHORT',
-      size: '0',
+      size: params.size ?? '0',
       leverage: 1,
       marginMode: 'ISOLATED',
       orderType: 'MARKET' as never,

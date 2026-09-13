@@ -115,7 +115,7 @@ export function PerpPositionsPanel({
   async function close(symbol: string) {
     setClosing(symbol);
     try {
-      await post('/api/perps/orders', { action: 'close', symbol, slippageBps: 50 });
+      await post('/api/perps/positions/close', { symbol, slippageBps: 50 });
       await load();
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : t('couldNotClose'));
