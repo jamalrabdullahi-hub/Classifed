@@ -48,5 +48,6 @@ export {
 export {
   openCustodyPerpPosition,
   closeCustodyPerpOrder,
+  attachCustodyPerpBracket,
   type CustodyOpenResult,
 } from './execute';

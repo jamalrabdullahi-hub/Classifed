@@ -343,6 +343,68 @@
     "dark": "Dark",
     "system": "System"
   },
+  "howThisWorks": {
+    "trigger": "Learn how this works",
+    "title": "How a leveraged position works",
+    "close": "Close",
+    "done": "Got it",
+    "intro": "Six things decide whether you keep your money on this screen. Each one below says what it does, then what it costs you when the market goes the other way.",
+    "ifItGoesWrong": "If it goes wrong:",
+    "leverage": {
+      "title": "Leverage",
+      "body": "Leverage multiplies your position, not your money. At 2x, $500 of your own funds controls $1,000 of BTC, so every 1% the price moves changes your balance by 2%.",
+      "risk": "Losses multiply by exactly the same amount. At 2x a 50% fall against you wipes out your entire margin; at 10x it only takes 10%."
+    },
+    "margin": {
+      "title": "Margin",
+      "body": "Margin is the money you put up and the most you can lose on the position. It is held aside while the position is open and released when you close it.",
+      "risk": "It is not a deposit you get back automatically. Losses are taken out of it, and a position closed at a loss returns less than you put in."
+    },
+    "liquidation": {
+      "title": "Liquidation price",
+      "body": "The price at which your margin is exhausted and the venue closes the position for you, whether or not you are watching. The ticket shows this figure in red before you commit.",
+      "risk": "There is nothing left afterwards. The margin is gone, the position is closed at whatever the market was doing, and a later recovery in the price does not bring it back."
+    },
+    "bracket": {
+      "title": "Take profit and stop loss",
+      "body": "Two exit prices you set in advance. The take profit closes you out in profit; the stop closes you out before a loss gets larger. You can attach both when you open, or to a position you already hold.",
+      "risk": "Both are triggers, not guaranteed prices. When the market touches your level the position is closed at market, so a fast move can fill you meaningfully worse than the number you set."
+    },
+    "cover": {
+      "title": "Cover",
+      "body": "Cover is insurance on the position. You choose how large a move it protects against — the slider is continuous, and 1σ, 2σ and 3σ are just common settings. A bigger covered move costs more, because it pays out more often.",
+      "risk": "Cover pays at its boundary, not before it. A move smaller than the one you covered is a loss you take in full, and the premium is spent either way."
+    },
+    "custody": {
+      "title": "Where your money sits",
+      "body": "FLT holds your balance and places the order for you — there is no wallet to connect and nothing to sign. Your buying power is your balance on FLT's ledger, and it is backed by funds held at our custodian.",
+      "risk": "A position is open until it is closed. Leaving the platform, closing the tab or losing your connection does not flatten it, and funding and losses continue in your absence."
+    },
+    "worked": "A worked example. You put up $500 at 2x on BTC at 77,000, so you control about 0.013 BTC. If BTC reaches 81,000 you are up roughly $67; if it falls to 73,000 you are down roughly $67. Your liquidation sits near 38,700 — a 50% fall — and a stop at 75,000 would cap the loss at about $33 instead."
+  },
+  "positionBracket": {
+    "title": "Take profit / stop loss",
+    "sizeAtEntry": "{size} @ {entry}",
+    "takeProfit": "Take profit",
+    "stopLoss": "Stop loss",
+    "aboveOrBelow": "must be {side} the mark",
+    "above": "above",
+    "below": "below",
+    "youWouldMake": "You would make",
+    "youWouldLose": "You would lose",
+    "ofMargin": "{pct} of your margin",
+    "wrongSideTp": "A take profit has to be {side} the mark ({mark}), or it closes the position straight away.",
+    "wrongSideSl": "A stop has to be {side} the mark ({mark}), or it closes the position straight away.",
+    "crossed": "The stop and the take profit cross each other, so one would always fire first.",
+    "triggerNote": "Both are triggers, not guaranteed prices. When the market touches a level the position is closed at market, so a fast move can fill worse than the level shown.",
+    "save": "Attach to position",
+    "saved": "Attached",
+    "couldNotSave": "Could not attach those levels.",
+    "currentlyAttached": "Attached now — take profit {tp} · stop {sl}",
+    "entryLine": "Your entry",
+    "takeProfitLine": "Take profit {amount}",
+    "stopLossLine": "Stop {amount}"
+  },
   "perpPositions": {
     "couldNotLoad": "Could not load positions.",
     "couldNotClose": "Could not close the position.",
@@ -602,6 +664,7 @@
     "weeks": "weeks",
     "timeFrameAmountAria": "Time frame amount",
     "coverLabel": "Cover",
+    "coverPlain": "Covers a move of about {move}% against you. Moves that size or larger happen on roughly {pct}% of days.",
     "oneTailedPct": "{pct}% one-tailed",
     "standardDeviationsAria": "Standard deviations",
     "long": "long",

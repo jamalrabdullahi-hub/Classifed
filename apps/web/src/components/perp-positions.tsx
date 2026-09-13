@@ -19,6 +19,8 @@ import {
   cn,
 } from '@flt/ui';
 import { ApiError, get, post } from '@/lib/api';
+import { PositionBracket } from '@/components/terminal/position-bracket';
+import type { PriceLineSpec } from '@/components/price-chart';
 
 /**
  * Open perpetual positions.
@@ -76,9 +78,16 @@ const DANGER_PROXIMITY = 0.8;
 export function PerpPositionsPanel({
   compact = false,
   symbol,
+  onBracketLinesChange,
 }: {
   compact?: boolean;
   symbol?: string;
+  /**
+   * Lifted so the chart can draw the levels being edited. The panel owns the
+   * position data, the chart is its sibling, and neither should own the other —
+   * the same arrangement the ticket's protection lines already use.
+   */
+  onBracketLinesChange?: (lines: PriceLineSpec[]) => void;
 } = {}) {
   const t = useTranslations('perpPositions');
   const [data, setData] = useState<PositionsResponse | null>(null);
@@ -200,13 +209,28 @@ export function PerpPositionsPanel({
     ) : (
       <ul className="divide-y divide-[var(--border)]">
         {positions.map((position) => (
-          <PositionRow
-            key={position.symbol}
-            position={position}
-            busy={closing === position.symbol}
-            onClose={() => void close(position.symbol)}
-            t={t}
-          />
+          <li key={position.symbol}>
+            <PositionRow
+              position={position}
+              busy={closing === position.symbol}
+              onClose={() => void close(position.symbol)}
+              t={t}
+              bare
+            />
+            {/*
+              Exiting at a price you chose, rather than at whatever the market
+              is doing when you happen to be looking. Only in the single-market
+              view: a bracket belongs to one position, and the levels it draws
+              belong to that market's chart.
+            */}
+            <div className="px-2.5 pb-2.5">
+              <PositionBracket
+                position={position}
+                onLinesChange={onBracketLinesChange}
+                onSaved={() => void load()}
+              />
+            </div>
+          </li>
         ))}
       </ul>
     );
@@ -255,18 +279,23 @@ function PositionRow({
   busy,
   onClose,
   t,
+  bare = false,
 }: {
   position: Position;
   busy: boolean;
   onClose: () => void;
   t: ReturnType<typeof useTranslations<'perpPositions'>>;
+  /** Render as a plain block, for a caller that supplies its own list item. */
+  bare?: boolean;
 }) {
   const proximity = position.proximity ? Number(position.proximity) : null;
   const danger = proximity !== null && proximity >= DANGER_PROXIMITY;
   const warning = proximity !== null && proximity >= WARNING_PROXIMITY && !danger;
 
+  const Root = bare ? 'div' : 'li';
+
   return (
-    <li className="space-y-3 p-4">
+    <Root className="space-y-3 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="font-[family-name:var(--font-display)] text-[15px] font-semibold">
@@ -339,7 +368,7 @@ function PositionRow({
           {t('noLiquidationPrice')}
         </p>
       )}
-    </li>
+    </Root>
   );
 }
 

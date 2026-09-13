@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { PerpChart } from './perp-chart';
 import { OrderBook } from './order-book';
@@ -63,6 +63,20 @@ export function PerpTerminal({
   const [protectionLines, setProtectionLines] = useState<PriceLineSpec[]>([]);
 
   /**
+   * The take-profit / stop-loss levels being edited on an open position.
+   *
+   * Held beside the protection lines rather than merged into them because they
+   * come from a different sibling and have a different life: cover's boundary
+   * moves as the ticket is changed, these move as a position is managed, and
+   * either can be present without the other.
+   */
+  const [bracketLines, setBracketLines] = useState<PriceLineSpec[]>([]);
+  const chartLines = useMemo(
+    () => [...protectionLines, ...bracketLines],
+    [protectionLines, bracketLines],
+  );
+
+  /**
    * Where the chart's data came from, when it is not the trading venue.
    *
    * Ostium publishes no history, so its charts are drawn from the underlying's
@@ -94,7 +108,7 @@ export function PerpTerminal({
           <PerpChart
             symbol={market.symbol}
             height={520}
-            priceLines={protectionLines}
+            priceLines={chartLines}
             historyNote={historyNote}
             tier={tier}
           />
@@ -141,7 +155,11 @@ export function PerpTerminal({
           {guest ? (
             <p className="p-3 text-[11px] text-[var(--text-subtle)]">{t('signInForPositions')}</p>
           ) : (
-            <PerpPositionsPanel compact symbol={market.symbol} />
+            <PerpPositionsPanel
+              compact
+              symbol={market.symbol}
+              onBracketLinesChange={setBracketLines}
+            />
           )}
         </Panel>
 

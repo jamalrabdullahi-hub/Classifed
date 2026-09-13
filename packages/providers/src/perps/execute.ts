@@ -177,3 +177,103 @@ export async function closeCustodyPerpOrder(params: {
 
   return { venueOrderId, orderId };
 }
+
+/**
+ * Attaches (or replaces) protective legs on a position that is already open.
+ *
+ * ## Why this is not the bracket the ticket sends
+ *
+ * A bracket placed with an entry rides along with it, so the position is never
+ * unprotected. This is the other case: a position that exists, whose owner has
+ * decided after the fact where they want out. The legs are ordinary reduce-only
+ * trigger orders sized to the participant's *own* attributed size, so one
+ * person's stop cannot flatten the pooled position.
+ *
+ * ## The legs are recorded on the entry, not as orders of their own
+ *
+ * Position attribution reads the latest `PerpOrder` per market and treats a
+ * CLOSE as flat. A resting reduce-only leg written as its own CLOSE row would
+ * therefore make an open position look closed — to the close path, to the
+ * runner, and to the participant's own screen. So the venue ids go on the entry
+ * row, which is also where `takeProfitPrice`/`stopLossPrice` already live.
+ *
+ * ## No ledger movement
+ *
+ * Nothing is reserved and nothing settles here. A protective leg costs nothing
+ * until it fills, and when it does the worker settles it exactly as it settles
+ * any other close.
+ */
+export async function attachCustodyPerpBracket(params: {
+  userId: string;
+  orderId: string;
+  symbol: string;
+  /** The side of the position being protected. */
+  side: 'LONG' | 'SHORT';
+  /** The participant's attributed size. */
+  size: string;
+  takeProfitPrice?: string | null;
+  stopLossPrice?: string | null;
+  slippageBps?: number;
+}): Promise<{ takeProfitVenueOrderId: string | null; stopLossVenueOrderId: string | null }> {
+  const takeProfit = params.takeProfitPrice?.trim() || null;
+  const stopLoss = params.stopLossPrice?.trim() || null;
+  if (!takeProfit && !stopLoss) {
+    throw new ValidationError('Give a take-profit price, a stop-loss price, or both');
+  }
+
+  // A protective leg trades against the position, so it is the opposite side.
+  const exitSide = params.side === 'LONG' ? 'SHORT' : 'LONG';
+  const slippageBps = params.slippageBps ?? 100;
+
+  const base = {
+    symbol: params.symbol,
+    side: exitSide as PerpOrderIntent['side'],
+    size: params.size,
+    leverage: 1,
+    marginMode: 'ISOLATED' as PerpOrderIntent['marginMode'],
+    limitPrice: null,
+    slippageBps,
+    // The whole point: these can only ever reduce the position, never open one.
+    reduceOnly: true,
+  };
+
+  let takeProfitVenueOrderId: string | null = null;
+  let stopLossVenueOrderId: string | null = null;
+
+  if (takeProfit) {
+    const placed = await placeCustodyPerpOrder({
+      ...base,
+      orderType: 'TAKE_PROFIT_MARKET' as PerpOrderIntent['orderType'],
+      triggerPrice: takeProfit,
+    });
+    takeProfitVenueOrderId = placed.venueOrderId;
+  }
+
+  /**
+   * The stop is placed even if the take-profit failed, and the caller is told
+   * what actually landed. Refusing to place a stop because a target was
+   * rejected would leave the position with neither, which is the wrong way for
+   * this to fail.
+   */
+  if (stopLoss) {
+    const placed = await placeCustodyPerpOrder({
+      ...base,
+      orderType: 'STOP_MARKET' as PerpOrderIntent['orderType'],
+      triggerPrice: stopLoss,
+    });
+    stopLossVenueOrderId = placed.venueOrderId;
+  }
+
+  await prisma.perpOrder.update({
+    where: { id: params.orderId },
+    data: {
+      takeProfitPrice: takeProfit,
+      stopLossPrice: stopLoss,
+      takeProfitVenueOrderId,
+      stopLossVenueOrderId,
+      bracketUpdatedAt: new Date(),
+    },
+  });
+
+  return { takeProfitVenueOrderId, stopLossVenueOrderId };
+}

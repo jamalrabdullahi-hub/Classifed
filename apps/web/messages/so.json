@@ -343,6 +343,68 @@
     "dark": "Madow",
     "system": "Nidaamka"
   },
+  "howThisWorks": {
+    "trigger": "Baro sida ay u shaqayso",
+    "title": "Sida jagada leverage-ka ah u shaqayso",
+    "close": "Xir",
+    "done": "Waan fahmay",
+    "intro": "Lix arrimood ayaa go'aamiya inaad lacagtaada haysato iyo in kale. Mid kastaa wuxuu sheegayaa waxa uu qabto, kadibna waxa uu kugu kacayo marka suuqu dhinaca kale u dhaqaaqo.",
+    "ifItGoesWrong": "Haddii ay qaldanto:",
+    "leverage": {
+      "title": "Leverage",
+      "body": "Leverage-ku wuxuu kordhiyaa jagadaada, ma aha lacagtaada. 2x, $500 oo lacagtaada ah waxay maamulaysaa $1,000 oo BTC ah, sidaas darteed 1% kasta oo qiimuhu dhaqaaqo wuxuu beddelayaa hadhaagaaga 2%.",
+      "risk": "Khasaaruhu isku qadar buu u kordhaa. 2x, hoos u dhac 50% ah wuxuu baabi'inayaa deebaajigaaga oo dhan; 10x waxay u baahan tahay kaliya 10%."
+    },
+    "margin": {
+      "title": "Deebaaji",
+      "body": "Deebaajigu waa lacagta aad dhigto iyo inta ugu badan ee aad lumin karto. Waa la hayaa inta jagadu furan tahay, waana la sii daayaa marka aad xidho.",
+      "risk": "Ma aha kayd si toos ah kuugu soo noqonaya. Khasaaraha waa laga jaraa, jagada khasaare lagu xidhayna wax ka yar intii aad dhigtay ayay soo celinaysaa."
+    },
+    "liquidation": {
+      "title": "Qiimaha xidhitaanka qasabka",
+      "body": "Qiimaha uu deebaajigaagu ku dhammaado oo goobtu kuu xidho jagada, ha daawanaysid ha daawanaysidee. Tigidhku wuxuu tiradan ku muujiyaa midab casaan ah ka hor intaadan ballan qaadin.",
+      "risk": "Waxba kama hadhaan. Deebaajigu wuu tagay, jagada waxaa lagu xidhay wixii suuqu samaynayay, soo kabashada qiimaha ee dambena soo celin mayso."
+    },
+    "bracket": {
+      "title": "Qaado faa'iido iyo jooji khasaare",
+      "body": "Laba qiimo oo bixid ah oo aad hore u dhigato. Qaadista faa'iidadu waxay kugu xidhaa faa'iido; joojintu waxay kuu xidhaa ka hor inta khasaaruhu weynaan. Labadaba waad ku xidhi kartaa marka aad furto ama jago aad hore u haysatay.",
+      "risk": "Labaduba waa kicin, ma aha qiimo la dammaanad qaaday. Marka suuqu gaadho heerkaaga, jagada waxaa lagu xidhaa qiimaha suuqa, sidaas darteed dhaqdhaqaaq degdeg ah wuu kaa xumaan karaa tirada aad dhigtay."
+    },
+    "cover": {
+      "title": "Caymis",
+      "body": "Caymisku waa ilaalinta jagada. Waxaad dooranaysaa inta uu le'eg yahay dhaqdhaqaaqa uu ka ilaalinayo — sliderku waa joogto, 1σ, 2σ iyo 3σ-na waa kaliya dejin caadi ah. Dhaqdhaqaaq weyn oo la daboolay wuu ka qaalisan yahay, maxaa yeelay marar badan ayuu bixiyaa.",
+      "risk": "Caymisku wuxuu bixiyaa xadkiisa, ka hor ma bixiyo. Dhaqdhaqaaq ka yar kii aad daboolay waa khasaare aad qaadanayso oo dhan, lacagta caymiskana way baxaysaa si kastaba ha ahaatee."
+    },
+    "custody": {
+      "title": "Meesha lacagtaadu joogto",
+      "body": "FLT ayaa haysa hadhaagaaga oo dalabka kuu sameeya — ma jiro boorso aad ku xidho, waxna ma saxiixaysid. Awoodda iibsigaagu waa hadhaagaaga xisaabta FLT, waxaana taageeraya lacag lagu hayo hay'addayada kaydka.",
+      "risk": "Jagadu waa furan tahay ilaa la xidho. Inaad ka baxdo barxadda, aad xidho tabka ama aad lumiso xidhiidhka ma joojinayso, khasaaraha iyo lacag-bixinta ayaa socda inta aad maqan tahay."
+    },
+    "worked": "Tusaale la shaqeeyay. Waxaad dhigtay $500 oo 2x ah BTC 77,000, sidaas darteed waxaad maamushaa qiyaastii 0.013 BTC. Haddii BTC gaadho 81,000 waxaad heshay qiyaastii $67; haddii ay hoos ugu dhacdo 73,000 waxaad lumisay qiyaastii $67. Xidhitaanka qasabka wuxuu ku dhow yahay 38,700 — hoos u dhac 50% — joojin 75,000 ahna waxay khasaaraha ku xaddidi lahayd qiyaastii $33."
+  },
+  "positionBracket": {
+    "title": "Qaado faa'iido / jooji khasaare",
+    "sizeAtEntry": "{size} @ {entry}",
+    "takeProfit": "Qaado faa'iido",
+    "stopLoss": "Jooji khasaare",
+    "aboveOrBelow": "waa inuu {side} yahay qiimaha suuqa",
+    "above": "ka sarreeyo",
+    "below": "ka hooseeyo",
+    "youWouldMake": "Waxaad heli lahayd",
+    "youWouldLose": "Waxaad lumin lahayd",
+    "ofMargin": "{pct} deebaajigaaga",
+    "wrongSideTp": "Qaadista faa'iidadu waa inay {side} qiimaha suuqa ({mark}), haddii kale isla markiiba way xidhaysaa.",
+    "wrongSideSl": "Joojinta khasaaruhu waa inuu {side} qiimaha suuqa ({mark}), haddii kale isla markiiba way xidhaysaa.",
+    "crossed": "Joojinta iyo qaadista faa'iidadu way is-dhaafayaan, sidaas darteed mid baa had iyo jeer horta shaqayn doona.",
+    "triggerNote": "Labaduba waa kicin, ma aha qiimo la dammaanad qaaday. Marka suuqu gaadho heerka, jagada waxaa lagu xidhaa qiimaha suuqa, sidaas darteed dhaqdhaqaaq degdeg ah wuu ka xumaan karaa heerka la muujiyay.",
+    "save": "Ku xidh jagada",
+    "saved": "Waa la xidhay",
+    "couldNotSave": "Heerarkaas lama xidhi karin.",
+    "currentlyAttached": "Hadda ku xidhan — faa'iido {tp} · jooji {sl}",
+    "entryLine": "Gelitaankaaga",
+    "takeProfitLine": "Faa'iido {amount}",
+    "stopLossLine": "Jooji {amount}"
+  },
   "perpPositions": {
     "couldNotLoad": "Booskaan lama soo rari karin.",
     "couldNotClose": "Booska lama xirin karin.",
@@ -602,6 +664,7 @@
     "weeks": "toddobaadyo",
     "timeFrameAmountAria": "Qadarka xilliga",
     "coverLabel": "Daboolka",
+    "coverPlain": "Waxay daboolaysaa dhaqdhaqaaq qiyaastii {move}% ah oo kaa soo horjeeda. Dhaqdhaqaaq intaas le'eg ama ka weyn wuxuu dhacaa qiyaastii {pct}% maalmaha.",
     "oneTailedPct": "{pct}% dhinac-hal ah",
     "standardDeviationsAria": "Farqiga caadiga ah (SD)",
     "long": "long",

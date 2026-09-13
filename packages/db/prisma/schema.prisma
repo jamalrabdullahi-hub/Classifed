@@ -1087,6 +1087,17 @@ model PerpOrder {
   /// Groups an entry with the protective legs submitted alongside it, so the
   /// three can be reconciled as one intent rather than three unrelated orders.
   bracketGroupId  String?
+  /// The venue's ids for the protective legs, so they can be replaced or
+  /// cancelled later.
+  ///
+  /// Held on the entry rather than as their own PerpOrder rows on purpose:
+  /// position attribution reads the *latest* order per market and treats CLOSE
+  /// as flat, so a resting reduce-only leg recorded as its own CLOSE row would
+  /// make an open position look closed to both the close path and the runner.
+  takeProfitVenueOrderId String?
+  stopLossVenueOrderId   String?
+  /// When protective legs were last attached or changed on this position.
+  bracketUpdatedAt DateTime?
 
   side          PerpSide
   /// Contracts, as a decimal string. Perp venues quote sizes and prices at a

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { TriangleAlert, ShieldCheck, ChevronDown, ArrowRight } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Button, Notice, cn } from '@flt/ui';
+import { HowThisWorks } from './how-this-works';
 import { ApiError, get, post } from '@/lib/api';
 import {
   COVERAGE_PRESETS,
@@ -607,17 +608,38 @@ export function ProtectedTicket({
               )}
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <div className="flex items-baseline justify-between">
                 <span className="text-[10px] uppercase tracking-[0.08em] text-[var(--text-subtle)]">
                   {tt('coverLabel')}
                 </span>
-                {pricing ? (
-                  <span className="font-[family-name:var(--font-mono)] text-[10px] text-[var(--text-subtle)]">
-                    {tt('oneTailedPct', { pct: (pricing.confidence * 100).toFixed(2) })}
-                  </span>
-                ) : null}
+                <span className="font-[family-name:var(--font-mono)] text-[10px] text-[var(--text-subtle)]">
+                  {z.toFixed(1)}σ
+                </span>
               </div>
+
+              {/*
+                A slider, read in plain language.
+
+                Cover used to be chosen by typing a number of standard
+                deviations into a box. That asks the participant to hold a
+                statistics lesson in their head to buy insurance, and a typo in
+                that box silently prices a completely different policy. The
+                slider is continuous because the underlying quantity is, the
+                deviations survive as snap points for anyone who thinks in them,
+                and the sentence beneath says what the setting actually buys.
+              */}
+              <input
+                type="range"
+                min={0.5}
+                max={3}
+                step={0.1}
+                value={z}
+                onChange={(event) => setZ(Number(event.target.value))}
+                aria-label={tt('standardDeviationsAria')}
+                className="w-full accent-[var(--text)]"
+              />
+
               <div className="flex gap-1.5">
                 {COVERAGE_PRESETS.map((preset) => (
                   <button
@@ -635,14 +657,21 @@ export function ProtectedTicket({
                     {preset.label}
                   </button>
                 ))}
-                <input
-                  value={String(z)}
-                  onChange={(event) => setZ(Number(event.target.value) || 0)}
-                  inputMode="decimal"
-                  aria-label={tt('standardDeviationsAria')}
-                  className="w-14 rounded-[var(--radius)] border border-[var(--border)] bg-transparent px-1.5 py-1 text-center font-[family-name:var(--font-mono)] tabular-nums text-[var(--text)] outline-none focus:border-[var(--text-muted)]"
-                />
               </div>
+
+              {/*
+                What the setting buys, in money and in odds. Both come from the
+                same pricing the server runs, so this is the policy described
+                rather than a marketing gloss on it.
+              */}
+              {pricing ? (
+                <p className="text-[10.5px] leading-relaxed text-[var(--text-subtle)]">
+                  {tt('coverPlain', {
+                    move: pricing.coveredMagnitude.times(100).toFixed(1),
+                    pct: (pricing.confidence * 100).toFixed(1),
+                  })}
+                </p>
+              ) : null}
             </div>
           </>
         ) : null}
@@ -735,6 +764,11 @@ export function ProtectedTicket({
           ? tt(side === 'LONG' ? 'executeLong' : 'executeShort', { symbol, leverage })
           : tt('execute')}
       </Button>
+
+      {/* Directly under the commit, because that is where the question occurs. */}
+      <div className="flex justify-center">
+        <HowThisWorks />
+      </div>
       </fieldset>
 
       {confirming && pricing ? (

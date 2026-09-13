@@ -864,3 +864,36 @@ function assertOrderPrices(intent: PerpOrderIntent, markPrice: string | null): v
     }
   }
 }
+
+/**
+ * The bracket half of `assertOrderPrices`, for legs attached to a position that
+ * is already open.
+ *
+ * Same rules, reached from a different place: the entry path validates an
+ * intent it is about to send, while attaching protection after the fact has
+ * only a side and two prices. Exported rather than duplicated in the route
+ * because "which side of the mark does a stop go on" is exactly the kind of
+ * rule that drifts when it is written twice.
+ */
+export function assertBracketPrices(params: {
+  side: PerpSide;
+  markPrice: string | null;
+  takeProfitPrice?: string | null;
+  stopLossPrice?: string | null;
+}): void {
+  assertOrderPrices(
+    {
+      symbol: '',
+      side: params.side,
+      size: '0',
+      leverage: 1,
+      marginMode: 'ISOLATED',
+      limitPrice: null,
+      slippageBps: 0,
+      reduceOnly: true,
+      takeProfitPrice: params.takeProfitPrice ?? null,
+      stopLossPrice: params.stopLossPrice ?? null,
+    },
+    params.markPrice,
+  );
+}
