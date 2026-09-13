@@ -215,18 +215,15 @@ export function ProtectedTicket({
   const [done, setDone] = useState<string | null>(null);
 
   /**
-   * The venue's minimum order value, in dollars, at the current mark.
+   * The venue's minimum order value, in dollars.
    *
-   * Stated in the field rather than discovered through a rejection. The floor
-   * is a *value* ($10), and because the contract count is rounded down an order
-   * typed as exactly $10 can land just under it — so the figure shown is the
-   * one that actually clears: one whole contract's worth at or above the floor.
+   * The floor is a *value* ($10), so it is stated as one. An earlier version
+   * rounded it up to a whole contract — harmless on a $2 asset, and a claim that
+   * BTC needs $76,705 to trade, when its size step is 0.00001. Converting dollars
+   * to contracts can still round a hair under $10; the server knows the market's
+   * size step and names the exact figure if that happens.
    */
-  const minimumUsd = useMemo(() => {
-    const price = Number(markPrice);
-    if (!Number.isFinite(price) || price <= 0) return null;
-    return Math.ceil(MIN_ORDER_VALUE_USD / price) * price;
-  }, [markPrice]);
+  const minimumUsd = markPrice ? MIN_ORDER_VALUE_USD : null;
 
   const belowMinimum =
     minimumUsd !== null && amount.trim().length > 0 && Number(amount) < minimumUsd;

@@ -135,6 +135,7 @@ export const POST = handler(
       venueName: venue.meta.name,
       contracts,
       markPrice: market.markPrice,
+      sizeDecimals: market.sizeDecimals,
     });
 
     const size = contracts.toFixed();

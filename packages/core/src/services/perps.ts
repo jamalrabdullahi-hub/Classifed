@@ -924,19 +924,24 @@ export function assertBracketPrices(params: {
 export const MIN_ORDER_VALUE_USD = new Decimal(10);
 
 /**
- * The smallest order value this venue will accept, and the dollar figure that
- * clears it.
+ * The dollar figure that clears the venue's minimum order value.
  *
- * The minimum is a *value*, not a contract count, so the amount that satisfies
- * it is one whole contract's worth at or above the minimum:
- * `ceil(minimum / price) * price`. Returned rather than thrown so the ticket
- * can state it before anybody types, instead of only rejecting afterwards.
+ * The minimum is a value, and sizes move in steps of `10^-sizeDecimals`
+ * contracts, so the figure that clears it is the smallest whole number of
+ * *steps* worth at least the floor. Rounding to a whole contract instead — the
+ * first version — told participants BTC needed $76,705 to trade.
  */
-export function minimumOrderUsd(venueSlug: string, markPrice: string | null): Decimal | null {
+export function minimumOrderUsd(
+  venueSlug: string,
+  markPrice: string | null,
+  sizeDecimals: number,
+): Decimal | null {
   if (venueSlug !== 'hyperliquid' || !markPrice) return null;
   const price = new Decimal(markPrice);
   if (price.lessThanOrEqualTo(0)) return null;
-  return MIN_ORDER_VALUE_USD.dividedBy(price).ceil().times(price);
+  const step = new Decimal(10).pow(-sizeDecimals);
+  const steps = MIN_ORDER_VALUE_USD.dividedBy(price.times(step)).ceil();
+  return steps.times(step).times(price);
 }
 
 /** Refuses an order whose value is under the venue's floor, naming the figure that clears it. */
@@ -945,6 +950,7 @@ export function assertMinimumOrderValue(params: {
   venueName: string;
   contracts: Decimal;
   markPrice: string;
+  sizeDecimals: number;
 }): void {
   if (params.venueSlug !== 'hyperliquid') return;
 
@@ -952,7 +958,7 @@ export function assertMinimumOrderValue(params: {
   const notional = params.contracts.times(price);
   if (notional.greaterThanOrEqualTo(MIN_ORDER_VALUE_USD)) return;
 
-  const minimumUsd = minimumOrderUsd(params.venueSlug, params.markPrice) ?? MIN_ORDER_VALUE_USD;
+  const minimumUsd = minimumOrderUsd(params.venueSlug, params.markPrice, params.sizeDecimals) ?? MIN_ORDER_VALUE_USD;
   throw new ValidationError(
     `${params.venueName} needs a minimum order value of $${MIN_ORDER_VALUE_USD.toFixed(2)}. ` +
       `Increase the size to at least $${minimumUsd.toFixed(2)}.`,
