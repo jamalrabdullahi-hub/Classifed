@@ -17,6 +17,7 @@ import {
   type PolicyKind,
   type Pricing,
 } from '@/lib/protection-math';
+import { Decimal } from '@flt/core/domain/money';
 import type { Candle } from '@flt/core/ports/history';
 import type { PriceLineSpec } from '@/components/price-chart';
 
@@ -676,6 +677,7 @@ export function ProtectedTicket({
           ) : null}
           <div className="border-t border-[var(--border)] pt-1">
             <Row label={tt('margin')} value={money(pricing.marginRequired)} />
+            {markPrice ? <Row label={tt('entryEst')} value={money(new Decimal(markPrice))} /> : null}
             {insured ? (
               <>
                 <Row label={tt('policyRow')} value={money(pricing.contribution)} />
@@ -687,8 +689,20 @@ export function ProtectedTicket({
             ) : null}
             <Row label={tt('total')} value={money(pricing.totalToPay)} emphasis />
           </div>
+          {/*
+            Liquidation is the number that costs a participant the position, and
+            it sat here as an ordinary grey row indistinguishable from the fee.
+            It gets the negative token and its own divider so the eye lands on it
+            before the button, which is the only moment it can still change the
+            order.
+          */}
           {pricing.estimatedLiquidation ? (
-            <Row label={tt('liquidationEst')} value={money(pricing.estimatedLiquidation)} />
+            <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] pt-1.5">
+              <span className="text-[11px] text-[var(--text-subtle)]">{tt('liquidationEst')}</span>
+              <span className="num text-[12px] font-semibold tabular-nums text-[var(--negative)]">
+                {money(pricing.estimatedLiquidation)}
+              </span>
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -699,14 +713,27 @@ export function ProtectedTicket({
         </Notice>
       ) : null}
 
+      {/*
+        The side is on the button, in the side's own colour.
+        A neutral "Execute" made the one irreversible control on the screen look
+        identical whether it opened a long or a short, and identical to every
+        other primary button in the app. Green and red here are direction — the
+        order book beside this ticket colours bids and asks the same way — not
+        approval; see the note on the Button variants.
+
+        It falls back to a plain primary until the order is priceable, so a
+        button that cannot yet be pressed does not shout a side.
+      */}
       <Button
-        variant="primary"
+        variant={ready && !locked ? (side === 'LONG' ? 'long' : 'short') : 'primary'}
         block
         disabled={!ready || locked}
         onClick={() => (skipReview ? void execute() : setConfirming(true))}
         loading={skipReview && pending}
       >
-        {tt('execute')}
+        {ready && !locked
+          ? tt(side === 'LONG' ? 'executeLong' : 'executeShort', { symbol, leverage })
+          : tt('execute')}
       </Button>
       </fieldset>
 

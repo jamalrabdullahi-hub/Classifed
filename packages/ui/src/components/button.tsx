@@ -13,6 +13,14 @@ import { cn } from '../cn';
  *
  * There is no "success" variant. Green means real profit or a confirmed
  * on-chain state, never "this button is nice".
+ *
+ * `long` and `short` are the one exception, and they are not a success colour
+ * wearing a different name. On a trading screen green and red encode
+ * *direction* — the order book beside the ticket already colours bids and asks
+ * exactly this way — so an Execute button that commits to a long and one that
+ * commits to a short must not look identical. The rule above still holds: these
+ * are only for a control whose meaning is the side of a trade, never for a
+ * button that merely wants attention.
  */
 const buttonVariants = cva(
   cn(
@@ -45,6 +53,15 @@ const buttonVariants = cva(
         // Same reasoning: the negative token is a deep red on light and a light
         // red on dark, so the label tracks the canvas to stay legible on both.
         danger: 'bg-[var(--negative)] text-[var(--canvas)] hover:opacity-90 shadow-[var(--shadow-sm)]',
+        // Direction, not approval. See the note above the variant list.
+        long: cn(
+          'bg-[var(--positive)] text-[var(--canvas)]',
+          'hover:opacity-90 shadow-[var(--shadow-sm)]',
+        ),
+        short: cn(
+          'bg-[var(--negative)] text-[var(--canvas)]',
+          'hover:opacity-90 shadow-[var(--shadow-sm)]',
+        ),
         // Underlined by default — see the `.link` utility. With no accent hue
         // left, a link that is only underlined on hover has no affordance.
         link: 'link p-0 h-auto font-normal',
