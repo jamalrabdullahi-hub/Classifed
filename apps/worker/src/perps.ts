@@ -1,3 +1,5 @@
+import { HyperliquidPerpVenue } from '@flt/providers';
+import type { VenueFill } from '@flt/core/ports/market-making';
 import { PerpOrderStatus, prisma } from '@flt/db';
 import { env } from '@flt/config';
 import { Decimal, liquidationProximity, newId } from '@flt/core/domain';
@@ -204,7 +206,20 @@ export async function syncPerpetuals(): Promise<PerpSyncResult> {
   if (env().CUSTODY_PROVIDER !== 'disabled' && omnibusAddress) {
     try {
       const omnibusPositions = await venue.getPositions({ address: omnibusAddress });
-      result.reconciled += await reconcileCustodyOrders(omnibusPositions, venue.meta.slug);
+      /**
+       * The omnibus's fills, read once per pass.
+       *
+       * Realised P&L is a statement about prices that actually traded, so it
+       * comes from fills — matched to each order by the venue order id the
+       * submit returned — rather than from the pooled position, whose entry is
+       * an average over every participant in it. Only Hyperliquid reports fills
+       * this way; other venues keep the previous behaviour.
+       */
+      const fills =
+        venue.meta.slug === 'hyperliquid'
+          ? await new HyperliquidPerpVenue().getFills({ address: omnibusAddress })
+          : null;
+      result.reconciled += await reconcileCustodyOrders(omnibusPositions, venue.meta.slug, fills);
     } catch (error) {
       console.error('[perps] custody reconcile failed', {
         error: error instanceof Error ? error.message : String(error),
@@ -225,9 +240,38 @@ export async function syncPerpetuals(): Promise<PerpSyncResult> {
  * deliberate follow-up, not a guess. An OPEN order marks FILLED once its
  * position appears; its margin was already reserved at open.
  */
+/** Size-weighted average price, total size and total fee of one order's fills. */
+function fillsForOrder(
+  fills: VenueFill[],
+  venueOrderId: string | null,
+): { price: Decimal; size: Decimal; fee: Decimal } | null {
+  if (!venueOrderId) return null;
+  const oid = Number(venueOrderId);
+  if (!Number.isFinite(oid)) return null;
+
+  const own = fills.filter((fill) => fill.venueOid === oid);
+  if (own.length === 0) return null;
+
+  let size = new Decimal(0);
+  let notional = new Decimal(0);
+  let fee = new Decimal(0);
+  for (const fill of own) {
+    const fillSize = new Decimal(fill.size).abs();
+    size = size.plus(fillSize);
+    notional = notional.plus(fillSize.times(fill.price));
+    fee = fee.plus(new Decimal(fill.feeUsd));
+  }
+  if (size.isZero()) return null;
+  return { price: notional.dividedBy(size), size, fee };
+}
+
+/** How long a close may wait for its fills to appear before settling without them. */
+const CLOSE_FILL_GRACE_MS = 60 * 60_000;
+
 async function reconcileCustodyOrders(
   positions: Array<{ symbol: string; side: string; size: string; entryPrice: string }>,
   venueSlug: string,
+  fills: VenueFill[] | null,
 ): Promise<number> {
   const orders = await prisma.perpOrder.findMany({
     where: { venueSlug, status: { in: [PerpOrderStatus.SUBMITTED, PerpOrderStatus.FILLED] } },
@@ -263,31 +307,97 @@ async function reconcileCustodyOrders(
       // close recorded as done with its margin still reserved.
       if (pool.greaterThan(net.plus(TOLERANCE))) continue;
 
+      /**
+       * The realised P&L, from prices that actually traded.
+       *
+       * This used to settle every custody close with a P&L of zero: the margin
+       * came back and the gain or loss on the position never reached the
+       * participant's balance. The exit is the close order's own fills; the
+       * entry is the participant's own opening order, captured from its fills
+       * when it filled — not the pooled position's entry, which averages every
+       * participant holding the market.
+       */
+      let pnl = new Decimal(0);
+      let fee = new Decimal(0);
+      let exitPrice: Decimal | null = null;
+
+      if (fills) {
+        const exit = fillsForOrder(fills, order.venueOrderId);
+        const entryOrder = await prisma.perpOrder.findFirst({
+          where: {
+            userId: order.userId,
+            marketId: order.marketId,
+            kind: 'OPEN',
+            id: { lt: order.id },
+          },
+          orderBy: { id: 'desc' },
+        });
+        const entryPrice = entryOrder?.averageFillPrice ? new Decimal(entryOrder.averageFillPrice) : null;
+
+        if (exit && entryPrice && entryOrder) {
+          const size = new Decimal(order.size || '0').abs();
+          const move = exit.price.minus(entryPrice).times(size);
+          pnl = entryOrder.side === 'SHORT' ? move.negated() : move;
+          fee = exit.fee;
+          exitPrice = exit.price;
+        } else {
+          const waited = Date.now() - (order.submittedAt?.getTime() ?? Date.now());
+          if (waited < CLOSE_FILL_GRACE_MS) {
+            // The fills are not visible yet. Wait for them rather than book a
+            // P&L that was not measured.
+            continue;
+          }
+          // Past the grace period the fills have left the venue's window, or the
+          // entry predates entry capture. Release the margin so the participant
+          // is not frozen, and say plainly that the P&L was not measured.
+          console.error('[perps] close settled without a measured P&L', {
+            orderId: order.id,
+            haveExitFills: Boolean(exit),
+            haveEntryPrice: Boolean(entryPrice),
+          });
+        }
+      }
+
       const margin = new Decimal(order.marginRequired ?? '0');
       if (margin.greaterThan(0)) {
         await settlePerpRealized({
           userId: order.userId,
           reference: `perp-close:${order.id}`,
           margin,
-          pnl: new Decimal(0),
-          fee: new Decimal(0),
+          pnl,
+          fee,
         });
       }
 
       await prisma.perpOrder.update({
         where: { id: order.id },
-        data: { status: PerpOrderStatus.FILLED, settledAt: new Date() },
+        data: {
+          status: PerpOrderStatus.FILLED,
+          settledAt: new Date(),
+          ...(exitPrice ? { averageFillPrice: exitPrice.toFixed() } : {}),
+        },
       });
       reconciled += 1;
       continue;
     }
 
     // An OPEN order marks filled once the pool holds anything for the market;
-    // its margin was already reserved at open.
+    // its margin was already reserved at open. Its own average fill price is
+    // recorded now, because it is the entry this participant's P&L is measured
+    // from at close, and the venue's fill history does not reach back forever.
     if (pool.greaterThan(0)) {
+      const own = fills ? fillsForOrder(fills, order.venueOrderId) : null;
+      if (fills && !own) {
+        const waited = Date.now() - (order.submittedAt?.getTime() ?? Date.now());
+        if (waited < CLOSE_FILL_GRACE_MS) continue;
+      }
       await prisma.perpOrder.update({
         where: { id: order.id },
-        data: { status: PerpOrderStatus.FILLED, settledAt: new Date() },
+        data: {
+          status: PerpOrderStatus.FILLED,
+          settledAt: new Date(),
+          ...(own ? { averageFillPrice: own.price.toFixed(), filledSize: own.size.toFixed() } : {}),
+        },
       });
       reconciled += 1;
     }

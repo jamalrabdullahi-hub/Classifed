@@ -13,6 +13,11 @@ import {
   type SignalResult,
 } from '@flt/core/services';
 import { resolveTradingWallet } from '@flt/core/services/wallets';
+import {
+  evaluateGuardrails,
+  pauseForGuardrail,
+  readSubscriptionSettings,
+} from '@flt/core/services/algorithms';
 import { resolveOfferedMarket } from '@flt/core/services/perps';
 import {
   assertDailyTradesRemaining,
@@ -102,6 +107,19 @@ export async function runAlgorithmPass(): Promise<AlgorithmRunResult> {
 
   for (const subscription of due) {
     try {
+      /**
+       * The participant's own limits, checked before anything is decided.
+       * A tripped guardrail pauses the subscription and says which one —
+       * checked first so a losing algorithm cannot place one more order on
+       * the pass that discovers the loss.
+       */
+      const tripped = await evaluateGuardrails(subscription);
+      if (tripped) {
+        await pauseForGuardrail(subscription, tripped);
+        result.refused += 1;
+        continue;
+      }
+
       const outcome =
         subscription.algorithm.kind === AlgorithmKind.AI
           ? await runAiSubscription(subscription, subscription.algorithm, venues)
@@ -141,7 +159,7 @@ async function runAlgoSubscription(
   const pre = await prepareAccount(subscription.userId);
   if (!pre) throw new Error('account not ready');
 
-  for (const rawSymbol of algorithm.symbols) {
+  for (const rawSymbol of symbolsFor(subscription, algorithm)) {
     const offered = await resolveOfferedMarket(venues, rawSymbol);
     if (!offered) continue;
     const { venue, row, market } = offered;
@@ -180,7 +198,7 @@ async function runAiSubscription(
     { marketId: string; maxLeverage: number; markPrice: string | null; sizeDecimals: number }
   >();
 
-  for (const rawSymbol of algorithm.symbols) {
+  for (const rawSymbol of symbolsFor(subscription, algorithm)) {
     const offered = await resolveOfferedMarket(venues, rawSymbol);
     if (!offered) continue;
     const { venue, row, market } = offered;
@@ -214,8 +232,8 @@ async function runAiSubscription(
     decision = await (await aiProvider()).decide({
       systemPrompt: algorithm.systemPrompt,
       userPrompt: subscription.prompt ?? 'Trade prudently.',
-      allowedSymbols: algorithm.symbols,
-      maxLeverage: algorithm.maxLeverage,
+      allowedSymbols: symbolsFor(subscription, algorithm),
+      maxLeverage: readSubscriptionSettings(subscription.settings).leverage ?? algorithm.maxLeverage,
       markets,
     });
   } catch (error) {
@@ -319,9 +337,15 @@ async function act(
   }
   if (holding === target.signal.side) return;
 
+  const settings = readSubscriptionSettings(subscription.settings);
   const leverage = Math.max(
     1,
-    Math.min(algorithm.maxLeverage, pre.entitlements.maxLeverage, target.maxLeverage),
+    Math.min(
+      settings.leverage ?? algorithm.maxLeverage,
+      algorithm.maxLeverage,
+      pre.entitlements.maxLeverage,
+      target.maxLeverage,
+    ),
   );
 
   const openedToday = await prisma.perpOrder.count({
@@ -338,7 +362,10 @@ async function act(
     if (!target.markPrice) return;
 
     const size = contractsForUsd(
-      new Decimal(algorithm.maxNotionalUsd),
+      Decimal.min(
+        new Decimal(settings.notionalUsd ?? algorithm.maxNotionalUsd),
+        new Decimal(algorithm.maxNotionalUsd),
+      ),
       new Decimal(target.markPrice),
       target.sizeDecimals,
     ).toFixed();
@@ -414,11 +441,14 @@ async function closePosition(
   const margin = new Decimal(lastOrder?.marginRequired ?? '0');
   const wallet = await resolveTradingWallet(prisma, subscription.userId);
 
-  await closeCustodyPerpOrder({
+  const closed = await closeCustodyPerpOrder({
     userId: subscription.userId,
     walletId: wallet.id,
     marketId,
     symbol,
+    // The participant's own size, so one subscription's exit cannot flatten
+    // the pooled position.
+    size: lastOrder?.size ?? null,
     margin,
   });
   await recordAlgorithmRun({
@@ -426,6 +456,8 @@ async function closePosition(
     symbol,
     side: holding,
     signal: `CLOSE_${holding}`,
+    // Recorded so realised P&L can be traced back to this subscription.
+    perpOrderId: closed.orderId,
     status: 'closed',
   });
   await audit(prisma, {
@@ -437,4 +469,12 @@ async function closePosition(
     after: { action: 'close', symbol, reason: reason ?? null },
   });
   summary.closed += 1;
+}
+
+/** The offering's markets, narrowed to the participant's choice when they made one. */
+function symbolsFor(subscription: UserAlgorithm, algorithm: TradingAlgorithm): string[] {
+  const chosen = readSubscriptionSettings(subscription.settings).symbols;
+  if (!chosen || chosen.length === 0) return algorithm.symbols;
+  const allowed = new Set(chosen.map((symbol) => symbol.toUpperCase()));
+  return algorithm.symbols.filter((symbol) => allowed.has(symbol.toUpperCase()));
 }

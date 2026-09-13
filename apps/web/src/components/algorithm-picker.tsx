@@ -7,6 +7,12 @@ import { useTranslations } from 'next-intl';
 import { Lock, Plus, Rocket, Sparkles } from 'lucide-react';
 import { Button, Notice, cn } from '@flt/ui';
 import { ApiError, post } from '@/lib/api';
+import {
+  AlgorithmSettingsFields,
+  draftFrom,
+  payloadFrom,
+  type SettingsDraft,
+} from './algorithm-settings';
 
 /**
  * The automated-trading page: FLT's two offerings, the participant's own
@@ -44,6 +50,30 @@ interface Mine {
   capitalBase: string;
   accruedFeeUsd: string;
   managementFeeBps: number;
+  strategy: string;
+  offeringSymbols: string[];
+  offeringMaxLeverage: number;
+  offeringMaxNotionalUsd: string;
+  settings: {
+    leverage?: number;
+    symbols?: string[];
+    notionalUsd?: string;
+    maxDrawdownPct?: number;
+    dailyLossUsd?: string;
+    endsAt?: string;
+  };
+  strategyParams: SettingsDraft['params'];
+  pausedReason: string | null;
+  realisedPnlUsd: string;
+  runs: {
+    id: string;
+    symbol: string;
+    side: string;
+    signal: string;
+    status: string;
+    reason: string | null;
+    decidedAt: string | Date;
+  }[];
 }
 
 interface MyOffering {
@@ -186,6 +216,7 @@ function OfferingCard({
   const router = useRouter();
   const [capital, setCapital] = useState('100');
   const [prompt, setPrompt] = useState('');
+  const [draft, setDraft] = useState<SettingsDraft>(() => draftFrom(offering));
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -200,6 +231,7 @@ function OfferingCard({
         slug: offering.slug,
         capitalBase: capital.trim(),
         ...(isAi ? { prompt: prompt.trim() } : {}),
+        ...payloadFrom(draft),
       });
       onBanner(t('activated', { name: offering.name }));
       setOpen(false);
@@ -248,6 +280,13 @@ function OfferingCard({
               <input value={capital} onChange={(e) => setCapital(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" className="mt-0.5 w-full rounded-[var(--radius)] border border-[var(--border)] bg-transparent px-2 py-1.5 font-[family-name:var(--font-mono)] text-[13px] tabular-nums text-[var(--text)] outline-none focus:border-[var(--text-muted)]" />
             </label>
             <p className="text-[10px] text-[var(--text-subtle)]">{t('frictionlessNote')}</p>
+            <AlgorithmSettingsFields
+              offering={offering}
+              kind={offering.kind}
+              strategy={offering.strategy}
+              draft={draft}
+              onChange={setDraft}
+            />
             {isAi ? (
               <div className="space-y-1.5">
                 <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={3} maxLength={1000} placeholder={t('promptPlaceholder')} className="w-full rounded-[var(--radius)] border border-[var(--border)] bg-transparent px-2 py-1.5 text-[12px] text-[var(--text)] outline-none focus:border-[var(--text-muted)]" />
@@ -274,16 +313,63 @@ function OfferingCard({
 
 // ── Subscriptions ───────────────────────────────────────────────────────────
 
-function MineList({ mine, onError, onBanner }: { mine: Mine[]; onError: (m: string) => void; onBanner: (m: string) => void }) {
+function MineList({
+  mine,
+  onError,
+  onBanner,
+}: {
+  mine: Mine[];
+  onError: (m: string) => void;
+  onBanner: (m: string) => void;
+}) {
+  const t = useTranslations('algorithms');
+
+  return (
+    <div className="space-y-2">
+      <h2 className="text-[13px] font-semibold text-[var(--text)]">{t('yours')}</h2>
+      <div className="grid gap-3 lg:grid-cols-2">
+        {mine.map((item) => (
+          <SubscriptionPanel key={item.id} item={item} onError={onError} onBanner={onBanner} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One running subscription: how it is doing, what it last decided, and control.
+ *
+ * The decisions are shown because an algorithm trading somebody's money is only
+ * trustworthy if its behaviour can be read, including the times it chose to do
+ * nothing and why. A guardrail that paused it says so at the top.
+ */
+function SubscriptionPanel({
+  item,
+  onError,
+  onBanner,
+}: {
+  item: Mine;
+  onError: (m: string) => void;
+  onBanner: (m: string) => void;
+}) {
   const t = useTranslations('algorithms');
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const offering = {
+    symbols: item.offeringSymbols,
+    maxLeverage: item.offeringMaxLeverage,
+    maxNotionalUsd: item.offeringMaxNotionalUsd,
+  };
+  const [draft, setDraft] = useState<SettingsDraft>(() =>
+    draftFrom(offering, item.settings, item.strategyParams),
+  );
 
-  async function act(id: string, action: 'pause' | 'resume' | 'cancel') {
+  async function act(action: 'pause' | 'resume' | 'cancel') {
     onError('');
-    setBusy(id);
+    setBusy(action);
     try {
-      await post(`/api/algorithms/subscriptions/${id}`, { action });
+      await post(`/api/algorithms/subscriptions/${item.id}`, { action });
       if (action === 'cancel') onBanner(t('stopped'));
       router.refresh();
     } catch (caught) {
@@ -293,32 +379,148 @@ function MineList({ mine, onError, onBanner }: { mine: Mine[]; onError: (m: stri
     }
   }
 
+  async function save() {
+    onError('');
+    setBusy('settings');
+    try {
+      await post(`/api/algorithms/subscriptions/${item.id}`, {
+        action: 'settings',
+        ...payloadFrom(draft),
+      });
+      onBanner(t('settingsSaved'));
+      setEditing(false);
+      router.refresh();
+    } catch (caught) {
+      onError(caught instanceof ApiError ? caught.message : t('genericError'));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const pnl = Number(item.realisedPnlUsd);
+  const live = item.status === 'ACTIVE' || item.status === 'PAUSED';
+  const pnlText = `${pnl > 0 ? '+' : pnl < 0 ? '-' : ''}$${Math.abs(pnl).toFixed(2)}`;
+
   return (
-    <div className="space-y-2">
-      <h2 className="text-[13px] font-semibold text-[var(--text)]">{t('yours')}</h2>
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {mine.map((item) => (
-          <div key={item.id} className="rounded-[var(--radius-lg)] border border-[var(--border)] p-3 text-[12px]">
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-medium text-[var(--text)]">{item.name}</span>
-              <span className="text-[10px] uppercase tracking-[0.06em] text-[var(--text-subtle)]">{t(`status_${item.status}`)}</span>
-            </div>
-            <p className="mt-1 font-[family-name:var(--font-mono)] text-[10.5px] text-[var(--text-subtle)]">
-              {t('mineLine', { capital: item.capitalBase, accrued: Number(item.accruedFeeUsd).toFixed(2) })}
-            </p>
-            <div className="mt-2 flex gap-1.5">
-              {item.status === 'ACTIVE' ? (
-                <Button size="sm" variant="ghost" loading={busy === item.id} onClick={() => void act(item.id, 'pause')}>{t('pause')}</Button>
-              ) : item.status === 'PAUSED' ? (
-                <Button size="sm" variant="ghost" loading={busy === item.id} onClick={() => void act(item.id, 'resume')}>{t('resume')}</Button>
-              ) : null}
-              {item.status === 'ACTIVE' || item.status === 'PAUSED' ? (
-                <Button size="sm" variant="ghost" loading={busy === item.id} onClick={() => void act(item.id, 'cancel')}>{t('stop')}</Button>
-              ) : null}
-            </div>
-          </div>
-        ))}
+    <div className="space-y-3 rounded-[var(--radius-lg)] border border-[var(--border)] p-3 text-[12px]">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-medium text-[var(--text)]">{item.name}</span>
+        <span className="text-[10px] uppercase tracking-[0.06em] text-[var(--text-subtle)]">
+          {t(`status_${item.status}`)}
+        </span>
       </div>
+
+      {item.pausedReason ? (
+        <Notice tone="warning">
+          {t('pausedBecause', {
+            reason: t(`guardrail_${item.pausedReason}` as 'guardrail_ENDED'),
+          })}
+        </Notice>
+      ) : null}
+
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="font-[family-name:var(--font-mono)] text-[10.5px] text-[var(--text-subtle)]">
+          {t('mineLine', {
+            capital: item.capitalBase,
+            accrued: Number(item.accruedFeeUsd).toFixed(2),
+          })}
+        </p>
+        <p
+          className={cn(
+            'font-[family-name:var(--font-mono)] text-[11px] tabular-nums',
+            pnl > 0
+              ? 'text-[var(--positive)]'
+              : pnl < 0
+                ? 'text-[var(--negative)]'
+                : 'text-[var(--text-subtle)]',
+          )}
+        >
+          {t('pnlLine', { amount: pnlText })}
+        </p>
+      </div>
+
+      <div>
+        <p className="mb-1 text-[10px] uppercase tracking-[0.08em] text-[var(--text-subtle)]">
+          {t('activityTitle')}
+        </p>
+        {item.runs.length === 0 ? (
+          <p className="text-[10.5px] text-[var(--text-subtle)]">{t('noActivity')}</p>
+        ) : (
+          <ul className="max-h-[168px] divide-y divide-[var(--border)] overflow-y-auto rounded-[var(--radius)] border border-[var(--border)]">
+            {item.runs.map((run) => (
+              <li
+                key={run.id}
+                className="grid grid-cols-[3.2rem_1fr_auto] items-baseline gap-2 px-2 py-1 text-[10.5px]"
+              >
+                <span className="font-[family-name:var(--font-mono)] tabular-nums text-[var(--text-subtle)]">
+                  {new Date(run.decidedAt).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
+                <span className="truncate text-[var(--text)]">
+                  {run.side} {run.symbol}
+                  {run.reason ? (
+                    <span className="text-[var(--text-subtle)]"> · {run.reason}</span>
+                  ) : null}
+                </span>
+                <span
+                  className={cn(
+                    run.status === 'refused' ? 'text-[var(--text-subtle)]' : 'text-[var(--text)]',
+                  )}
+                >
+                  {t(`runStatus_${run.status}` as 'runStatus_opened')}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {editing ? (
+        <div className="space-y-2">
+          <AlgorithmSettingsFields
+            offering={offering}
+            kind={item.kind}
+            strategy={item.strategy}
+            draft={draft}
+            onChange={setDraft}
+          />
+          <div className="flex gap-1.5">
+            <Button
+              size="sm"
+              variant="primary"
+              loading={busy === 'settings'}
+              onClick={() => void save()}
+            >
+              {t('saveSettings')}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+              {t('cancelEdit')}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {live && !editing ? (
+        <div className="flex flex-wrap gap-1.5">
+          {item.status === 'ACTIVE' ? (
+            <Button size="sm" variant="ghost" loading={busy === 'pause'} onClick={() => void act('pause')}>
+              {t('pause')}
+            </Button>
+          ) : (
+            <Button size="sm" variant="ghost" loading={busy === 'resume'} onClick={() => void act('resume')}>
+              {t('resume')}
+            </Button>
+          )}
+          <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+            {t('editSettings')}
+          </Button>
+          <Button size="sm" variant="ghost" loading={busy === 'cancel'} onClick={() => void act('cancel')}>
+            {t('stop')}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

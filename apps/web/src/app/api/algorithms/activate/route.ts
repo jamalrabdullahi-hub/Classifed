@@ -17,6 +17,8 @@ const schema = z.object({
   strategy: z.nativeEnum(AlgorithmStrategy).optional(),
   strategyParams: z.record(z.unknown()).optional(),
   prompt: z.string().trim().max(1_000).optional(),
+  /** Leverage, markets, size and guardrails. Validated against the offering in the service. */
+  settings: z.record(z.unknown()).optional(),
 });
 
 export const POST = handler(

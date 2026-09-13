@@ -1,3 +1,4 @@
+import { startOfUtcDay } from './entitlements';
 import {
   AlgorithmKind,
   AlgorithmStatus,
@@ -179,28 +180,327 @@ export interface UserAlgorithmView {
   startsAt: Date;
   endsAt: Date | null;
   lastRunAt: Date | null;
+  /** What the offering allows, so settings can be edited within it. */
+  strategy: AlgorithmStrategy;
+  offeringSymbols: string[];
+  offeringMaxLeverage: number;
+  offeringMaxNotionalUsd: string;
+  /** The participant's own settings, and the strategy knobs they chose. */
+  settings: SubscriptionSettings;
+  strategyParams: StrategyParams;
+  /** Why the runner paused this itself, when a guardrail tripped. */
+  pausedReason: string | null;
+  /** Realised P&L across every close this subscription made, in USD. */
+  realisedPnlUsd: string;
+  /** The most recent decisions, newest first. */
+  runs: {
+    id: string;
+    symbol: string;
+    side: string;
+    signal: string;
+    status: string;
+    reason: string | null;
+    decidedAt: Date;
+  }[];
 }
 
 export async function listUserAlgorithms(userId: string): Promise<UserAlgorithmView[]> {
   const rows = await prisma.userAlgorithm.findMany({
     where: { userId },
-    include: { algorithm: true },
+    include: {
+      algorithm: true,
+      runs: { orderBy: { decidedAt: 'desc' }, take: 12 },
+    },
     orderBy: { createdAt: 'desc' },
   });
 
-  return rows.map((row) => ({
-    id: row.id,
-    slug: row.algorithm.slug,
-    name: row.algorithm.name,
-    kind: row.algorithm.kind,
-    status: row.status,
-    capitalBase: row.capitalBase,
-    accruedFeeUsd: row.accruedFeeUsd.toString(),
-    managementFeeBps: row.algorithm.managementFeeBps,
-    startsAt: row.startsAt,
-    endsAt: row.endsAt,
-    lastRunAt: row.lastRunAt,
-  }));
+  return Promise.all(
+    rows.map(async (row) => ({
+      id: row.id,
+      slug: row.algorithm.slug,
+      name: row.algorithm.name,
+      kind: row.algorithm.kind,
+      status: row.status,
+      capitalBase: row.capitalBase,
+      accruedFeeUsd: row.accruedFeeUsd.toString(),
+      managementFeeBps: row.algorithm.managementFeeBps,
+      startsAt: row.startsAt,
+      endsAt: row.endsAt,
+      lastRunAt: row.lastRunAt,
+      strategy: row.algorithm.strategy,
+      offeringSymbols: row.algorithm.symbols,
+      offeringMaxLeverage: row.algorithm.maxLeverage,
+      offeringMaxNotionalUsd: row.algorithm.maxNotionalUsd,
+      settings: readSubscriptionSettings(row.settings),
+      strategyParams: readStrategyParams(row.strategyParams ?? row.algorithm.params),
+      pausedReason: row.pausedReason,
+      realisedPnlUsd: (await realisedPnlForSubscription(row.id)).toFixed(2),
+      runs: row.runs.map((run) => ({
+        id: run.id,
+        symbol: run.symbol,
+        side: run.side,
+        signal: run.signal,
+        status: run.status,
+        reason: run.reason,
+        decidedAt: run.decidedAt,
+      })),
+    })),
+  );
+}
+
+// ── Per-subscription settings and guardrails ────────────────────────────────
+
+/**
+ * What a participant may set on their own subscription.
+ *
+ * Every field narrows the offering; none widens it. An offering is published
+ * with a leverage ceiling, a set of markets and a per-trade size, and those are
+ * the terms other people chose it on, so a participant can trade fewer markets,
+ * smaller, at lower leverage, but never more.
+ *
+ * The guardrails are the participant's own limits on top of that. The runner
+ * checks them before every pass and pauses the subscription itself when one
+ * trips, recording which. A limit that silently stops an algorithm reads as a
+ * bug; one that says why reads as the control it is.
+ */
+export interface SubscriptionSettings {
+  leverage?: number;
+  symbols?: string[];
+  notionalUsd?: string;
+  /** Pause once realised losses reach this share of the capital base. */
+  maxDrawdownPct?: number;
+  /** Pause once today's realised losses reach this many dollars. */
+  dailyLossUsd?: string;
+  /** Pause at this moment (ISO date). */
+  endsAt?: string;
+}
+
+export function readSubscriptionSettings(raw: unknown): SubscriptionSettings {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  return raw as SubscriptionSettings;
+}
+
+/**
+ * Validates raw settings against the offering and returns the canonical form.
+ * Throws with a message naming the field that is out of bounds.
+ */
+export function normaliseSubscriptionSettings(
+  algorithm: TradingAlgorithm,
+  raw: unknown,
+): SubscriptionSettings {
+  const input = readSubscriptionSettings(raw);
+  const out: SubscriptionSettings = {};
+
+  if (input.leverage !== undefined && input.leverage !== null) {
+    const leverage = Math.floor(Number(input.leverage));
+    if (!Number.isFinite(leverage) || leverage < 1 || leverage > algorithm.maxLeverage) {
+      throw new ValidationError(
+        `Leverage must be between 1x and ${algorithm.maxLeverage}x on this offering.`,
+      );
+    }
+    out.leverage = leverage;
+  }
+
+  if (Array.isArray(input.symbols)) {
+    const allowed = new Set(algorithm.symbols.map((symbol) => symbol.toUpperCase()));
+    const chosen = [...new Set(input.symbols.map((symbol) => String(symbol).toUpperCase()))];
+    if (chosen.length === 0) throw new ValidationError('Choose at least one market to trade.');
+    const outside = chosen.filter((symbol) => !allowed.has(symbol));
+    if (outside.length > 0) {
+      throw new ValidationError(`This offering does not trade ${outside.join(', ')}.`);
+    }
+    out.symbols = chosen;
+  }
+
+  if (
+    input.notionalUsd !== undefined &&
+    input.notionalUsd !== null &&
+    String(input.notionalUsd).trim() !== ''
+  ) {
+    const notional = new Decimal(String(input.notionalUsd));
+    const ceiling = new Decimal(algorithm.maxNotionalUsd);
+    if (!notional.isFinite() || notional.lessThanOrEqualTo(0) || notional.greaterThan(ceiling)) {
+      throw new ValidationError(
+        `Size per trade must be above $0 and at most $${ceiling.toFixed()}.`,
+      );
+    }
+    out.notionalUsd = notional.toFixed();
+  }
+
+  if (input.maxDrawdownPct !== undefined && input.maxDrawdownPct !== null) {
+    const pct = Number(input.maxDrawdownPct);
+    if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
+      throw new ValidationError('The drawdown limit must be between 0% and 100% of capital.');
+    }
+    out.maxDrawdownPct = pct;
+  }
+
+  if (
+    input.dailyLossUsd !== undefined &&
+    input.dailyLossUsd !== null &&
+    String(input.dailyLossUsd).trim() !== ''
+  ) {
+    const cap = new Decimal(String(input.dailyLossUsd));
+    if (!cap.isFinite() || cap.lessThanOrEqualTo(0)) {
+      throw new ValidationError('The daily loss cap must be a positive dollar amount.');
+    }
+    out.dailyLossUsd = cap.toFixed();
+  }
+
+  if (input.endsAt) {
+    const endsAt = new Date(input.endsAt);
+    if (Number.isNaN(endsAt.getTime()) || endsAt.getTime() <= Date.now()) {
+      throw new ValidationError('The end date must be in the future.');
+    }
+    out.endsAt = endsAt.toISOString();
+  }
+
+  return out;
+}
+
+/** Strategy knobs a participant may set, clamped to sane ranges. */
+export function normaliseStrategyParams(raw: unknown): StrategyParams {
+  const input = readStrategyParams(raw);
+  const out: StrategyParams = {};
+  const whole = (value: unknown, min: number, max: number) => {
+    const n = Math.floor(Number(value));
+    return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : undefined;
+  };
+  if (input.fast !== undefined) out.fast = whole(input.fast, 1, 500);
+  if (input.slow !== undefined) out.slow = whole(input.slow, 2, 1000);
+  if (input.window !== undefined) out.window = whole(input.window, 2, 1000);
+  if (input.lookback !== undefined) out.lookback = whole(input.lookback, 1, 1000);
+  if (input.thresholdBps !== undefined) out.thresholdBps = whole(input.thresholdBps, 0, 10_000);
+  if (out.fast !== undefined && out.slow !== undefined && out.slow <= out.fast) {
+    throw new ValidationError('The slow average has to be longer than the fast one.');
+  }
+  return out;
+}
+
+/**
+ * Realised P&L for one subscription, in USD, from the ledger.
+ *
+ * Read from the `perp-pnl:perp-close:<orderId>` settlements of the closes this
+ * subscription placed, so it is the figure that actually moved the
+ * participant's balance rather than an estimate from marks.
+ */
+export async function realisedPnlForSubscription(
+  userAlgorithmId: string,
+  since?: Date,
+): Promise<Decimal> {
+  const closes = await prisma.algorithmRun.findMany({
+    where: {
+      userAlgorithmId,
+      status: 'closed',
+      perpOrderId: { not: null },
+      ...(since ? { decidedAt: { gte: since } } : {}),
+    },
+    select: { perpOrderId: true },
+  });
+  if (closes.length === 0) return new Decimal(0);
+
+  const entries = await prisma.ledgerEntry.findMany({
+    where: {
+      transfer: {
+        kind: LedgerTransferKind.TRADE_SETTLEMENT,
+        reference: { in: closes.map((run) => `perp-pnl:perp-close:${run.perpOrderId}`) },
+      },
+      account: { kind: LedgerAccountKind.USER_AVAILABLE },
+    },
+    select: { amount: true },
+  });
+
+  // USER_AVAILABLE is a credit balance: a gain is posted negative.
+  return entries.reduce(
+    (sum, entry) => sum.minus(new Decimal(entry.amount.toString())),
+    new Decimal(0),
+  );
+}
+
+export type GuardrailCode = 'ENDED' | 'MAX_DRAWDOWN' | 'DAILY_LOSS';
+
+/** Which guardrail, if any, says this subscription must stop now. */
+export async function evaluateGuardrails(row: UserAlgorithm): Promise<GuardrailCode | null> {
+  const settings = readSubscriptionSettings(row.settings);
+
+  const endsAt = settings.endsAt ? new Date(settings.endsAt) : row.endsAt;
+  if (endsAt && endsAt.getTime() <= Date.now()) return 'ENDED';
+
+  if (settings.maxDrawdownPct) {
+    const pnl = await realisedPnlForSubscription(row.id);
+    const limit = new Decimal(row.capitalBase).times(settings.maxDrawdownPct).dividedBy(100);
+    if (pnl.negated().greaterThanOrEqualTo(limit)) return 'MAX_DRAWDOWN';
+  }
+
+  if (settings.dailyLossUsd) {
+    const today = await realisedPnlForSubscription(row.id, startOfUtcDay());
+    if (today.negated().greaterThanOrEqualTo(new Decimal(settings.dailyLossUsd))) {
+      return 'DAILY_LOSS';
+    }
+  }
+
+  return null;
+}
+
+/** Pauses a subscription because a guardrail tripped, and records which. */
+export async function pauseForGuardrail(row: UserAlgorithm, code: GuardrailCode): Promise<void> {
+  await prisma.userAlgorithm.update({
+    where: { id: row.id },
+    data: { status: AlgorithmStatus.PAUSED, pausedReason: code },
+  });
+  await audit(prisma, {
+    action: AuditAction.ALGORITHM_STATUS_CHANGED,
+    actorType: 'SYSTEM',
+    actorUserId: row.userId,
+    entityType: 'user_algorithm',
+    entityId: row.id,
+    after: { status: AlgorithmStatus.PAUSED, guardrail: code },
+  });
+}
+
+/**
+ * Updates a running subscription's settings without stopping it.
+ *
+ * Editing is not a cancel: no fee is settled and the subscription keeps its
+ * history. The new settings apply from the runner's next pass.
+ */
+export async function updateAlgorithmSettings(
+  user: User,
+  id: string,
+  input: { settings?: unknown; strategyParams?: unknown },
+): Promise<UserAlgorithm> {
+  const row = await prisma.userAlgorithm.findFirst({
+    where: { id, userId: user.id },
+    include: { algorithm: true },
+  });
+  if (!row) throw new NotFoundError('Algorithm subscription');
+  if (row.status === AlgorithmStatus.CANCELLED || row.status === AlgorithmStatus.EXPIRED) {
+    throw new ValidationError(
+      'This subscription has ended. Activate it again to change its settings.',
+    );
+  }
+
+  const settings = normaliseSubscriptionSettings(row.algorithm, input.settings);
+  const strategyParams =
+    row.algorithm.kind === AlgorithmKind.AI
+      ? row.strategyParams
+      : normaliseStrategyParams(input.strategyParams);
+
+  const updated = await prisma.userAlgorithm.update({
+    where: { id },
+    data: { settings: settings as never, strategyParams: strategyParams as never },
+  });
+
+  await audit(prisma, {
+    action: AuditAction.ALGORITHM_STATUS_CHANGED,
+    actorType: 'USER',
+    actorUserId: user.id,
+    entityType: 'user_algorithm',
+    entityId: id,
+    after: { settings, strategyParams },
+  });
+
+  return updated;
 }
 
 export interface ActivateAlgorithmInput {
@@ -212,6 +512,8 @@ export interface ActivateAlgorithmInput {
   strategyParams?: Record<string, unknown>;
   /** AI: the participant's prompt (or a chosen rail). */
   prompt?: string;
+  /** Leverage, markets, size and guardrails, bounded by the offering. */
+  settings?: Record<string, unknown>;
 }
 
 /**
@@ -255,8 +557,10 @@ export async function activateAlgorithm(
     if (prompt.length < 8) throw new ValidationError('Write a prompt of at least 8 characters.');
     if (prompt.length > 1_000) throw new ValidationError('Keep the prompt under 1000 characters.');
   } else {
-    strategyParams = input.strategyParams ?? {};
+    strategyParams = normaliseStrategyParams(input.strategyParams ?? {}) as Record<string, unknown>;
   }
+
+  const settings = normaliseSubscriptionSettings(algorithm, input.settings ?? {});
 
   const existing = await prisma.userAlgorithm.findFirst({
     where: { userId: user.id, algorithmId: algorithm.id },
@@ -274,6 +578,8 @@ export async function activateAlgorithm(
     accruedFeeUsd: new Decimal(0),
     feeAccruedAt: now,
     strategyParams: strategyParams as never,
+    settings: settings as never,
+    pausedReason: null,
     prompt,
     startsAt: now,
     endsAt: null,
@@ -353,6 +659,8 @@ export async function setAlgorithmStatus(
       status,
       cancelledAt: cancelling ? new Date() : null,
       cancelReason: cancelling ? (reason?.trim() || 'Stopped by participant') : null,
+      // A participant resuming or stopping has seen why it paused.
+      pausedReason: null,
     },
   });
 

@@ -2713,6 +2713,15 @@ model UserAlgorithm {
   /// The prompt the participant set (AI offerings).
   prompt String?
 
+  /// The participant's own settings for this subscription: leverage, which of
+  /// the offering's markets to trade, trade size, and risk guardrails. Always
+  /// bounded by the offering: a setting can narrow what the offering allows,
+  /// never widen it. Null means "run the offering as published".
+  settings Json?
+  /// Why the runner paused this subscription itself, when a guardrail tripped.
+  /// Null when paused by the participant, or not paused at all.
+  pausedReason String?
+
   startsAt DateTime  @default(now())
   endsAt   DateTime?
 
