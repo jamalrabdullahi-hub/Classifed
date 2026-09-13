@@ -162,6 +162,11 @@ export const AuditAction = {
    * audited fact and not only a log line.
    */
   TRADE_SETTLEMENT_FAILED: 'trade.settlement.failed',
+
+  // Cash withdrawals
+  FIAT_WITHDRAWAL_REQUESTED: 'fiat_withdrawal.requested',
+  FIAT_WITHDRAWAL_PAID: 'fiat_withdrawal.paid',
+  FIAT_WITHDRAWAL_REJECTED: 'fiat_withdrawal.rejected',
   APPROVAL_SUBMITTED: 'approval.submitted',
 
   // Perpetuals

@@ -1,3 +1,4 @@
+import { resolveFiatRailSettings } from './platform-settings';
 import {
   FiatDepositMethod,
   FiatDepositStatus,
@@ -78,7 +79,10 @@ export async function requestFiatDeposit(
     amountFiat: string;
     currency?: string;
     payerName?: string;
-    payerPhone: string;
+    /** Required for EVC, where the paying number is what the payment is matched on. */
+    payerPhone?: string;
+    /** Required for PayPal, where the paying address is what it is matched on. */
+    payerEmail?: string;
   },
 ): Promise<DepositInstructions> {
   const amount = new Decimal(input.amountFiat);
@@ -115,14 +119,38 @@ export async function requestFiatDeposit(
     );
   }
 
-  const payerName = (input.payerName ? input.payerName : '').trim();
-  const payerPhone = input.payerPhone.trim().replace(/[^\d+]/g, '');
+  /**
+   * Each rail is matched on something different, so each asks for it.
+   *
+   * An EVC payment is found by the paying number, a wire by the name on the
+   * sending account, and a PayPal payment by the paying address. Asking for the
+   * wrong one leaves an operator with a payment and nothing to match it to.
+   * Wire and PayPal also have to be open, with their details written, before
+   * anyone is told to send money to them.
+   */
+  const rails = await resolveFiatRailSettings();
+  if (input.method === 'WIRE' && !rails.wire.enabled) {
+    throw new ValidationError('Bank wire deposits are not open yet.');
+  }
+  if (input.method === 'PAYPAL' && !rails.paypal.enabled) {
+    throw new ValidationError('PayPal deposits are not open yet.');
+  }
+
+  const payerName = (input.payerName ?? '').trim();
+  const payerPhone = (input.payerPhone ?? '').trim().replace(/[^\d+]/g, '');
+  const payerEmail = (input.payerEmail ?? '').trim().toLowerCase();
 
   if (payerName.length === 1) {
     throw new ValidationError('Give the name on the account the money is coming from');
   }
-  if (payerPhone.replace(/\D/g, '').length < 7) {
+  if (input.method === 'EVC' && payerPhone.replace(/\D/g, '').length < 7) {
     throw new ValidationError('Give the number the money is coming from');
+  }
+  if ((input.method === 'WIRE' || input.method === 'ACH') && payerName.length < 2) {
+    throw new ValidationError('Give the name on the bank account the money is coming from');
+  }
+  if (input.method === 'PAYPAL' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payerEmail)) {
+    throw new ValidationError('Give the PayPal email address the money is coming from');
   }
 
   const deposit = await prisma.fiatDeposit.create({
@@ -134,6 +162,7 @@ export async function requestFiatDeposit(
       amountFiat: amount.toFixed(),
       payerName: payerName.length > 0 ? payerName : null,
       payerPhone,
+      payerEmail: payerEmail.length > 0 ? payerEmail : null,
       reference: depositReference(),
     },
   });

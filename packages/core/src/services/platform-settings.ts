@@ -38,6 +38,21 @@ export const PLATFORM_SETTING_KEYS = {
   FIAT_DEPOSIT_FEE_BPS: 'fiat_deposit_fee_bps',
   FIAT_DEPOSIT_MIN_USD: 'fiat_deposit_min_usd',
   FIAT_DEPOSIT_INSTRUCTIONS: 'fiat_deposit_instructions',
+  FIAT_WIRE_ENABLED: 'fiat_wire_enabled',
+  FIAT_WIRE_BANK_NAME: 'fiat_wire_bank_name',
+  FIAT_WIRE_ACCOUNT_NAME: 'fiat_wire_account_name',
+  FIAT_WIRE_ACCOUNT_NUMBER: 'fiat_wire_account_number',
+  FIAT_WIRE_ROUTING: 'fiat_wire_routing',
+  FIAT_WIRE_SWIFT: 'fiat_wire_swift',
+  FIAT_WIRE_BANK_ADDRESS: 'fiat_wire_bank_address',
+  FIAT_PAYPAL_ENABLED: 'fiat_paypal_enabled',
+  FIAT_PAYPAL_ADDRESS: 'fiat_paypal_address',
+  FIAT_WITHDRAWAL_ENABLED: 'fiat_withdrawal_enabled',
+  FIAT_WITHDRAWAL_FEE_BPS: 'fiat_withdrawal_fee_bps',
+  FIAT_WITHDRAWAL_MIN_USD: 'fiat_withdrawal_min_usd',
+  FIAT_WITHDRAWAL_EVC: 'fiat_withdrawal_evc',
+  FIAT_WITHDRAWAL_BANK: 'fiat_withdrawal_bank',
+  FIAT_WITHDRAWAL_PAYPAL: 'fiat_withdrawal_paypal',
   AI_ENABLED: 'ai_enabled',
   AI_API_URL: 'ai_api_url',
   AI_MODEL: 'ai_model',
@@ -382,4 +397,153 @@ export async function setAiSettings(
   await writeSetting(context, PLATFORM_SETTING_KEYS.AI_ENABLED, String(input.enabled), {
     secret: false,
   });
+}
+
+// ── Cash rails: bank wire and PayPal in, USD out ────────────────────────────
+
+/**
+ * Where participants send cash, and the terms on which FLT pays cash out.
+ *
+ * None of this is secret. The bank details and the PayPal address are printed
+ * on the deposit screen for people to pay into, so they are stored in plain
+ * text. They live here rather than in the environment because they are business
+ * details that change without a deploy — and a wrong account number sends
+ * somebody's money to a stranger, so each rail stays closed until its details
+ * are complete.
+ *
+ * Card is deliberately absent. Taking or paying cards needs a payment processor,
+ * and a form that collected card numbers directly would put FLT in PCI scope.
+ */
+export interface FiatRailSettings {
+  wire: {
+    enabled: boolean;
+    bankName: string;
+    accountName: string;
+    accountNumber: string;
+    routingNumber: string;
+    swift: string;
+    bankAddress: string;
+  };
+  paypal: { enabled: boolean; address: string };
+  withdrawals: {
+    enabled: boolean;
+    feeBps: number;
+    minUsd: string;
+    evc: boolean;
+    bank: boolean;
+    paypal: boolean;
+  };
+}
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export async function resolveFiatRailSettings(): Promise<FiatRailSettings> {
+  const K = PLATFORM_SETTING_KEYS;
+  const [
+    wireEnabled,
+    bankName,
+    accountName,
+    accountNumber,
+    routingNumber,
+    swift,
+    bankAddress,
+    paypalEnabled,
+    paypalAddress,
+    withdrawalEnabled,
+    withdrawalFee,
+    withdrawalMin,
+    withdrawalEvc,
+    withdrawalBank,
+    withdrawalPaypal,
+  ] = await Promise.all([
+    readSetting(K.FIAT_WIRE_ENABLED),
+    readSetting(K.FIAT_WIRE_BANK_NAME),
+    readSetting(K.FIAT_WIRE_ACCOUNT_NAME),
+    readSetting(K.FIAT_WIRE_ACCOUNT_NUMBER),
+    readSetting(K.FIAT_WIRE_ROUTING),
+    readSetting(K.FIAT_WIRE_SWIFT),
+    readSetting(K.FIAT_WIRE_BANK_ADDRESS),
+    readSetting(K.FIAT_PAYPAL_ENABLED),
+    readSetting(K.FIAT_PAYPAL_ADDRESS),
+    readSetting(K.FIAT_WITHDRAWAL_ENABLED),
+    readSetting(K.FIAT_WITHDRAWAL_FEE_BPS),
+    readSetting(K.FIAT_WITHDRAWAL_MIN_USD),
+    readSetting(K.FIAT_WITHDRAWAL_EVC),
+    readSetting(K.FIAT_WITHDRAWAL_BANK),
+    readSetting(K.FIAT_WITHDRAWAL_PAYPAL),
+  ]);
+
+  const wireComplete = Boolean(bankName && accountName && accountNumber);
+  const paypalComplete = Boolean(paypalAddress && EMAIL_PATTERN.test(paypalAddress));
+
+  return {
+    wire: {
+      // Open only with complete details, whatever the switch says: a wire
+      // screen with a half-written account number collects money into nothing.
+      enabled: wireEnabled === 'true' && wireComplete,
+      bankName: bankName ?? '',
+      accountName: accountName ?? '',
+      accountNumber: accountNumber ?? '',
+      routingNumber: routingNumber ?? '',
+      swift: swift ?? '',
+      bankAddress: bankAddress ?? '',
+    },
+    paypal: {
+      enabled: paypalEnabled === 'true' && paypalComplete,
+      address: paypalAddress ?? '',
+    },
+    withdrawals: {
+      enabled: withdrawalEnabled === 'true',
+      feeBps: withdrawalFee ? Number(withdrawalFee) : 100,
+      minUsd: withdrawalMin ?? '10',
+      evc: withdrawalEvc !== 'false',
+      bank: withdrawalBank !== 'false',
+      paypal: withdrawalPaypal !== 'false',
+    },
+  };
+}
+
+export async function setFiatRailSettings(
+  context: AdminActionContext,
+  input: FiatRailSettings,
+): Promise<void> {
+  const K = PLATFORM_SETTING_KEYS;
+  const wire = input.wire;
+  const paypal = input.paypal;
+  const withdrawals = input.withdrawals;
+
+  if (wire.enabled && !(wire.bankName.trim() && wire.accountName.trim() && wire.accountNumber.trim())) {
+    throw new ValidationError(
+      'Fill in the bank name, account name and account number before opening bank wire deposits.',
+    );
+  }
+  if (paypal.enabled && !EMAIL_PATTERN.test(paypal.address.trim())) {
+    throw new ValidationError('Enter the PayPal email address before opening PayPal deposits.');
+  }
+  if (!Number.isInteger(withdrawals.feeBps) || withdrawals.feeBps < 0 || withdrawals.feeBps > 1_000) {
+    throw new ValidationError('The withdrawal fee must be between 0 and 1000 basis points.');
+  }
+  if (!/^\d+(\.\d{1,2})?$/.test(withdrawals.minUsd.trim())) {
+    throw new ValidationError('The withdrawal minimum must be an amount like 10 or 10.00.');
+  }
+  if (withdrawals.enabled && !(withdrawals.evc || withdrawals.bank || withdrawals.paypal)) {
+    throw new ValidationError('Allow at least one payout method before opening cash withdrawals.');
+  }
+
+  const plain = { secret: false };
+  await writeSetting(context, K.FIAT_WIRE_BANK_NAME, wire.bankName.trim(), plain);
+  await writeSetting(context, K.FIAT_WIRE_ACCOUNT_NAME, wire.accountName.trim(), plain);
+  await writeSetting(context, K.FIAT_WIRE_ACCOUNT_NUMBER, wire.accountNumber.trim(), plain);
+  await writeSetting(context, K.FIAT_WIRE_ROUTING, wire.routingNumber.trim(), plain);
+  await writeSetting(context, K.FIAT_WIRE_SWIFT, wire.swift.trim().toUpperCase(), plain);
+  await writeSetting(context, K.FIAT_WIRE_BANK_ADDRESS, wire.bankAddress.trim(), plain);
+  await writeSetting(context, K.FIAT_WIRE_ENABLED, String(wire.enabled), plain);
+  await writeSetting(context, K.FIAT_PAYPAL_ADDRESS, paypal.address.trim(), plain);
+  await writeSetting(context, K.FIAT_PAYPAL_ENABLED, String(paypal.enabled), plain);
+  await writeSetting(context, K.FIAT_WITHDRAWAL_FEE_BPS, String(withdrawals.feeBps), plain);
+  await writeSetting(context, K.FIAT_WITHDRAWAL_MIN_USD, withdrawals.minUsd.trim(), plain);
+  await writeSetting(context, K.FIAT_WITHDRAWAL_EVC, String(withdrawals.evc), plain);
+  await writeSetting(context, K.FIAT_WITHDRAWAL_BANK, String(withdrawals.bank), plain);
+  await writeSetting(context, K.FIAT_WITHDRAWAL_PAYPAL, String(withdrawals.paypal), plain);
+  await writeSetting(context, K.FIAT_WITHDRAWAL_ENABLED, String(withdrawals.enabled), plain);
 }

@@ -3,7 +3,17 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { ArrowUpRight, Check, Clock, Copy, Smartphone, Wallet, X } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Check,
+  Clock,
+  Copy,
+  Smartphone,
+  Wallet,
+  X,
+  Landmark,
+  Mail,
+} from 'lucide-react';
 import {
   AddressChip,
   Badge,
@@ -63,6 +73,8 @@ export function DepositClient({
   walletAddress,
   explorerUrl,
   evcMerchantNumber,
+  wire,
+  paypal,
   history,
 }: {
   available: boolean;
@@ -71,11 +83,25 @@ export function DepositClient({
   walletAddress: string;
   explorerUrl?: string;
   evcMerchantNumber: string;
+  /** Where to wire, as the operator set it. Closed unless its details are complete. */
+  wire: {
+    enabled: boolean;
+    bankName: string;
+    accountName: string;
+    accountNumber: string;
+    routingNumber: string;
+    swift: string;
+    bankAddress: string;
+  };
+  /** The PayPal address to pay, as the operator set it. */
+  paypal: { enabled: boolean; address: string };
   history: HistoryRow[];
 }) {
   const t = useTranslations('deposit');
 
-  const [tab, setTab] = useState<'crypto' | 'fiat'>('crypto');
+  const [tab, setTab] = useState<'crypto' | 'fiat' | 'wire' | 'paypal'>('crypto');
+  const [payerName, setPayerName] = useState('');
+  const [payerEmail, setPayerEmail] = useState('');
   const [amount, setAmount] = useState('');
   const [phone, setPhone] = useState('');
   const [issued, setIssued] = useState<Instructions | null>(null);
@@ -97,11 +123,14 @@ export function DepositClient({
     setBusy(true);
     try {
       setIssued(
-        await post<Instructions>('/api/deposits', {
-          method: 'EVC',
-          amountFiat: amount.trim(),
-          payerPhone: phone.trim(),
-        }),
+        await post<Instructions>(
+          '/api/deposits',
+          tab === 'wire'
+            ? { method: 'WIRE', amountFiat: amount.trim(), payerName: payerName.trim() }
+            : tab === 'paypal'
+              ? { method: 'PAYPAL', amountFiat: amount.trim(), payerEmail: payerEmail.trim() }
+              : { method: 'EVC', amountFiat: amount.trim(), payerPhone: phone.trim() },
+        ),
       );
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : t('genericError'));
@@ -122,7 +151,7 @@ export function DepositClient({
     }
   }
 
-  const tabButton = (key: 'crypto' | 'fiat', icon: React.ReactNode, label: string) => (
+  const tabButton = (key: 'crypto' | 'fiat' | 'wire' | 'paypal', icon: React.ReactNode, label: string) => (
     <button
       type="button"
       onClick={() => setTab(key)}
@@ -141,9 +170,16 @@ export function DepositClient({
 
   return (
     <div className="mx-auto w-full max-w-lg space-y-4">
-      <div className="grid grid-cols-2 gap-2">
+      <div
+        className={
+          'grid gap-2 ' +
+          (wire.enabled && paypal.enabled ? 'grid-cols-2 sm:grid-cols-4' : wire.enabled || paypal.enabled ? 'grid-cols-3' : 'grid-cols-2')
+        }
+      >
         {tabButton('crypto', <Wallet className="size-4" />, t('cryptoOption'))}
         {tabButton('fiat', <Smartphone className="size-4" />, t('fiatOption'))}
+        {wire.enabled ? tabButton('wire', <Landmark className="size-4" />, t('wireOption')) : null}
+        {paypal.enabled ? tabButton('paypal', <Mail className="size-4" />, t('paypalOption')) : null}
       </div>
 
       {tab === 'crypto' ? (
@@ -208,6 +244,27 @@ export function DepositClient({
               </div>
             ) : null}
 
+            {issued.method === 'WIRE' ? (
+              <div className="space-y-1 rounded-[var(--radius-md)] border border-[var(--border-strong)] bg-[var(--surface-sunken)] p-4 text-[13px]">
+                <p className="text-[11px] uppercase tracking-[0.08em] text-[var(--text-subtle)]">{t('bankDetailsTitle')}</p>
+                <DetailRow label={t('bankName')} value={wire.bankName} />
+                <DetailRow label={t('accountName')} value={wire.accountName} />
+                <DetailRow label={t('accountNumber')} value={wire.accountNumber} />
+                {wire.routingNumber ? <DetailRow label={t('routingNumber')} value={wire.routingNumber} /> : null}
+                {wire.swift ? <DetailRow label={t('swift')} value={wire.swift} /> : null}
+                {wire.bankAddress ? <DetailRow label={t('bankAddress')} value={wire.bankAddress} /> : null}
+                <p className="pt-1 text-[12px] text-[var(--text-muted)]">{t('putReference')}</p>
+              </div>
+            ) : null}
+
+            {issued.method === 'PAYPAL' ? (
+              <div className="rounded-[var(--radius-md)] border border-[var(--border-strong)] bg-[var(--surface-sunken)] p-4 text-center">
+                <p className="text-[11px] uppercase tracking-[0.08em] text-[var(--text-subtle)]">{t('paypalSendTo')}</p>
+                <p className="mt-1 select-all break-all text-[16px] font-semibold text-[var(--text)]">{paypal.address}</p>
+                <p className="pt-2 text-[12px] text-[var(--text-muted)]">{t('putReference')}</p>
+              </div>
+            ) : null}
+
             <Notice tone="warning" icon={<Clock className="size-4" />} title={t('pendingTitle')}>
               {t('pendingBody')}
             </Notice>
@@ -216,6 +273,86 @@ export function DepositClient({
 
             <Button variant="ghost" size="sm" block onClick={() => setIssued(null)}>
               {t('backToForm')}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : tab === 'wire' || tab === 'paypal' ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{tab === 'wire' ? t('wireTitle') : t('paypalTitle')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!available ? (
+              <Notice tone="warning" title={t('unavailableTitle')}>
+                {t('unavailableBody')}
+              </Notice>
+            ) : null}
+
+            <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">
+              {tab === 'wire' ? t('wireIntro') : t('paypalIntro')}
+            </p>
+
+            {error ? <Notice tone="negative">{error}</Notice> : null}
+
+            {tab === 'wire' ? (
+              <Field label={t('payerNameLabel')} description={t('payerNameHint')}>
+                {(props) => (
+                  <Input {...props} value={payerName} onChange={(event) => setPayerName(event.target.value)} autoComplete="name" />
+                )}
+              </Field>
+            ) : (
+              <Field label={t('payerEmailLabel')} description={t('payerEmailHint')}>
+                {(props) => (
+                  <Input
+                    {...props}
+                    type="email"
+                    inputMode="email"
+                    value={payerEmail}
+                    onChange={(event) => setPayerEmail(event.target.value)}
+                    autoComplete="email"
+                  />
+                )}
+              </Field>
+            )}
+
+            <Field label={t('amountLabel')} description={t('minimum', { min: minUsd })}>
+              {(props) => (
+                <Input
+                  {...props}
+                  value={amount}
+                  onChange={(event) => setAmount(event.target.value.replace(/[^\d.]/g, ''))}
+                  inputMode="decimal"
+                  placeholder="1000"
+                  className="num"
+                />
+              )}
+            </Field>
+
+            {amount && !belowMinimum ? (
+              <div className="divide-y divide-[var(--border)]">
+                <DetailRow label={t('feeLabel', { pct: (feeBps / 100).toFixed(2) })} value={`$${estimatedFee}`} />
+                <DetailRow label={t('youReceive')} value={`$${estimatedNet}`} emphasis />
+              </div>
+            ) : null}
+
+            {belowMinimum ? <Notice tone="warning">{t('belowMinimum', { min: minUsd })}</Notice> : null}
+
+            <Button
+              variant="primary"
+              block
+              size="lg"
+              loading={busy}
+              disabled={
+                !available ||
+                !amount ||
+                belowMinimum ||
+                (tab === 'wire'
+                  ? payerName.trim().length < 2
+                  : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payerEmail.trim()))
+              }
+              onClick={() => void submit()}
+            >
+              {t('getReference')}
             </Button>
           </CardContent>
         </Card>

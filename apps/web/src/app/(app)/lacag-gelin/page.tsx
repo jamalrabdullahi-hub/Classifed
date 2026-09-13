@@ -4,7 +4,11 @@ import { getTranslations } from 'next-intl/server';
 import { prisma } from '@flt/db';
 import { Button, Notice, SectionHeader } from '@flt/ui';
 import { BASE_CHAIN_ID, explorerAddressUrl } from '@flt/core/chains';
-import { resolveEvcSettings, resolveFiatDepositSettings } from '@flt/core/services/platform-settings';
+import {
+  resolveEvcSettings,
+  resolveFiatDepositSettings,
+  resolveFiatRailSettings,
+} from '@flt/core/services/platform-settings';
 import { listFiatDepositsForUser } from '@flt/core/services/fiat-deposits';
 import { requireUserPage } from '@/server/session';
 import { DepositClient } from './deposit-client';
@@ -31,9 +35,10 @@ export default async function DepositPage() {
   const user = await requireUserPage();
   const t = await getTranslations('deposit');
 
-  const [settings, evc, wallet, deposits] = await Promise.all([
+  const [settings, evc, rails, wallet, deposits] = await Promise.all([
     resolveFiatDepositSettings(),
     resolveEvcSettings(),
+    resolveFiatRailSettings(),
     prisma.wallet.findFirst({
       where: { userId: user.id, connector: 'privy-embedded' },
       select: { address: true },
@@ -73,6 +78,8 @@ export default async function DepositPage() {
         feeBps={settings.feeBps}
         explorerUrl={explorerAddressUrl(BASE_CHAIN_ID, wallet.address)}
         evcMerchantNumber={evc.merchantNumber}
+        wire={rails.wire}
+        paypal={rails.paypal}
         walletAddress={wallet.address}
         history={deposits.map((deposit) => ({
           id: deposit.id,

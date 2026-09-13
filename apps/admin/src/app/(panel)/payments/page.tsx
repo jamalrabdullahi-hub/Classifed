@@ -26,6 +26,7 @@ import { RemittanceSettingsForm } from './remittance-settings-form';
 import { RemittanceQueue } from './remittance-queue';
 import { FiatDepositQueue } from './fiat-deposit-queue';
 import { FiatDepositSettingsForm } from './fiat-deposit-settings-form';
+import { FiatRailsSection } from './fiat-rails-section';
 
 export const metadata: Metadata = { title: 'Payments' };
 export const dynamic = 'force-dynamic';
@@ -138,6 +139,7 @@ export default async function PaymentsPage() {
             defaultTokenAddress={protectionSettings.premiumTokenAddress}
             defaultTreasuryAddress={protectionSettings.operatorAddress}
           />
+          <FiatRailsSection canConfigure={canConfigure} canPayout={canPayout} />
           <RemittanceSettingsForm initial={remittanceSettings} />
           <RemittanceQueue
             liability={liability}

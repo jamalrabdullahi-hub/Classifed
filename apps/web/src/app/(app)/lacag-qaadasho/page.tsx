@@ -3,9 +3,12 @@ import { getTranslations } from 'next-intl/server';
 import { BASE_CHAIN_ID } from '@flt/core/chains';
 import { custodyPortfolio } from '@flt/core/services/portfolio-usd';
 import { listWithdrawalsForUser } from '@flt/core/services/withdrawals';
+import { listFiatWithdrawalsForUser } from '@flt/core/services/fiat-withdrawals';
+import { resolveFiatRailSettings } from '@flt/core/services/platform-settings';
 import { SectionHeader } from '@flt/ui';
 import { requireUserPage } from '@/server/session';
 import { WithdrawClient } from './withdraw-client';
+import { FiatWithdrawForm } from './fiat-withdraw-form';
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations('withdrawPage'))('title') };
@@ -23,14 +26,35 @@ export default async function WithdrawPage() {
   const user = await requireUserPage();
   const t = await getTranslations('withdrawPage');
 
-  const [portfolio, withdrawals] = await Promise.all([
+  const [portfolio, withdrawals, rails, fiatWithdrawals] = await Promise.all([
     custodyPortfolio(user.id),
     listWithdrawalsForUser(user.id),
+    resolveFiatRailSettings(),
+    listFiatWithdrawalsForUser(user.id),
   ]);
+
+  // Cash is paid out of the USDC balance, at one dollar per coin.
+  const availableUsd =
+    portfolio.holdings.find((holding) => holding.asset === 'USDC')?.available ?? '0';
 
   return (
     <div className="space-y-5">
       <SectionHeader title={t('title')} description={t('description')} />
+
+      <FiatWithdrawForm
+        settings={rails.withdrawals}
+        availableUsd={availableUsd}
+        history={fiatWithdrawals.map((row) => ({
+          id: row.id,
+          reference: row.reference,
+          method: row.method,
+          amountUsd: row.amountUsd.toFixed(2),
+          netUsd: row.netUsd.toFixed(2),
+          status: row.status,
+          note: row.note,
+          createdAt: row.createdAt.toISOString(),
+        }))}
+      />
 
       <WithdrawClient
         chainId={BASE_CHAIN_ID}

@@ -237,6 +237,7 @@ model User {
   ledgerAccounts     LedgerAccount[]
   walletDelegation   WalletDelegation?
   fiatDeposits       FiatDeposit[]
+  fiatWithdrawals   FiatWithdrawal[]
   custodyDeposits    CustodyDeposit[]
   withdrawals        Withdrawal[]
   referralCode       ReferralCode?          @relation("ReferralCodeOwner")
@@ -2263,6 +2264,8 @@ enum FiatDepositMethod {
   WIRE
   EVC
   CASH
+  /// Sent to FLT's PayPal address and matched by the payer's PayPal email.
+  PAYPAL
 }
 
 enum FiatDepositStatus {
@@ -2325,6 +2328,8 @@ model FiatDeposit {
   /// include it, and a name and number are what make a line findable anyway.
   payerName  String?
   payerPhone String
+  /// The PayPal address a PayPal deposit is coming from.
+  payerEmail String?
 
   /// What actually arrived, set when an operator confirms it. Kept separate
   /// from `amountFiat` because they differ often enough to matter — bank fees,
@@ -2794,4 +2799,69 @@ model CreatorEarning {
 
   @@index([creatorId, createdAt])
   @@map("creator_earnings")
+}
+
+enum FiatWithdrawalMethod {
+  EVC
+  BANK
+  PAYPAL
+}
+
+enum FiatWithdrawalStatus {
+  /// Asked for. The USDC is reserved on the ledger; nothing has been paid.
+  REQUESTED
+  /// An operator paid it out and recorded the reference. The reservation is spent.
+  PAID
+  /// Refused before any payout. The reservation was released.
+  REJECTED
+}
+
+/// A cash withdrawal: USD paid by an operator to an EVC number, a bank account
+/// or a PayPal address, out of FLT's own accounts.
+///
+/// The participant's USDC is reserved when they ask, so the same balance cannot
+/// back a trade and a payout at once. It is spent only when an operator records
+/// the payout with a reference — a payout marked done with nothing to check it
+/// against is indistinguishable from a mistake.
+model FiatWithdrawal {
+  id     String @id
+  userId String
+
+  method FiatWithdrawalMethod
+  asset  String               @default("USDC")
+
+  amountUsd Decimal @db.Decimal(38, 18)
+  feeUsd    Decimal @db.Decimal(38, 18)
+  netUsd    Decimal @db.Decimal(38, 18)
+
+  payeeName     String
+  payeePhone    String?
+  payeeEmail    String?
+  bankName      String?
+  accountNumber String?
+  routingNumber String?
+  swift         String?
+  country       String?
+
+  reference String               @unique
+  status    FiatWithdrawalStatus @default(REQUESTED)
+
+  /// The bank, EVC or PayPal transaction reference the operator recorded.
+  payoutReference String?
+  /// Shown to the participant on a rejection.
+  note            String?
+
+  paidAt       DateTime?
+  paidById     String?
+  rejectedAt   DateTime?
+  rejectedById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@map("fiat_withdrawals")
 }
