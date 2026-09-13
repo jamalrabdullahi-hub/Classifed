@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LedgerAccountKind } from '@flt/db';
 
 /**
@@ -34,6 +34,21 @@ beforeEach(() => {
 async function subject() {
   return import('../src/services/portfolio-usd');
 }
+
+/**
+ * Load the module graph once, before the clock starts on any test.
+ *
+ * This suite was intermittently failing with "Test timed out in 30000ms" while
+ * other suites ran in parallel — not because the assertions are slow (they are
+ * arithmetic on three fixtures) but because the first `subject()` pays for
+ * resolving and transforming a large import graph, and that cost was being
+ * charged to the first test's budget. Nothing here calls `vi.resetModules`, so
+ * one warm import serves every test, and module loading is charged to the hook
+ * timeout where it belongs.
+ */
+beforeAll(async () => {
+  await subject();
+});
 
 describe('custodyPortfolio', () => {
   it('reads balances from the ledger and values them', async () => {

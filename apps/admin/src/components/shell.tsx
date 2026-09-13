@@ -20,6 +20,7 @@ import {
   Route,
   ShieldCheck,
   Users,
+  TriangleAlert,
   Wallet,
 } from 'lucide-react';
 import { Badge, BrandLockup, cn } from '@flt/ui';
@@ -41,6 +42,9 @@ const SECTIONS: { label: string; items: { href: string; label: string; icon: typ
     items: [
       { href: '/', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/health', label: 'System health', icon: Gauge },
+      // First in the list under the dashboard: if anything is stuck, it is the
+      // thing an operator should see before anything else.
+      { href: '/attention', label: 'Needs attention', icon: TriangleAlert },
     ],
   },
   {
