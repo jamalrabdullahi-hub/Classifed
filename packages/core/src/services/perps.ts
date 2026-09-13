@@ -131,20 +131,24 @@ const LIVE_PROTECTION_STATES: ProtectionState[] = [
 /**
  * Refuses a leveraged open that has no insurance.
  *
- * Insurance is mandatory on every leveraged position. The product's waterfall
- * is "cover first, then margin", and a position with no live policy has nothing
- * between the mark and the venue's liquidation price — the boundary the whole
- * protection design exists to place. So an open at more than 1x with no live
- * policy on the market is refused here, not warned about.
+ * When the deployment requires protection, a leveraged position must hold it.
+ * The product's waterfall is "cover first, then margin", and a position with no
+ * live policy has nothing between the mark and the venue's liquidation price —
+ * the boundary the whole protection design exists to place. So an open at more
+ * than 1x with no live policy on the market is refused, not warned about.
  *
- * Two deliberate exceptions:
+ * Three deliberate limits:
  *   - A 1x open is not leveraged, so it is not gated.
  *   - An exit (reduce-only) is never blocked. A rule that could trap somebody
  *     in a leveraged position is a hazard, not a risk control.
+ *   - The requirement is on only when the deployment sells protection
+ *     (`PROTECTION_MODE=required`). With protection off there is no way for a
+ *     participant to obtain cover, so gating on it would silently disable
+ *     leveraged trading entirely. `PROTECTION_MODE` is the single switch the
+ *     rest of the product reads for this decision, so this gate reads it too.
  *
- * This is the single gate every opening path calls — the custody execute route
- * and the algorithm runner — so a new entry point cannot forget it the way the
- * custody path originally did (only the prepare path checked protection).
+ * This is the gate every opening path calls — the custody execute route and the
+ * algorithm runner — so a new entry point cannot forget it.
  */
 export async function assertLeveragedCover(params: {
   userId: string;
@@ -155,6 +159,8 @@ export async function assertLeveragedCover(params: {
   symbol?: string;
 }): Promise<void> {
   if (params.leverage <= 1 || params.reduceOnly) return;
+  // Honor the deployment's protection policy — see the note above.
+  if (!protectionRequired()) return;
 
   const policy = await prisma.protectionPolicy.findFirst({
     where: {
