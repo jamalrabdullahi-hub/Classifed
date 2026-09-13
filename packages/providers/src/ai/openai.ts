@@ -1,18 +1,22 @@
-import { env } from '@flt/config';
 import { ProviderError } from '@flt/core/domain';
 import type { AiAction, AiDecision, AiDecisionRequest, AiProvider } from './types';
 
 /**
  * OpenAI-compatible chat client.
  *
- * Pointed at `AI_API_URL`, so it works with OpenAI, OpenRouter, Azure-style
- * gateways, or a local model that speaks the same wire format. It asks for a
- * JSON object and validates it strictly — a model that returns prose, an
- * unknown action, or a symbol outside the allowed set is a provider failure, not
- * a trade.
+ * Pointed at `config.apiUrl`, so it works with OpenAI, DeepSeek, OpenRouter,
+ * or any gateway that speaks the same wire format. It asks for a JSON object
+ * and validates it strictly — a model that returns prose, an unknown action, or
+ * a symbol outside the allowed set is a provider failure, not a trade.
  */
 
 const ALLOWED_ACTIONS: readonly AiAction[] = ['OPEN_LONG', 'OPEN_SHORT', 'CLOSE', 'HOLD'];
+
+export interface OpenAiConfig {
+  apiUrl: string;
+  apiKey: string;
+  model: string;
+}
 
 function systemMessage(request: AiDecisionRequest): string {
   return [
@@ -64,22 +68,19 @@ export function parseDecision(raw: string, request: AiDecisionRequest): AiDecisi
 export class OpenAiProvider implements AiProvider {
   readonly name = 'openai';
 
-  async decide(request: AiDecisionRequest): Promise<AiDecision> {
-    const config = env();
-    if (!config.AI_API_KEY) {
-      throw new ProviderError('ai', 'AI_API_KEY is not configured');
-    }
+  constructor(private readonly config: OpenAiConfig) {}
 
+  async decide(request: AiDecisionRequest): Promise<AiDecision> {
     let response: Response;
     try {
-      response = await fetch(`${config.AI_API_URL}/chat/completions`, {
+      response = await fetch(`${this.config.apiUrl}/chat/completions`, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          authorization: `Bearer ${config.AI_API_KEY}`,
+          authorization: `Bearer ${this.config.apiKey}`,
         },
         body: JSON.stringify({
-          model: config.AI_MODEL,
+          model: this.config.model,
           messages: [
             { role: 'system', content: systemMessage(request) },
             { role: 'user', content: userMessage(request) },
@@ -112,8 +113,6 @@ export class OpenAiProvider implements AiProvider {
   }
 
   async health(): Promise<{ ok: boolean; detail?: string }> {
-    const config = env();
-    if (!config.AI_API_KEY) return { ok: false, detail: 'AI_API_KEY is not set' };
-    return { ok: true, detail: `${config.AI_MODEL} at ${config.AI_API_URL}` };
+    return { ok: true, detail: `${this.config.model} at ${this.config.apiUrl}` };
   }
 }

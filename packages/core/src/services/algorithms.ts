@@ -12,7 +12,7 @@ import {
   type User,
   type UserAlgorithm,
 } from '@flt/db';
-import { env } from '@flt/config';
+import { resolveAiSettings } from './platform-settings';
 import type { Candle } from '../ports/history';
 import { ForbiddenError, NotFoundError, ValidationError } from '../domain/errors';
 import { newId } from '../domain/id';
@@ -222,8 +222,8 @@ export async function activateAlgorithm(
   let strategyParams: Record<string, unknown> | null = null;
 
   if (algorithm.kind === AlgorithmKind.AI) {
-    if (!env().AI_ENABLED) {
-      throw new ValidationError('AI trading is not available on this deployment yet.');
+    if (!(await resolveAiSettings()).enabled) {
+      throw new ValidationError('AI trading is not available yet — an operator must switch it on.');
     }
     prompt = (input.prompt ?? '').trim();
     if (prompt.length < 8) throw new ValidationError('Write a prompt of at least 8 characters.');

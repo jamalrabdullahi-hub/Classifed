@@ -1,4 +1,5 @@
 import { prisma } from '@flt/db';
+import { env } from '@flt/config';
 import { ValidationError } from '../domain/errors';
 import { encryptSecret, decryptSecret } from './crypto/hashing';
 import { PERMISSIONS, assertCan, recordAdminAction, type AdminActionContext } from './admin';
@@ -37,6 +38,10 @@ export const PLATFORM_SETTING_KEYS = {
   FIAT_DEPOSIT_FEE_BPS: 'fiat_deposit_fee_bps',
   FIAT_DEPOSIT_MIN_USD: 'fiat_deposit_min_usd',
   FIAT_DEPOSIT_INSTRUCTIONS: 'fiat_deposit_instructions',
+  AI_ENABLED: 'ai_enabled',
+  AI_API_URL: 'ai_api_url',
+  AI_MODEL: 'ai_model',
+  AI_API_KEY: 'ai_api_key',
 } as const;
 
 /**
@@ -300,4 +305,81 @@ export async function setFiatDepositSettings(
     String(input.enabled),
     { secret: false },
   );
+}
+
+export interface AiSettings {
+  enabled: boolean;
+  apiUrl: string;
+  model: string;
+  /** Secret. Never returned to a client; the admin form shows only whether one is set. */
+  apiKey: string | null;
+}
+
+/**
+ * The AI trader's model credentials.
+ *
+ * Stored here so an operator can paste a provider key (e.g. a DeepSeek key)
+ * into the admin panel without touching the server. The key is a secret —
+ * encrypted at rest like the others this module holds — and the stored value
+ * overrides the environment when set, falling back to it otherwise.
+ *
+ * ## The provider
+ *
+ * OpenAI-compatible. DeepSeek works with `apiUrl=https://api.deepseek.com/v1`
+ * and `model=deepseek-chat`; OpenAI and OpenRouter are the same shape.
+ */
+export async function resolveAiSettings(): Promise<AiSettings> {
+  const config = env();
+  const [enabled, apiUrl, model, apiKey] = await Promise.all([
+    readSetting(PLATFORM_SETTING_KEYS.AI_ENABLED),
+    readSetting(PLATFORM_SETTING_KEYS.AI_API_URL),
+    readSetting(PLATFORM_SETTING_KEYS.AI_MODEL),
+    readSetting(PLATFORM_SETTING_KEYS.AI_API_KEY),
+  ]);
+
+  return {
+    enabled: enabled !== null ? enabled === 'true' : config.AI_ENABLED,
+    apiUrl: apiUrl ?? config.AI_API_URL,
+    model: model ?? config.AI_MODEL,
+    apiKey: apiKey ?? config.AI_API_KEY ?? null,
+  };
+}
+
+/** Whether an API key is set, without revealing it. */
+export async function aiKeyIsSet(): Promise<boolean> {
+  const stored = await readSetting(PLATFORM_SETTING_KEYS.AI_API_KEY);
+  return Boolean(stored ?? env().AI_API_KEY);
+}
+
+export async function setAiSettings(
+  context: AdminActionContext,
+  input: { enabled: boolean; apiUrl: string; model: string; apiKey?: string | null },
+): Promise<void> {
+  const apiUrl = input.apiUrl.trim();
+  const model = input.model.trim();
+
+  if (!/^https?:\/\//.test(apiUrl)) {
+    throw new ValidationError('The API URL must start with http:// or https://');
+  }
+  if (!model) throw new ValidationError('Set a model name, e.g. deepseek-chat');
+
+  const newKey = input.apiKey?.trim() ?? '';
+  if (newKey && !/^[!-~]{8,200}$/.test(newKey)) {
+    throw new ValidationError('That does not look like an API key');
+  }
+
+  if (input.enabled && !newKey && !(await aiKeyIsSet())) {
+    throw new ValidationError('Set an API key before turning AI trading on');
+  }
+
+  await writeSetting(context, PLATFORM_SETTING_KEYS.AI_API_URL, apiUrl, { secret: false });
+  await writeSetting(context, PLATFORM_SETTING_KEYS.AI_MODEL, model, { secret: false });
+  // Only overwrite the key when a new one is supplied — an empty field means
+  // "leave it as it is", not "clear it".
+  if (newKey) {
+    await writeSetting(context, PLATFORM_SETTING_KEYS.AI_API_KEY, newKey, { secret: true });
+  }
+  await writeSetting(context, PLATFORM_SETTING_KEYS.AI_ENABLED, String(input.enabled), {
+    secret: false,
+  });
 }

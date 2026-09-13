@@ -204,7 +204,7 @@ async function runAiSubscription(
 
   let decision;
   try {
-    decision = await aiProvider().decide({
+    decision = await (await aiProvider()).decide({
       systemPrompt: algorithm.systemPrompt,
       userPrompt: subscription.prompt ?? 'Trade prudently.',
       allowedSymbols: algorithm.symbols,

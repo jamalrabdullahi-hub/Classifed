@@ -1,36 +1,42 @@
 import { env } from '@flt/config';
 import { ProviderNotConfiguredError } from '@flt/core/domain';
+import { resolveAiSettings } from '@flt/core/services/platform-settings';
 import { OpenAiProvider } from './openai';
 import { MockAiProvider } from './mock';
 import type { AiProvider } from './types';
 
 /**
- * The AI trader's provider, resolved.
+ * The AI trader's provider, resolved from the stored settings (admin panel),
+ * falling back to the environment.
  *
- * Off unless `AI_ENABLED`. In production a real key is required; outside
- * production the literal key `mock` selects the deterministic mock so the path
- * can be exercised without a network call. Anything else is the real client.
+ * Off unless enabled. In production a real key is required; outside production
+ * the literal key `mock` selects the deterministic mock so the path can be
+ * exercised without a network call.
  */
 
-export function aiEnabled(): boolean {
-  return env().AI_ENABLED;
+export async function aiEnabled(): Promise<boolean> {
+  return (await resolveAiSettings()).enabled;
 }
 
-export function aiProvider(): AiProvider {
-  const config = env();
-  if (!config.AI_ENABLED) {
-    throw new ProviderNotConfiguredError('ai', 'AI_ENABLED is not set');
+export async function aiProvider(): Promise<AiProvider> {
+  const settings = await resolveAiSettings();
+  if (!settings.enabled) {
+    throw new ProviderNotConfiguredError('ai', 'AI trading is not enabled');
   }
 
-  if (config.NODE_ENV !== 'production' && config.AI_API_KEY === 'mock') {
+  if (env().NODE_ENV !== 'production' && settings.apiKey === 'mock') {
     return new MockAiProvider();
   }
 
-  if (!config.AI_API_KEY) {
-    throw new ProviderNotConfiguredError('ai', 'AI_API_KEY is not set');
+  if (!settings.apiKey) {
+    throw new ProviderNotConfiguredError('ai', 'No AI API key is configured');
   }
 
-  return new OpenAiProvider();
+  return new OpenAiProvider({
+    apiUrl: settings.apiUrl,
+    apiKey: settings.apiKey,
+    model: settings.model,
+  });
 }
 
 export type {
