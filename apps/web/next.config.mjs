@@ -52,6 +52,17 @@ const nextConfig = {
    * (see `nav.tsx` and every internal `Link`), this list only catches what
    * was already out in the world before the rename.
    */
+  /**
+   * Digital Asset Links for the Android app.
+   *
+   * Served from a route rather than a static file so the signing fingerprints
+   * come from the server environment and can change without a code deploy —
+   * the Play app-signing certificate is only known once the app is uploaded.
+   */
+  async rewrites() {
+    return [{ source: '/.well-known/assetlinks.json', destination: '/api/assetlinks' }];
+  },
+
   async redirects() {
     const renamed = [
       ['/account', '/akoon'],

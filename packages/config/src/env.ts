@@ -74,6 +74,18 @@ const schema = z.object({
    */
   AUTO_WALLET_PROVISIONING_ENABLED: z.coerce.boolean().default(false),
   PRIVY_APP_ID: z.string().optional(),
+  /**
+   * The Android app's package name, published in /.well-known/assetlinks.json
+   * so Chrome will open the app full-screen for this site.
+   */
+  ANDROID_PACKAGE_NAME: z.string().default('com.ftlexchange.app'),
+  /**
+   * SHA-256 signing-certificate fingerprints for the Android app, comma
+   * separated. Both are needed: the Play app-signing certificate (builds
+   * installed from Play) and the upload-key certificate (the APK downloaded
+   * directly). Public values — they identify a certificate, they do not unlock one.
+   */
+  ANDROID_CERT_SHA256: z.string().optional(),
   PRIVY_APP_SECRET: z.string().optional(),
 
   // ── Custody (omnibus) ─────────────────────────────────────────────────────

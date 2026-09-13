@@ -285,3 +285,30 @@ Enabling it, and raising its verification tier, are separate deliberate acts.
 Keep them separate: the tier communicates that FLT reviewed the contract, so if
 listing is ever sold, a paid listing must never raise a tier or the warning on
 unreviewed tokens stops meaning anything.
+
+## Android app
+
+The app is a Trusted Web Activity over `https://ftlexchange.com` — see
+`apps/android/README.md` for building and signing.
+
+Server side, three things:
+
+1. **Asset links.** Set both signing fingerprints in `/opt/flt-exchange/.env`,
+   comma separated, then let auto-deploy restart the web service:
+
+       ANDROID_PACKAGE_NAME=com.ftlexchange.app
+       ANDROID_CERT_SHA256=<Play app-signing SHA-256>,<upload key SHA-256>
+
+   Check: `curl https://ftlexchange.com/.well-known/assetlinks.json`
+
+2. **APK downloads.** Once, as root:
+
+       mkdir -p /var/www/flt-downloads && chown www-data:www-data /var/www/flt-downloads
+       cp /opt/flt-exchange/deploy/ftlexchange.com.nginx.conf /etc/nginx/sites-available/ftlexchange.com
+       nginx -t && systemctl reload nginx
+
+   Each release: copy the signed APK to `/var/www/flt-downloads/flt-<version>.apk`,
+   take its checksum with `sha256sum`, and enter the URL, version and checksum
+   under Admin -> Mobile app.
+
+3. **Nothing else.** The app loads the live site, so every web deploy updates it.

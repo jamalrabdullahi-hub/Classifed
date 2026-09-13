@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { CustodyNote, Wordmark } from '@/components/brand';
 import { ThemeToggle } from '@/components/theme';
+import { LegalLinks } from '@/components/legal-links';
 
 /**
  * Shell for sign-in, registration and recovery.
@@ -28,8 +29,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       </main>
 
       <footer className="border-t border-[var(--border)] py-6">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 sm:px-6">
           <CustodyNote className="max-w-xl" />
+          <LegalLinks />
         </div>
       </footer>
     </div>

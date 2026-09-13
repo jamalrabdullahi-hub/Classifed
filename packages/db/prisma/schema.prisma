@@ -246,6 +246,7 @@ model User {
   referralEarnings   ReferralEarning[]      @relation("ReferralEarnings")
   passiveCash        PassiveCashAccount?
   userAlgorithms     UserAlgorithm[]
+  deletionRequests   AccountDeletionRequest[]
   createdAlgorithms  TradingAlgorithm[]
 
   @@index([accountStatus])
@@ -2864,4 +2865,33 @@ model FiatWithdrawal {
   @@index([status, createdAt])
   @@index([userId, createdAt])
   @@map("fiat_withdrawals")
+}
+
+/// A request to delete an account. See services/account-deletion.ts.
+enum AccountDeletionStatus {
+  REQUESTED
+  COMPLETED
+  REFUSED
+}
+
+model AccountDeletionRequest {
+  id                      String                @id
+  userId                  String
+  status                  AccountDeletionStatus @default(REQUESTED)
+  /// Restored if an operator refuses the request.
+  previousAccountStatus   AccountStatus
+  previousTradingDisabled Boolean
+  note                    String?
+  requestedAt             DateTime              @default(now())
+  completedAt             DateTime?
+  completedById           String?
+  refusedAt               DateTime?
+  refusedById             String?
+  updatedAt               DateTime              @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, requestedAt])
+  @@index([userId])
+  @@map("account_deletion_requests")
 }

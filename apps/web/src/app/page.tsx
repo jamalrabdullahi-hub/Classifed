@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { LegalLinks } from '@/components/legal-links';
 import { redirect } from 'next/navigation';
 import { ArrowRight, KeyRound, Route, ShieldCheck, Wallet } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
@@ -161,6 +162,7 @@ export default async function HomePage() {
           <p className="max-w-2xl text-[12px] leading-relaxed text-[var(--text-subtle)]">
             {t('disclaimer')}
           </p>
+          <LegalLinks />
         </div>
       </footer>
     </div>

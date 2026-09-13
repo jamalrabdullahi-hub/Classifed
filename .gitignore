@@ -54,3 +54,15 @@ _*.py
 _*.sh
 *_tmp.py
 *_tmp.sh
+
+# Android signing keys and build outputs. The upload keystore is the one secret
+# that cannot be rotated without Google's help, so it must never be committed;
+# built APKs and bundles are release artifacts, uploaded, not versioned.
+*.jks
+*.keystore
+keystore.properties
+*.apk
+*.aab
+apps/android/app/build/
+apps/android/.gradle/
+apps/android/local.properties

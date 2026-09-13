@@ -53,6 +53,10 @@ export const PLATFORM_SETTING_KEYS = {
   FIAT_WITHDRAWAL_EVC: 'fiat_withdrawal_evc',
   FIAT_WITHDRAWAL_BANK: 'fiat_withdrawal_bank',
   FIAT_WITHDRAWAL_PAYPAL: 'fiat_withdrawal_paypal',
+  ANDROID_PLAY_URL: 'android_play_url',
+  ANDROID_APK_URL: 'android_apk_url',
+  ANDROID_APK_VERSION: 'android_apk_version',
+  ANDROID_APK_SHA256: 'android_apk_sha256',
   AI_ENABLED: 'ai_enabled',
   AI_API_URL: 'ai_api_url',
   AI_MODEL: 'ai_model',
@@ -546,4 +550,69 @@ export async function setFiatRailSettings(
   await writeSetting(context, K.FIAT_WITHDRAWAL_BANK, String(withdrawals.bank), plain);
   await writeSetting(context, K.FIAT_WITHDRAWAL_PAYPAL, String(withdrawals.paypal), plain);
   await writeSetting(context, K.FIAT_WITHDRAWAL_ENABLED, String(withdrawals.enabled), plain);
+}
+
+// ── Android app download ────────────────────────────────────────────────────
+
+/**
+ * Where people get the Android app.
+ *
+ * Changes every release and needs no deploy, so it lives here beside the other
+ * business details. The APK URL points at a file an operator uploaded — never
+ * at the git repository or the Next build — and the checksum is published next
+ * to it so anyone who sideloads can confirm the file is the one FLT released.
+ */
+export interface AndroidAppSettings {
+  playUrl: string;
+  apkUrl: string;
+  apkVersion: string;
+  apkSha256: string;
+}
+
+export async function resolveAndroidAppSettings(): Promise<AndroidAppSettings> {
+  const K = PLATFORM_SETTING_KEYS;
+  const [playUrl, apkUrl, apkVersion, apkSha256] = await Promise.all([
+    readSetting(K.ANDROID_PLAY_URL),
+    readSetting(K.ANDROID_APK_URL),
+    readSetting(K.ANDROID_APK_VERSION),
+    readSetting(K.ANDROID_APK_SHA256),
+  ]);
+  return {
+    playUrl: playUrl ?? '',
+    apkUrl: apkUrl ?? '',
+    apkVersion: apkVersion ?? '',
+    apkSha256: apkSha256 ?? '',
+  };
+}
+
+export async function setAndroidAppSettings(
+  context: AdminActionContext,
+  input: AndroidAppSettings,
+): Promise<void> {
+  const playUrl = input.playUrl.trim();
+  const apkUrl = input.apkUrl.trim();
+  const apkVersion = input.apkVersion.trim();
+  const apkSha256 = input.apkSha256.trim().toLowerCase();
+
+  if (playUrl && !playUrl.startsWith('https://play.google.com/')) {
+    throw new ValidationError('The Play Store link must start with https://play.google.com/');
+  }
+  if (apkUrl && !/^https:\/\/\S+\.apk$/i.test(apkUrl)) {
+    throw new ValidationError('The APK link must be an https:// address ending in .apk');
+  }
+  if (apkUrl && !/^[a-f0-9]{64}$/.test(apkSha256)) {
+    // A download people install without a checksum they can check is exactly
+    // the file a tampered mirror would serve.
+    throw new ValidationError('Publish the APK with its SHA-256 checksum (64 hex characters).');
+  }
+  if (apkVersion.length > 32) {
+    throw new ValidationError('Keep the version label under 32 characters.');
+  }
+
+  const plain = { secret: false };
+  const K = PLATFORM_SETTING_KEYS;
+  await writeSetting(context, K.ANDROID_PLAY_URL, playUrl, plain);
+  await writeSetting(context, K.ANDROID_APK_VERSION, apkVersion, plain);
+  await writeSetting(context, K.ANDROID_APK_SHA256, apkSha256, plain);
+  await writeSetting(context, K.ANDROID_APK_URL, apkUrl, plain);
 }

@@ -16,6 +16,8 @@ import {
   truncateMiddle,
 } from '@flt/ui';
 import { AttentionActions } from './attention-actions';
+import { DeletionActions } from './deletion-actions';
+import { listOpenDeletionRequests } from '@flt/core/services/account-deletion';
 import { requireAdminPage } from '@/server/session';
 
 export const metadata: Metadata = { title: 'Needs attention' };
@@ -66,7 +68,7 @@ const MAX_SWEEP_ATTEMPTS = 3;
 export default async function AttentionPage() {
   await requireAdminPage();
 
-  const [stuckWithdrawals, strandedDeposits, unsettled] = await Promise.all([
+  const [stuckWithdrawals, strandedDeposits, unsettled, deletions] = await Promise.all([
     /**
      * A broadcast whose outcome is unknown. The worker checks the chain for a
      * matching transfer and only re-queues when it can prove nothing left; one
@@ -105,9 +107,13 @@ export default async function AttentionPage() {
       orderBy: { occurredAt: 'desc' },
       take: 50,
     }),
+
+    /** Account deletion requests: the account is already suspended and signed out. */
+    listOpenDeletionRequests(),
   ]);
 
-  const total = stuckWithdrawals.length + strandedDeposits.length + unsettled.length;
+  const total =
+    stuckWithdrawals.length + strandedDeposits.length + unsettled.length + deletions.length;
 
   return (
     <div className="space-y-5">
@@ -266,6 +272,46 @@ export default async function AttentionPage() {
                         {after.reason ?? '—'}
                       </TD>
                       <TD className={`num ${ageTone(hours)}`}>{describeAge(hours)}</TD>
+                    </TR>
+                  );
+                })}
+              </TBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : null}
+      {deletions.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Account deletion requests</CardTitle>
+            <Badge tone="warning">{deletions.length}</Badge>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="max-w-[80ch] text-[12px] leading-relaxed text-[var(--text-muted)]">
+              The account is suspended and signed out. It had no balance, open position, order or
+              transfer when it asked; completing checks again. Completion anonymises personal
+              details and keeps the ledger, transactions and KYC documents for their retention period.
+            </p>
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Account</TH>
+                  <TH>Status before</TH>
+                  <TH>Waiting</TH>
+                  <TH />
+                </TR>
+              </THead>
+              <TBody>
+                {deletions.map((row) => {
+                  const hours = ageHours(row.requestedAt);
+                  return (
+                    <TR key={row.id}>
+                      <TD>{row.user.email}</TD>
+                      <TD className="text-[11px]">{row.previousAccountStatus}</TD>
+                      <TD className={`num ${ageTone(hours)}`}>{describeAge(hours)}</TD>
+                      <TD>
+                        <DeletionActions id={row.id} />
+                      </TD>
                     </TR>
                   );
                 })}

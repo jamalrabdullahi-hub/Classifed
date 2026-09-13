@@ -20,6 +20,7 @@ import {
   Route,
   ShieldCheck,
   Users,
+  Smartphone,
   TriangleAlert,
   Wallet,
 } from 'lucide-react';
@@ -68,6 +69,7 @@ const SECTIONS: { label: string; items: { href: string; label: string; icon: typ
       { href: '/market-making', label: 'Market making', icon: TrendingUp },
       { href: '/ai', label: 'AI trading', icon: Bot },
       { href: '/payments', label: 'Payments', icon: Banknote },
+      { href: '/mobile-app', label: 'Mobile app', icon: Smartphone },
     ],
   },
   {

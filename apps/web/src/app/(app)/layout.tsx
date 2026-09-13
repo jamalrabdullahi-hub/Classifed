@@ -1,3 +1,4 @@
+import { LegalLinks } from '@/components/legal-links';
 import { redirect } from 'next/navigation';
 import { AccountStatus } from '@flt/db';
 import { env } from '@flt/config';
@@ -42,6 +43,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <footer className="border-t border-[var(--border)] py-6">
         <div className="mx-auto flex max-w-[1400px] flex-col gap-2 px-4 sm:px-6">
           <CustodyNote className="max-w-2xl" />
+          <LegalLinks />
           <p className="text-[11px] text-[var(--text-subtle)]">
             Digital assets are volatile and trades settle on public blockchains. Transactions cannot
             be reversed once signed.

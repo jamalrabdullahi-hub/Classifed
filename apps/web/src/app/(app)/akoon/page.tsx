@@ -18,7 +18,9 @@ import {
 } from '@flt/ui';
 import { mfaStatus } from '@flt/core/services/mfa';
 import { listDevices, listSessions } from '@flt/core/services/sessions';
+import { deletionBlockers } from '@flt/core/services/account-deletion';
 import { AccountSecurity } from './account-security';
+import { DeleteAccount } from './delete-account';
 import { requireUserPage } from '@/server/session';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -47,6 +49,7 @@ export default async function AccountPage() {
     listDevices(prisma, user.id),
     prisma.kycProfile.findUnique({ where: { userId: user.id } }),
   ]);
+  const blockers = await deletionBlockers(user.id);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -189,6 +192,8 @@ export default async function AccountPage() {
           </ul>
         </CardContent>
       </Card>
+
+      <DeleteAccount blockers={blockers} />
     </div>
   );
 }

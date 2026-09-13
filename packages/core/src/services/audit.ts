@@ -264,6 +264,11 @@ export const AuditAction = {
   ADMIN_ADMIN_CREATED: 'admin.admin.created',
   ADMIN_ADMIN_ROLE_CHANGED: 'admin.admin.role_changed',
   ADMIN_ADMIN_DEACTIVATED: 'admin.admin.deactivated',
+
+  // Account deletion
+  ACCOUNT_DELETION_REQUESTED: 'account.deletion.requested',
+  ACCOUNT_DELETION_COMPLETED: 'admin.account.deletion.completed',
+  ACCOUNT_DELETION_REFUSED: 'admin.account.deletion.refused',
 } as const;
 
 export type AuditActionName = (typeof AuditAction)[keyof typeof AuditAction];
