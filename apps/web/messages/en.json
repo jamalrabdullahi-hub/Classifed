@@ -406,6 +406,10 @@
     "stopLossLine": "Stop {amount}"
   },
   "perpPositions": {
+    "tabPositions": "Positions ({n})",
+    "tabPending": "Pending orders ({n})",
+    "noPending": "No pending orders on this market.",
+    "pendingKind": { "ENTRY": "Entry", "TAKE_PROFIT": "Take profit", "STOP_LOSS": "Stop loss" },
     "couldNotLoad": "Could not load positions.",
     "couldNotClose": "Could not close the position.",
     "linkWalletCompact": "Link a verified wallet to trade perpetuals.",

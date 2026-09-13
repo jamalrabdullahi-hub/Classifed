@@ -94,8 +94,15 @@ export function PerpPositionsPanel({
   const [error, setError] = useState<string | null>(null);
   const [needsWallet, setNeedsWallet] = useState(false);
   const [closing, setClosing] = useState<string | null>(null);
+  const [tab, setTab] = useState<'positions' | 'pending'>('positions');
+  const [pending, setPending] = useState<PendingOrder[]>([]);
 
   const load = useCallback(async () => {
+    // Pending orders are read alongside positions and never block them: a
+    // failure here leaves the list empty rather than hiding a live position.
+    void get<{ orders: PendingOrder[] }>('/api/perps/orders/pending')
+      .then((response) => setPending(response.orders))
+      .catch(() => undefined);
     try {
       setData(await get<PositionsResponse>('/api/perps/positions'));
       setError(null);
@@ -200,8 +207,48 @@ export function PerpPositionsPanel({
   const positions = symbol
     ? data.positions.filter((position) => position.symbol === symbol)
     : data.positions;
+  const pendingForSymbol = symbol ? pending.filter((order) => order.symbol === symbol) : pending;
 
   if (compact) {
+    /**
+     * Positions and pending orders, as two tabs of one panel.
+     *
+     * A resting limit entry or an attached stop is money committed to a price
+     * that has not been reached, and a participant looking for "what have I got
+     * on" expects to find it next to what has already filled — not on a
+     * different page.
+     */
+    return (
+      <div>
+        <div className="flex border-b border-[var(--border)] px-2.5">
+          {(['positions', 'pending'] as const).map((key) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTab(key)}
+              aria-pressed={tab === key}
+              className={`-mb-px border-b-2 px-2 py-1.5 text-[11px] transition-colors ${
+                tab === key
+                  ? 'border-[var(--text)] text-[var(--text)]'
+                  : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'
+              }`}
+            >
+              {key === 'positions'
+                ? t('tabPositions', { n: positions.length })
+                : t('tabPending', { n: pendingForSymbol.length })}
+            </button>
+          ))}
+        </div>
+        {tab === 'pending' ? (
+          <PendingOrdersList orders={pendingForSymbol} t={t} />
+        ) : (
+          renderCompactPositions()
+        )}
+      </div>
+    );
+  }
+
+  function renderCompactPositions() {
     return positions.length === 0 ? (
       <p className="p-3 text-[11px] text-[var(--text-subtle)]">
         {symbol ? t('noOpenPositionOn', { symbol }) : t('noOpenPosition')}
@@ -388,4 +435,57 @@ function usd(value: string | null): string {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return '—';
   return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+interface PendingOrder {
+  id: string;
+  symbol: string;
+  kind: 'ENTRY' | 'TAKE_PROFIT' | 'STOP_LOSS';
+  side: string;
+  orderType: string;
+  price: string | null;
+  size: string;
+  status: string;
+  createdAt: string | null;
+}
+
+/** Orders committed to a price that has not been reached yet. */
+function PendingOrdersList({
+  orders,
+  t,
+}: {
+  orders: PendingOrder[];
+  t: ReturnType<typeof useTranslations<'perpPositions'>>;
+}) {
+  if (orders.length === 0) {
+    return <p className="p-3 text-[11px] text-[var(--text-subtle)]">{t('noPending')}</p>;
+  }
+
+  return (
+    <ul className="divide-y divide-[var(--border)]">
+      {orders.map((order) => (
+        <li key={order.id} className="flex items-center justify-between gap-3 px-2.5 py-2 text-[11px]">
+          <div className="min-w-0">
+            <span
+              className={
+                order.kind === 'STOP_LOSS'
+                  ? 'font-medium text-[var(--negative)]'
+                  : order.kind === 'TAKE_PROFIT'
+                    ? 'font-medium text-[var(--positive)]'
+                    : 'font-medium text-[var(--text)]'
+              }
+            >
+              {t(`pendingKind.${order.kind}` as 'pendingKind.ENTRY')}
+            </span>
+            <span className="ml-1.5 text-[var(--text-subtle)]">
+              {order.side} · {order.size}
+            </span>
+          </div>
+          <span className="num shrink-0 font-[family-name:var(--font-mono)] text-[var(--text)]">
+            {order.price ?? '—'}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
 }

@@ -333,7 +333,10 @@ export function ProtectedTicket({
    * with no popup and no key on any server.
    */
   async function execute() {
+    // A new attempt clears the last outcome. Leaving "Order sent" on screen
+    // beside a fresh rejection made it unclear which of the two was current.
     setError(null);
+    setDone(null);
     setPending(true);
     try {
       // Placed server-side, from FLT's omnibus account, signed by the agent key
@@ -374,7 +377,21 @@ export function ProtectedTicket({
       setDone(tt('orderSent'));
       setConfirming(false);
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : (caught as Error).message);
+      /**
+       * Name the field. A validation failure used to surface as the bare
+       * "The request is not valid", which gave no hint that, say, the stop-loss
+       * was the problem. The server already returns which fields failed.
+       */
+      if (caught instanceof ApiError) {
+        const issues = (caught.details?.issues ?? []) as { path: string; message: string }[];
+        setError(
+          issues.length > 0
+            ? `${caught.message}: ${issues.map((issue) => `${issue.path} — ${issue.message}`).join('; ')}`
+            : caught.message,
+        );
+      } else {
+        setError((caught as Error).message);
+      }
       setConfirming(false);
     } finally {
       setPending(false);

@@ -16,10 +16,12 @@ import { handler } from '@/server/api';
  * Both legs are reduce-only and sized to the participant's own attributed size,
  * so one person's stop can never flatten the pooled position.
  */
+// Accepts ".088" as well as "0.088" — see the note in orders/execute/route.ts.
 const price = z
   .string()
   .trim()
-  .regex(/^\d+(\.\d+)?$/, 'Enter a price like 77000 or 77000.50')
+  .transform((value) => (value.startsWith('.') ? `0${value}` : value))
+  .pipe(z.string().regex(/^\d+(\.\d+)?$/, 'Enter a price like 77000 or 0.088'))
   .optional()
   .nullable();
 

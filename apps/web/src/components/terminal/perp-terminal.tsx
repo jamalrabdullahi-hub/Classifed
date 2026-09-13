@@ -103,7 +103,17 @@ export function PerpTerminal({
         </p>
       ) : null}
 
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_180px_300px]">
+      {/*
+        One frame, on desktop.
+
+        The row used to size to its tallest column, and the ticket is the
+        tallest: every section expanded pushed the whole row down, leaving the
+        chart and book stranded above a widening band of empty space — the
+        "spacing" that grew as options were selected. The row now has a fixed
+        height, each column scrolls inside it, and the ticket column is wider so
+        less of it needs to.
+      */}
+      <div className="grid lg:h-[720px] lg:grid-cols-[minmax(0,1fr)_180px_360px]">
         <Panel label={t('chartLabel', { symbol: market.symbol })} className="order-2 lg:order-1 min-h-[380px]">
           <PerpChart
             symbol={market.symbol}
@@ -117,6 +127,7 @@ export function PerpTerminal({
         <Panel
           label={t('orderBook')}
           className="order-3 border-t lg:order-2 lg:border-l lg:border-t-0"
+          bodyClassName="overflow-y-auto"
         >
           <OrderBook
             emptyNote={
@@ -135,7 +146,7 @@ export function PerpTerminal({
         <Panel
           label={t('order')}
           className="order-1 lg:order-3 lg:border-l"
-          bodyClassName="p-0"
+          bodyClassName="p-0 lg:overflow-y-auto"
         >
           <ProtectedTicket
             locked={guest || !canTrade}
@@ -150,7 +161,7 @@ export function PerpTerminal({
         </Panel>
       </div>
 
-      <div className="grid border-t border-[var(--border)] lg:grid-cols-[minmax(0,1fr)_180px_300px]">
+      <div className="grid border-t border-[var(--border)] lg:grid-cols-[minmax(0,1fr)_180px_360px]">
         <Panel label={t('yourPosition')} className="min-h-[120px]">
           {guest ? (
             <p className="p-3 text-[11px] text-[var(--text-subtle)]">{t('signInForPositions')}</p>
@@ -198,11 +209,11 @@ function Panel({
   bodyClassName?: string;
 }) {
   return (
-    <section className={`flex flex-col border-[var(--border)] ${className}`}>
+    <section className={`flex min-h-0 flex-col border-[var(--border)] ${className}`}>
       <h2 className="border-b border-[var(--border)] px-2.5 py-1.5 font-[family-name:var(--font-mono)] text-[9.5px] uppercase tracking-[0.1em] text-[var(--text-subtle)]">
         {label}
       </h2>
-      <div className={`flex-1 ${bodyClassName}`}>{children}</div>
+      <div className={`min-h-0 flex-1 ${bodyClassName}`}>{children}</div>
     </section>
   );
 }

@@ -406,6 +406,10 @@
     "stopLossLine": "Jooji {amount}"
   },
   "perpPositions": {
+    "tabPositions": "Jagooyinka ({n})",
+    "tabPending": "Dalabyada sugaya ({n})",
+    "noPending": "Suuqan dalab sugaya kuma jiro.",
+    "pendingKind": { "ENTRY": "Gelitaan", "TAKE_PROFIT": "Qaado faa'iido", "STOP_LOSS": "Jooji khasaare" },
     "couldNotLoad": "Booskaan lama soo rari karin.",
     "couldNotClose": "Booska lama xirin karin.",
     "linkWalletCompact": "Ku xidh boorsad la xaqiijiyay si aad u ganacsato perpetuals.",

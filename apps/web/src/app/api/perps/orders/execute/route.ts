@@ -27,7 +27,20 @@ import { handler } from '@/server/api';
  * being spent blindly.
  */
 
-const decimalString = z.string().trim().regex(/^\d+(\.\d+)?$/, 'Must be a positive decimal number');
+/**
+ * A positive decimal, accepting the forms people actually type.
+ *
+ * ".088" is how a price under one dollar gets entered, and the old rule
+ * (`^\d+(\.\d+)?$`) rejected it — which failed the whole order with "The
+ * request is not valid" and no hint that a take-profit of .088 was the reason.
+ * It is normalised to "0.088" here, so everything downstream still sees a
+ * canonical decimal.
+ */
+const decimalString = z
+  .string()
+  .trim()
+  .transform((value) => (value.startsWith('.') ? `0${value}` : value))
+  .pipe(z.string().regex(/^\d+(\.\d+)?$/, 'Must be a positive decimal number'));
 
 const schema = z.object({
   symbol: z.string().trim().min(1).max(24),
