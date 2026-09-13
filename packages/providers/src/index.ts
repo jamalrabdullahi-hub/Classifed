@@ -22,3 +22,4 @@ export * from './mail/index';
 export * from './custody/index';
 export * from './storage/index';
 export * from './wallet-provisioning/index';
+export * from './ai/index';

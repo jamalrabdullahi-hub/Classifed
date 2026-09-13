@@ -17,7 +17,8 @@ vi.mock('@flt/db', async () => {
 });
 
 import { AlgorithmStrategy } from '@flt/db';
-import { computeSignal, readStrategyParams } from '../src/services/algorithms';
+import { accrueFee, computeSignal, dailyFeeFraction, readStrategyParams } from '../src/services/algorithms';
+import { Decimal } from '../src/domain/money';
 
 /**
  * Strategy evaluation.
@@ -131,5 +132,27 @@ describe('computeSignal — guards', () => {
     expect(
       computeSignal(AlgorithmStrategy.MOMENTUM, { lookback: 24 }, candlesFromCloses([1, 2, 3])),
     ).toBeNull();
+  });
+});
+
+describe('management fee', () => {
+  it('is 2% a month of capital, pro-rated daily at 2%/31', () => {
+    expect(dailyFeeFraction(200, 31).toNumber()).toBeCloseTo(0.02 / 31, 10);
+  });
+
+  it('charges ~$0.96 on a $100 base for 15 days', () => {
+    const fee = accrueFee(
+      new Decimal(100),
+      200,
+      31,
+      new Date('2026-01-01T00:00:00Z'),
+      new Date('2026-01-16T00:00:00Z'),
+    );
+    expect(fee.toNumber()).toBeCloseTo(0.9677, 3);
+  });
+
+  it('charges nothing over zero elapsed time', () => {
+    const at = new Date('2026-01-01T00:00:00Z');
+    expect(accrueFee(new Decimal(100), 200, 31, at, at).isZero()).toBe(true);
   });
 });

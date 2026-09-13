@@ -224,6 +224,24 @@ const schema = z.object({
     .default('false')
     .transform((value) => value === 'true'),
 
+  // ── AI trading ──────────────────────────────────────────────────────────
+
+  /**
+   * Whether the AI trader offering is available.
+   *
+   * Off by default. The AI trader lets a participant describe what they want in
+   * words and has a model decide the trades; it needs a real API key before it
+   * can do anything, so a deployment must opt in.
+   */
+  AI_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  /** The model endpoint. OpenAI-compatible; point it at any compatible gateway. */
+  AI_API_URL: z.string().url().default('https://api.openai.com/v1'),
+  AI_API_KEY: z.string().optional(),
+  AI_MODEL: z.string().default('gpt-4o-mini'),
+
   /**
    * FLT's cut, in basis points of the participant's contribution, charged on
    * top of it. 1000 = 10%. Never deducted from the contribution: the pool must
@@ -389,6 +407,11 @@ function load(): Env {
     }
     if (value.PROTECTION_MODE !== 'off' && !value.FLT_FEE_RECIPIENT_ADDRESS) {
       problems.push('PROTECTION_MODE requires FLT_FEE_RECIPIENT_ADDRESS to receive the fee');
+    }
+    // The AI trader cannot decide anything without a key. A deployment that
+    // switches it on without one would offer an offering that always fails.
+    if (value.AI_ENABLED && !value.AI_API_KEY) {
+      problems.push('AI_ENABLED requires AI_API_KEY');
     }
     // The two must not be the same address, or participant capital and FLT's
     // revenue land in one balance and §19's separation is lost at the first

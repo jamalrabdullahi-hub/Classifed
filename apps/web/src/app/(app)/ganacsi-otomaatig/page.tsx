@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
+import { SubscriptionTier } from '@flt/db';
 import { SectionHeader } from '@flt/ui';
 import { listAlgorithms, listUserAlgorithms } from '@flt/core/services/algorithms';
+import { entitlementsFor } from '@flt/core/services/entitlements';
 import { currentUser } from '@/server/session';
 import { AlgorithmPicker } from '@/components/algorithm-picker';
 
@@ -11,26 +13,30 @@ export async function generateMetadata(): Promise<Metadata> {
 export const dynamic = 'force-dynamic';
 
 /**
- * Automatic trading.
+ * Algo trading.
  *
- * The catalog is public — somebody deciding whether to buy should be able to
- * read what each algorithm does before they sign in — but buying needs a
- * session and a funded balance, so a guest sees the cards with a sign-in prompt
- * where the buy button would be.
+ * Two offerings: **Algo trader** (deterministic, open to everyone) and **AI
+ * trader** (model-driven, FLT Pro only). The catalog is public, but activating
+ * needs a session and the AI offering needs Pro — a guest sees the cards with a
+ * sign-in prompt, and a non-Pro account sees the AI card locked.
  */
-export default async function AutoTradingPage() {
+export default async function AlgoTradingPage() {
   const user = await currentUser();
   const t = await getTranslations('algorithms');
 
-  const [catalog, mine] = await Promise.all([
+  const [offerings, mine, entitlements] = await Promise.all([
     listAlgorithms(),
     user ? listUserAlgorithms(user.id) : Promise.resolve([]),
+    user ? entitlementsFor(user.id) : Promise.resolve(null),
   ]);
+
+  const isPro =
+    entitlements?.tier === SubscriptionTier.PRO || entitlements?.tier === SubscriptionTier.ELITE;
 
   return (
     <div className="space-y-6">
       <SectionHeader title={t('title')} description={t('description')} />
-      <AlgorithmPicker algorithms={catalog} mine={mine} guest={!user} />
+      <AlgorithmPicker offerings={offerings} mine={mine} guest={!user} isPro={isPro} />
     </div>
   );
 }

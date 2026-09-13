@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { getTranslations, getLocale } from 'next-intl/server';
 import { prisma } from '@flt/db';
-import { KeyRound, Monitor, ShieldCheck } from 'lucide-react';
+import { KeyRound, Monitor, ShieldCheck, Sparkles } from 'lucide-react';
 import {
   Badge,
+  Button,
   Card,
   CardContent,
   CardDescription,
@@ -35,6 +37,8 @@ export default async function AccountPage() {
   const user = await requireUserPage();
   const t = await getTranslations('pages.account');
   const ta = await getTranslations('accountPage');
+  const tn = await getTranslations('nav');
+  const tAlgo = await getTranslations('algorithms');
   const locale = await getLocale();
 
   const [mfa, sessions, devices, kyc] = await Promise.all([
@@ -147,6 +151,21 @@ export default async function AccountPage() {
             ))}
           </CardContent>
         )}
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>{tn('autoTrading')}</CardTitle>
+            <CardDescription>{tAlgo('description')}</CardDescription>
+          </div>
+          <Sparkles className="size-4 text-[var(--text-subtle)]" />
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="secondary">
+            <Link href="/ganacsi-otomaatig">{tn('autoTrading')}</Link>
+          </Button>
+        </CardContent>
       </Card>
 
       <Card>

@@ -3,6 +3,7 @@ import {
   AccountStatus,
   AccountType,
   AdminRole,
+  AlgorithmKind,
   AlgorithmStrategy,
   FeeType,
   KycStatus,
@@ -134,9 +135,9 @@ const BNB_TOKENS: SeedToken[] = [
 ];
 
 async function main(): Promise<void> {
-  console.info('Seeding FLT Exchange…\n');
+  console.info('Seeding FLT Exchange...\n');
 
-  // ── Chain ────────────────────────────────────────────────────────────────
+  // Chain -------------------------------------------------------------------
   await prisma.chain.upsert({
     where: { chainId: BASE_CHAIN_ID },
     create: {
@@ -184,7 +185,7 @@ async function main(): Promise<void> {
   });
   console.info('  chain      Solana (reserved id, wallet storage only)');
 
-  // ── Tokens ───────────────────────────────────────────────────────────────
+  // Tokens ------------------------------------------------------------------
   for (const token of BASE_TOKENS) {
     await prisma.token.upsert({
       where: { chainId_address: { chainId: BASE_CHAIN_ID, address: token.address } },
@@ -234,7 +235,7 @@ async function main(): Promise<void> {
   }
   console.info(`  tokens     ${BNB_TOKENS.length} on BNB Chain (unverified, balance display only)`);
 
-  // ── Routing providers ────────────────────────────────────────────────────
+  // Routing providers -------------------------------------------------------
   // Rows here gate the adapters at runtime, so an operator can disable a
   // provider from the admin panel without a deployment.
   for (const provider of [
@@ -255,7 +256,7 @@ async function main(): Promise<void> {
   }
   console.info('  providers  zeroex, mock');
 
-  // ── Default fee ──────────────────────────────────────────────────────────
+  // Default fee -------------------------------------------------------------
   // 25 basis points on every swap, unless a more specific rule outranks it.
   //
   // Deliberately seeded at the live rate rather than at zero, so a fresh
@@ -282,7 +283,7 @@ async function main(): Promise<void> {
   }
   console.info(`  fees       Default ${DEFAULT_FEE_BPS} bps`);
 
-  // ── Perpetual markets ────────────────────────────────────────────────────
+  // Perpetual markets -------------------------------------------------------
   // Deliberately not seeded with hardcoded venue asset ids. A venue's asset id
   // is its own numbering and a wrong one does not fail loudly — it submits an
   // order against a different market than the one displayed. The registry is
@@ -293,7 +294,7 @@ async function main(): Promise<void> {
   // which reads the ids from the venue and creates the rows disabled, because
   // listing a market is not the same as deciding to offer it.
 
-  // ── Administrator ────────────────────────────────────────────────────────
+  // Administrator -----------------------------------------------------------
   const adminEmail = process.env.SEED_ADMIN_EMAIL ?? 'admin@fltexchange.local';
   const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? randomBytes(12).toString('base64url');
   const generated = !process.env.SEED_ADMIN_PASSWORD;
@@ -315,7 +316,7 @@ async function main(): Promise<void> {
     update: {},
   });
 
-  // ── Development user ─────────────────────────────────────────────────────
+  // Development user --------------------------------------------------------
   // Only outside production, and only so the trade path can be exercised
   // without clicking through onboarding on every reset.
   if (process.env.NODE_ENV !== 'production') {
@@ -358,90 +359,94 @@ async function main(): Promise<void> {
     console.info(`  user       ${userEmail} / ${userPassword}`);
   }
 
-  // ── Trading algorithms ───────────────────────────────────────────────────
-  // A small starter catalog, created INACTIVE. Publishing an automated strategy
-  // is a deliberate operator decision — a seed that switched one on would let a
-  // fresh environment trade on a strategy nobody reviewed.
-  const ALGORITHMS = [
+  // Automated-trading offerings ---------------------------------------------
+  // Two offerings: Algo (deterministic, open to everyone, 2%/month of the
+  // allocated capital) and AI (model-driven, FLT Pro only). Both created
+  // INACTIVE — publishing automation that trades real money is an operator
+  // decision, not something a seed switches on.
+  const OFFERINGS = [
     {
-      slug: 'btc-momentum',
-      name: 'BTC Momentum',
+      slug: 'algo-trader',
+      kind: AlgorithmKind.ALGO,
+      name: 'Algo trader',
       description:
-        'Follows the sign of the 24-hour return on BTC. Long when the last day rose, short when it fell.',
+        'Deterministic strategy that trades your allocated capital by fixed rules. 2% a month of that capital, taken on exit.',
       strategy: AlgorithmStrategy.MOMENTUM,
       params: { lookback: 24, thresholdBps: 100 },
       symbols: ['BTC'],
       maxLeverage: 2,
       maxNotionalUsd: '500',
-      priceUsd: '20',
-      periodDays: 30,
+      managementFeeBps: 200,
+      requiresPro: false,
+      systemPrompt: null as string | null,
+      promptRails: [] as string[],
       isFeatured: true,
     },
     {
-      slug: 'eth-mean-reversion',
-      name: 'ETH Mean Reversion',
+      slug: 'ai-trader',
+      kind: AlgorithmKind.AI,
+      name: 'AI trader',
       description:
-        'Fades moves away from ETH\u2019s 24-hour average — buys a dip below it, sells a spike above it.',
-      strategy: AlgorithmStrategy.MEAN_REVERSION,
-      params: { window: 24 },
-      symbols: ['ETH'],
+        'Describe in words how you want to trade; a model reads the market and decides. Requires FLT Pro.',
+      strategy: AlgorithmStrategy.MOMENTUM,
+      params: {},
+      symbols: ['BTC', 'ETH'],
       maxLeverage: 2,
       maxNotionalUsd: '500',
-      priceUsd: '20',
-      periodDays: 30,
-      isFeatured: false,
-    },
-    {
-      slug: 'btc-ma-crossover',
-      name: 'BTC MA Crossover',
-      description:
-        'Long when the 12-hour average crosses above the 48-hour one, short when it crosses back below.',
-      strategy: AlgorithmStrategy.MA_CROSSOVER,
-      params: { fast: 12, slow: 48 },
-      symbols: ['BTC'],
-      maxLeverage: 2,
-      maxNotionalUsd: '500',
-      priceUsd: '25',
-      periodDays: 30,
-      isFeatured: false,
+      managementFeeBps: 200,
+      requiresPro: true,
+      systemPrompt:
+        'You are a disciplined crypto derivatives trader. Choose at most one action and prefer HOLD when unclear.',
+      promptRails: [
+        'Trade BTC momentum: long when the recent trend is up, short when it is down, flat when choppy.',
+        'Fade extremes: buy sharp dips and sell sharp spikes on BTC and ETH, holding briefly.',
+      ] as string[],
+      isFeatured: true,
     },
   ];
 
-  for (const algorithm of ALGORITHMS) {
+  for (const offering of OFFERINGS) {
     await prisma.tradingAlgorithm.upsert({
-      where: { slug: algorithm.slug },
+      where: { slug: offering.slug },
       create: {
         id: randomUUID(),
-        slug: algorithm.slug,
-        name: algorithm.name,
-        description: algorithm.description,
-        strategy: algorithm.strategy,
-        params: algorithm.params,
-        symbols: algorithm.symbols,
-        maxLeverage: algorithm.maxLeverage,
-        maxNotionalUsd: algorithm.maxNotionalUsd,
-        priceUsd: algorithm.priceUsd,
-        periodDays: algorithm.periodDays,
+        slug: offering.slug,
+        kind: offering.kind,
+        name: offering.name,
+        description: offering.description,
+        strategy: offering.strategy,
+        params: offering.params,
+        symbols: offering.symbols,
+        maxLeverage: offering.maxLeverage,
+        maxNotionalUsd: offering.maxNotionalUsd,
+        managementFeeBps: offering.managementFeeBps,
+        requiresPro: offering.requiresPro,
+        systemPrompt: offering.systemPrompt,
+        promptRails: offering.promptRails,
+        periodDays: 31,
         isActive: false,
-        isFeatured: algorithm.isFeatured,
+        isFeatured: offering.isFeatured,
       },
       // Never re-enable on reseed: an operator's activation is theirs, not the
       // seed's. Only the descriptive fields are refreshed.
       update: {
-        name: algorithm.name,
-        description: algorithm.description,
-        strategy: algorithm.strategy,
-        params: algorithm.params,
-        symbols: algorithm.symbols,
-        maxLeverage: algorithm.maxLeverage,
-        maxNotionalUsd: algorithm.maxNotionalUsd,
-        priceUsd: algorithm.priceUsd,
-        periodDays: algorithm.periodDays,
-        isFeatured: algorithm.isFeatured,
+        kind: offering.kind,
+        name: offering.name,
+        description: offering.description,
+        strategy: offering.strategy,
+        params: offering.params,
+        symbols: offering.symbols,
+        maxLeverage: offering.maxLeverage,
+        maxNotionalUsd: offering.maxNotionalUsd,
+        managementFeeBps: offering.managementFeeBps,
+        requiresPro: offering.requiresPro,
+        systemPrompt: offering.systemPrompt,
+        promptRails: offering.promptRails,
+        isFeatured: offering.isFeatured,
       },
     });
   }
-  console.info(`  algorithms ${ALGORITHMS.length} (inactive until an operator enables them)`);
+  console.info(`  offerings  ${OFFERINGS.length} (inactive until an operator enables them)`);
 
   console.info(`  admin      ${adminEmail}`);
   if (generated) {

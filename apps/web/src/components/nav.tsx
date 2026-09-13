@@ -101,6 +101,7 @@ const REFERRALS = { href: '/jeedin', key: 'referrals', icon: Gift } as const;
 const AUTO_TRADING = { href: '/ganacsi-otomaatig', key: 'autoTrading', icon: Bot } as const;
 
 const ACCOUNT = [
+  { href: '/ganacsi-otomaatig', key: 'autoTrading', icon: Bot },
   { href: '/lacag-fadhiya', key: 'passiveCash', icon: PiggyBank },
   { href: '/akoon', key: 'account', icon: Settings },
 ] as const;

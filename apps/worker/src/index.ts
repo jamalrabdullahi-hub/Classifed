@@ -10,7 +10,7 @@ import { processWithdrawals } from './withdrawals';
 import { runReconciliation } from './reconciliation';
 import { runDocumentRetention } from './retention';
 import { runMarketMakerPass } from './market-maker';
-import { runAlgorithmPass } from './algorithms';
+import { runAlgorithmPass, runAlgorithmFees } from './algorithms';
 
 /**
  * The FLT worker.
@@ -171,6 +171,8 @@ async function main(): Promise<void> {
   // places real orders on participants' behalf, so a deployment opts in.
   if (config.ALGORITHMS_ENABLED && config.PERPS_ENABLED) {
     loop('algorithms', ALGORITHMS_INTERVAL_MS, runAlgorithmPass);
+    // Fee accrual and monthly settlement. Cheap, so it rides the same interval.
+    loop('algo-fees', ALGORITHMS_INTERVAL_MS, runAlgorithmFees);
   }
 
   // Only when FLT actually holds client funds. With custody off there is no

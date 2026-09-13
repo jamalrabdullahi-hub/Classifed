@@ -2509,12 +2509,13 @@ model Withdrawal {
 // ─────────────────────────────────────────────────────────────────────────────
 // Trading algorithms
 //
-// FLT offers a small catalog of strategy templates. A participant buys one,
-// which debits their ledger balance; the worker then runs the strategy on their
-// behalf and places perp orders against their account. Every order it places is
+// FLT offers two automated offerings. **Algo trader** runs a deterministic,
+// FLT-authored strategy; the participant allocates capital and the runner trades
+// it. **AI trader** runs an LLM over a prompt. Both are frictionless — no entry
+// cost — and carry a management fee of 2%/month of the participant's allocated
+// capital, pro-rated daily and taken on exit. Every order either places is
 // subject to the same leverage, entitlement, balance and insurance rules as a
-// manual one — buying an algorithm buys the strategy, never a bypass of the
-// risk checks.
+// manual one — activation buys the automation, never a bypass of the checks.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Lifecycle of a purchased algorithm.
@@ -2544,11 +2545,24 @@ enum AlgorithmStrategy {
   MOMENTUM
 }
 
+/// Which offering a catalog row is.
+enum AlgorithmKind {
+  /// Deterministic: trades by a fixed, FLT-authored strategy. Open to every
+  /// account.
+  ALGO
+  /// An LLM reads the market and the participant's prompt and decides. FLT Pro
+  /// only.
+  AI
+}
+
 /// A trading algorithm FLT offers for sale.
 model TradingAlgorithm {
   id String @id
   /// URL-safe identifier used in routes and API paths.
   slug String @unique
+
+  /// Which offering this is — ALGO (deterministic) or AI (LLM-driven).
+  kind AlgorithmKind @default(ALGO)
 
   name        String
   /// One or two lines shown under the name in the marketplace.
@@ -2568,10 +2582,21 @@ model TradingAlgorithm {
   /// The most notional (USD) it may hold open per position, as a decimal
   /// string — never a float.
   maxNotionalUsd String
-  /// The price to buy it, in USD, as a decimal string.
-  priceUsd String
-  /// How long a purchase runs, in days. Null is open-ended.
-  periodDays Int?
+  /// The monthly management fee, in basis points of the participant's
+  /// allocated capital. 200 = 2% a month, pro-rated daily (2%/31 per day).
+  /// Frictionless: no entry cost; the fee accrues and is taken on exit.
+  managementFeeBps Int @default(200)
+
+  /// Whether this offering requires FLT Pro. The AI trader is Pro-only.
+  requiresPro Boolean @default(false)
+
+  /// The AI system prompt (AI offerings only).
+  systemPrompt String?
+  /// Ready-made prompts offered as buttons — "prompt on rails".
+  promptRails Json @default("[]")
+
+  /// A billing period, in days. The fee is pro-rated from it.
+  periodDays Int? @default(31)
 
   isActive   Boolean @default(false)
   isFeatured Boolean @default(false)
@@ -2586,13 +2611,13 @@ model TradingAlgorithm {
   @@map("trading_algorithms")
 }
 
-/// One participant's purchase of one algorithm.
+/// One participant's activation of one offering.
 ///
-/// The row is the accounting fact: what was charged, under which ledger
-/// reference, and for how long. Re-buying after a cancel reactivates the row
+/// No entry cost: activation records the capital base and starts the daily
+/// accrual; the fee is taken on exit. Reactivating after a cancel reuses the row
 /// rather than inserting a second, so `(userId, algorithmId)` stays one row and
 /// the runner can never pick up two subscriptions for the same participant and
-/// strategy.
+/// offering.
 model UserAlgorithm {
   id String @id
 
@@ -2601,12 +2626,21 @@ model UserAlgorithm {
 
   status AlgorithmStatus @default(ACTIVE)
 
-  /// What was actually charged, recorded rather than re-derived — a later price
-  /// change must not rewrite what somebody paid.
-  pricePaidUsd String
-  /// The ledger transfer this debit was posted under, so the charge and the
-  /// subscription are trivially reconcilable.
-  ledgerReference String
+  /// The capital the participant allocated, in USD, as a decimal string. This
+  /// is the FEE BASE: the management fee is a percentage of THIS, not of the
+  /// leveraged notional the algorithm trades with.
+  capitalBase String
+
+  /// Management fee accrued but not yet charged, in USD. Resets on each
+  /// settlement; charged on exit and monthly while running.
+  accruedFeeUsd Decimal @default(0) @db.Decimal(18, 8)
+  /// When the fee was last accrued up to. The next settlement bills the gap.
+  feeAccruedAt DateTime @default(now())
+
+  /// The strategy parameters chosen at activation (ALGO offerings).
+  strategyParams Json?
+  /// The prompt the participant set (AI offerings).
+  prompt String?
 
   startsAt DateTime  @default(now())
   endsAt   DateTime?

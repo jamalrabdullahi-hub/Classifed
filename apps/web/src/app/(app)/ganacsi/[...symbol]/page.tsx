@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 import { SubscriptionTier } from '@flt/db';
@@ -41,6 +42,7 @@ export default async function PerpMarketPage({
 }) {
   const user = await currentUser();
   const t = await getTranslations('perpMarketPage');
+  const tn = await getTranslations('nav');
   if (!env().PERPS_ENABLED) notFound();
 
   /**
@@ -92,6 +94,15 @@ export default async function PerpMarketPage({
         signedIn={Boolean(user)}
         shareBps={REFERRAL_SHARE_BPS}
       />
+
+      <div className="flex justify-end">
+        <Link
+          href="/ganacsi-otomaatig"
+          className="inline-flex items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--border)] px-3 py-1.5 text-[12px] font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
+        >
+          {tn('autoTrading')}
+        </Link>
+      </div>
 
       <PerpTerminal
         market={{

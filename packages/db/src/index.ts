@@ -107,4 +107,5 @@ export {
   WithdrawalStatus,
   AlgorithmStatus,
   AlgorithmStrategy,
+  AlgorithmKind,
 } from '@prisma/client';
