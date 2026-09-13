@@ -44,6 +44,12 @@ export interface CryptoDepositInput {
   decimals: number;
   /** The sweep transaction hash — the external fact this records. */
   reference: string;
+  /**
+   * The network fee to recover from this deposit, in base units of the same
+   * asset. Posted in the same transaction as the credit, so the two cannot
+   * become separately applied.
+   */
+  gasFeeBaseUnits?: string | null;
 }
 
 /**
@@ -69,6 +75,10 @@ export async function creditCryptoDeposit(
   }
 
   const reference = `crypto-deposit:${input.reference.trim()}`;
+  const fee = new Decimal(input.gasFeeBaseUnits ?? '0').div(new Decimal(10).pow(input.decimals));
+  if (fee.isNegative() || fee.greaterThanOrEqualTo(amount)) {
+    throw new ValidationError('The network fee cannot be negative or the whole deposit');
+  }
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -90,6 +100,32 @@ export async function creditCryptoDeposit(
         },
         tx,
       );
+
+      /**
+       * The network fee, in the same transaction as the credit it is taken from.
+       *
+       * These were two transactions, and the gap between them was a real hole:
+       * if the process died after the credit committed, the participant could
+       * spend the whole deposit before the fee was charged, and the later charge
+       * would drive `USER_AVAILABLE` positive — a sign-constraint violation that
+       * left the deposit row retrying every pass forever. Charged here, the fee
+       * is always taken from a balance that was credited in the same breath.
+       */
+      if (fee.greaterThan(0)) {
+        const revenue = await accountFor({ kind: LedgerAccountKind.FEE_REVENUE, asset }, tx);
+        await postTransfer(
+          {
+            kind: LedgerTransferKind.FEE,
+            reference: `crypto-gas-fee:${input.reference.trim()}`,
+            memo: `Network fee for crypto deposit ${input.reference.trim()}`,
+            entries: [
+              { accountId: client.id, amount: fee },
+              { accountId: revenue.id, amount: fee.negated() },
+            ],
+          },
+          tx,
+        );
+      }
     });
 
     return { credited: true };
@@ -127,50 +163,4 @@ export function cryptoDepositGasFeeBaseUnits(amountBaseUnits: string, decimals: 
     ? DEPOSIT_GAS_FEE_USD
     : amount.times(DEPOSIT_GAS_FEE_CAP);
   return capped.times(new Decimal(10).pow(decimals)).toFixed(0, Decimal.ROUND_DOWN);
-}
-
-/**
- * Charges a deposit's gas fee to FLT's revenue, reducing the participant's
- * available balance by that much — the participant funds their own gas out of
- * the deposit they just made.
- *
- * Idempotent on the sweep hash, so a re-run does not charge twice.
- */
-export async function chargeCryptoDepositGasFee(input: {
-  userId: string;
-  asset: string;
-  gasFeeBaseUnits: string;
-  decimals: number;
-  reference: string;
-}): Promise<void> {
-  const asset = input.asset.trim().toUpperCase();
-  const fee = new Decimal(input.gasFeeBaseUnits).div(new Decimal(10).pow(input.decimals));
-  if (fee.lessThanOrEqualTo(0)) return;
-
-  const reference = `crypto-gas-fee:${input.reference.trim()}`;
-
-  try {
-    await prisma.$transaction(async (tx) => {
-      const user = await accountFor(
-        { kind: LedgerAccountKind.USER_AVAILABLE, userId: input.userId, asset },
-        tx,
-      );
-      const revenue = await accountFor({ kind: LedgerAccountKind.FEE_REVENUE, asset }, tx);
-
-      await postTransfer(
-        {
-          kind: LedgerTransferKind.FEE,
-          reference,
-          memo: `Network fee for crypto deposit ${input.reference.trim()}`,
-          entries: [
-            { accountId: user.id, amount: fee },
-            { accountId: revenue.id, amount: fee.negated() },
-          ],
-        },
-        tx,
-      );
-    });
-  } catch (error) {
-    if (!isUniqueViolation(error)) throw error;
-  }
 }

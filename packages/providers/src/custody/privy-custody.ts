@@ -1,13 +1,4 @@
-import {
-  createWalletClient,
-  encodeFunctionData,
-  erc20Abi,
-  http,
-  publicActions,
-  type Address as ViemAddress,
-  type Hex,
-} from 'viem';
-import { createViemAccount } from '@privy-io/node/viem';
+import { encodeFunctionData, erc20Abi, type Address as ViemAddress, type Hex } from 'viem';
 import { env } from '@flt/config';
 import { prisma } from '@flt/db';
 import {
@@ -17,8 +8,8 @@ import {
   ValidationError,
   checksumAddress,
 } from '@flt/core/domain';
-import { SUPPORTED_CHAINS, publicClient, readBalances, requireChain } from '@flt/core/chains';
-import { privyClient } from '../wallet-provisioning/privy';
+import { SUPPORTED_CHAINS, publicClient, readBalances } from '@flt/core/chains';
+import { sendOmnibusTransaction } from './omnibus';
 import type {
   CustodyBalance,
   CustodyDepositAddress,
@@ -214,34 +205,31 @@ export class PrivyCustodyProvider implements CustodyProvider {
       ],
     });
 
-    const account = await this.omnibusAccount().catch((error: unknown) => {
-      throw error;
+    /**
+     * Through the shared omnibus send, not a wallet client of its own.
+     *
+     * This used to build its own client and broadcast directly, which skipped
+     * both the serialising queue and the pending-nonce wait in
+     * `sendOmnibusTransaction` — the mitigations that exist because the omnibus
+     * is one hot wallet shared by trades, sweeps, gas top-ups and withdrawals.
+     * A withdrawal broadcast in the same window as a swap took the same nonce
+     * and was rejected as "replacement transaction underpriced", which then fed
+     * the retry path in the withdrawal worker.
+     */
+    const hash = await sendOmnibusTransaction({
+      chainId: request.chainId,
+      to: checksumAddress(token.address),
+      data,
+      value: '0',
+    }).catch((error: unknown) => {
+      throw new ProviderError(
+        'privy-custody',
+        `The omnibus refused to send the withdrawal: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        { retryable: true },
+      );
     });
-    const chain = requireChain(request.chainId);
-
-    const client = createWalletClient({
-      account,
-      chain: chain.viemChain,
-      transport: http(chain.rpcUrl()),
-    }).extend(publicActions);
-
-    const hash = await client
-      .sendTransaction({
-        account,
-        chain: chain.viemChain,
-        to: checksumAddress(token.address) as ViemAddress,
-        data: data as Hex,
-        value: 0n,
-      })
-      .catch((error: unknown) => {
-        throw new ProviderError(
-          'privy-custody',
-          `The omnibus refused to send the withdrawal: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-          { retryable: true },
-        );
-      });
 
     return { id: hash, status: 'submitted', txHash: hash, failureReason: null };
   }
@@ -276,18 +264,4 @@ export class PrivyCustodyProvider implements CustodyProvider {
     return { id, status: 'pending', txHash: id, failureReason: null };
   }
 
-  /**
-   * A viem account backed by the omnibus wallet.
-   *
-   * Deliberately without the `WalletDelegation` check that
-   * `managedAccountFor` imposes: that gate exists so FLT cannot spend a
-   * *participant's* funds without their consent, and it has no meaning for the
-   * omnibus, which is FLT's own wallet. The reason not to reuse
-   * `managedAccountFor` is that reusing it would require a fake delegation row
-   * for a wallet no participant owns.
-   */
-  private async omnibusAccount() {
-    const { address, walletId } = this.omnibus();
-    return createViemAccount(privyClient(), { walletId, address: address as Hex });
-  }
 }

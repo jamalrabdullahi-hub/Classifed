@@ -21,6 +21,8 @@ const h = vi.hoisted(() => ({
   quote: null as Record<string, unknown> | null,
   sellToken: null as Record<string, unknown> | null,
   buyToken: null as Record<string, unknown> | null,
+  /** USER_LOCKED balance, as stored (a credit balance, so negative). */
+  lockedBalance: '0' as string,
 }));
 
 vi.mock('@flt/config', () => ({ env: () => h.env }));
@@ -35,7 +37,13 @@ vi.mock('@flt/db', async () => {
         kind: where.kind,
         userId: where.userId ?? null,
         asset: where.asset,
-        balance: '0',
+        /**
+         * USER_LOCKED holds the reservation the trade is about to spend, as a
+         * credit balance (hence negative). `h.lockedBalance` lets a test model a
+         * reservation that was released before settlement, which settlement must
+         * refuse rather than push the account past its sign constraint.
+         */
+        balance: where.kind === 'USER_LOCKED' ? h.lockedBalance : '0',
       }),
       create: async ({ data }: { data: Record<string, unknown> }) => data,
       update: async () => ({}),
@@ -76,6 +84,9 @@ beforeEach(() => {
   h.quote = null;
   h.sellToken = null;
   h.buyToken = null;
+  // Enough reserved to cover the trades in this suite, unless a test says
+  // otherwise. Stored as a credit balance, so negative.
+  h.lockedBalance = '-1000';
 });
 
 async function subject() {
@@ -225,5 +236,31 @@ describe('releaseCustodyTradeLock', () => {
     const { releaseCustodyTradeLock } = await subject();
     await releaseCustodyTradeLock(prisma, { transactionId: 'tx1', userId: 'u1', quoteId: 'q1' });
     expect(h.transfers).toHaveLength(0);
+  });
+
+  it('refuses to settle when the reservation was released before it', async () => {
+    /**
+     * The DROPPED -> CONFIRMED case. A congested swap was declared dropped, its
+     * reservation released, and it then mined. Settlement must refuse and say
+     * so, rather than drive USER_LOCKED past its sign constraint and surface as
+     * a raw database error.
+     */
+    h.lockedBalance = '0';
+    const { settleSpotTrade } = await subject();
+
+    await expect(settleSpotTrade(trade)).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+    });
+    await expect(settleSpotTrade(trade)).rejects.toThrow(/reservation was released/i);
+    expect(h.transfers).toHaveLength(0);
+  });
+
+  it('settles when exactly the reserved amount is locked', async () => {
+    // The boundary: the reservation covers the trade precisely.
+    h.lockedBalance = '-10';
+    const { settleSpotTrade } = await subject();
+
+    await expect(settleSpotTrade(trade)).resolves.toMatchObject({ settled: true });
+    expect(h.transfers).toHaveLength(2);
   });
 });

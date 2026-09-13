@@ -100,12 +100,19 @@ async function subject() {
 
 const destination = '0x0000000000000000000000000000000000000001';
 
+/**
+ * A participant allowed to move money. `requestWithdrawal` calls
+ * `assertMayTrade`, the same gate quotes and perps use, so anything else is
+ * refused before a balance is even read.
+ */
+const approved = { id: 'u1', accountStatus: 'KYC_APPROVED', tradingDisabled: false } as never;
+
 describe('requestWithdrawal', () => {
   it('reserves the amount and records a pending withdrawal', async () => {
     h.accounts = [{ asset: 'USDC', kind: LedgerAccountKind.USER_AVAILABLE, balance: '-100' }];
 
     const { requestWithdrawal } = await subject();
-    await requestWithdrawal({ id: 'u1' } as never, {
+    await requestWithdrawal(approved, {
       asset: 'usdc',
       chainId: 8453,
       amount: '10',
@@ -117,12 +124,49 @@ describe('requestWithdrawal', () => {
     expect(h.transfers.some((t) => t.kind === LedgerTransferKind.LOCK)).toBe(true);
   });
 
+  it('refuses a suspended account, so suspension stops money leaving', async () => {
+    /**
+     * Suspension is what an operator applies to an account they believe is
+     * compromised or fraudulent. It has to stop the withdrawal, not only the
+     * trading — this gate was missing, which made it cosmetic on the one action
+     * that takes funds out of custody.
+     */
+    h.accounts = [{ asset: 'USDC', kind: LedgerAccountKind.USER_AVAILABLE, balance: '-100' }];
+    const { requestWithdrawal } = await subject();
+
+    await expect(
+      requestWithdrawal({ id: 'u1', accountStatus: 'SUSPENDED', tradingDisabled: false } as never, {
+        asset: 'USDC',
+        chainId: 8453,
+        amount: '10',
+        destinationAddress: destination,
+      }),
+    ).rejects.toMatchObject({ code: 'KYC_REQUIRED' });
+
+    // Nothing was reserved: it was refused before the balance was touched.
+    expect(h.transfers).toHaveLength(0);
+    expect(h.created).toHaveLength(0);
+  });
+
+  it('refuses an account with trading disabled', async () => {
+    h.accounts = [{ asset: 'USDC', kind: LedgerAccountKind.USER_AVAILABLE, balance: '-100' }];
+    const { requestWithdrawal } = await subject();
+
+    await expect(
+      requestWithdrawal(
+        { id: 'u1', accountStatus: 'KYC_APPROVED', tradingDisabled: true } as never,
+        { asset: 'USDC', chainId: 8453, amount: '10', destinationAddress: destination },
+      ),
+    ).rejects.toMatchObject({ code: 'TRADING_DISABLED' });
+    expect(h.transfers).toHaveLength(0);
+  });
+
   it('refuses more than the available balance', async () => {
     h.accounts = [{ asset: 'USDC', kind: LedgerAccountKind.USER_AVAILABLE, balance: '-5' }];
 
     const { requestWithdrawal } = await subject();
     await expect(
-      requestWithdrawal({ id: 'u1' } as never, {
+      requestWithdrawal(approved, {
         asset: 'USDC',
         chainId: 8453,
         amount: '10',

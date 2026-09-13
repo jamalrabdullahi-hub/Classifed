@@ -1,17 +1,8 @@
-import {
-  createWalletClient,
-  encodeFunctionData,
-  erc20Abi,
-  http,
-  publicActions,
-  type Hex,
-} from 'viem';
-import { createViemAccount } from '@privy-io/node/viem';
+import { encodeFunctionData, erc20Abi, type Hex } from 'viem';
 import { env } from '@flt/config';
 import { ProviderNotConfiguredError, ValidationError, Decimal } from '@flt/core/domain';
 import { fundVenueMargin } from '@flt/core/services';
-import { requireChain } from '@flt/core/chains';
-import { privyClient } from '../wallet-provisioning/privy';
+import { sendOmnibusTransaction } from '../custody/omnibus';
 
 /**
  * Funding the Hyperliquid account from the omnibus.
@@ -62,30 +53,26 @@ export async function fundHyperliquidFromArbitrum(amountUsdc: string): Promise<H
     );
   }
 
-  const chain = requireChain(ARBITRUM_CHAIN_ID);
-  const account = await createViemAccount(privyClient(), {
-    walletId: OMNIBUS_EVM_WALLET_ID,
-    address: OMNIBUS_EVM_ADDRESS as Hex,
-  });
-
-  const client = createWalletClient({
-    account,
-    chain: chain.viemChain,
-    transport: http(chain.rpcUrl()),
-  }).extend(publicActions);
-
   const data = encodeFunctionData({
     abi: erc20Abi,
     functionName: 'transfer',
     args: [HYPERLIQUID_BRIDGE, BigInt(Math.round(amount * 1e6))],
   });
 
-  const hash = await client.sendTransaction({
-    account,
-    chain: chain.viemChain,
+  /**
+   * Through the shared omnibus send, so this queues behind whatever else the
+   * wallet is doing.
+   *
+   * Venue funding is rare but it is not special: it spends the same nonce
+   * sequence as every trade, sweep and withdrawal. Building its own client here
+   * meant a funding transfer issued while a swap was in flight took the nonce
+   * already in use and was rejected.
+   */
+  const hash = await sendOmnibusTransaction({
+    chainId: ARBITRUM_CHAIN_ID,
     to: USDC_ARBITRUM,
     data,
-    value: 0n,
+    value: '0',
   });
 
   /**

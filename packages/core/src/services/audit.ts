@@ -155,6 +155,13 @@ export const AuditAction = {
   TRADE_CONFIRMED: 'trade.confirmed',
   TRADE_REVERTED: 'trade.reverted',
   TRADE_DROPPED: 'trade.dropped',
+  /**
+   * A swap confirmed on-chain but could not be settled on the ledger. The
+   * participant's reservation is still held and their bought asset is in the
+   * omnibus credited to nobody, so this needs a person — which is why it is an
+   * audited fact and not only a log line.
+   */
+  TRADE_SETTLEMENT_FAILED: 'trade.settlement.failed',
   APPROVAL_SUBMITTED: 'approval.submitted',
 
   // Perpetuals

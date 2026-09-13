@@ -31,6 +31,21 @@ import { OPEN_TRANSACTION_STATUSES } from '@flt/core/domain';
 
 const DROPPED_AFTER_MS = 10 * 60 * 1_000;
 
+/**
+ * When a transaction with no receipt is treated as never going to be mined.
+ *
+ * DROPPED is not terminal — a congested transaction often mines well after the
+ * ten-minute mark, and under custody the reservation backing it must stay held
+ * until the chain has actually decided. This is the point at which waiting
+ * longer is less useful than releasing: a day without inclusion means the
+ * transaction is not coming back, and FAILED is what releases the reservation.
+ *
+ * Deliberately far longer than DROPPED_AFTER_MS. The old behaviour released at
+ * ten minutes and then settled the same trade if it mined afterwards, spending
+ * one reservation twice.
+ */
+const ABANDONED_AFTER_MS = 24 * 60 * 60 * 1_000;
+
 export interface MonitorResult {
   checked: number;
   confirmed: number;
@@ -95,6 +110,24 @@ async function checkTransaction(
   if (!receipt) {
     // No receipt yet. Either still pending, or it fell out of the mempool.
     const age = Date.now() - transaction.submittedAt.getTime();
+
+    /**
+     * Long enough without inclusion to call it abandoned. This is the
+     * transition that releases a custody reservation, which is why it is not
+     * the ten-minute one: see ABANDONED_AFTER_MS.
+     */
+    if (age > ABANDONED_AFTER_MS) {
+      await transitionTransaction(
+        prisma,
+        transaction.id,
+        TransactionStatus.FAILED,
+        'No receipt after 24 hours. The transaction was never mined and will not be.',
+        { failureReason: 'Never mined' },
+      );
+      await auditTransaction(transaction, AuditAction.TRADE_DROPPED, {});
+      return 'DROPPED';
+    }
+
     if (age > DROPPED_AFTER_MS && transaction.status !== TransactionStatus.DROPPED) {
       await transitionTransaction(
         prisma,

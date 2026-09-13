@@ -8,7 +8,8 @@ import {
 import { env } from '@flt/config';
 import { ValidationError } from '../domain/errors';
 import { Decimal, fromBaseUnits } from '../domain/money';
-import { accountFor, postTransfer, unlockFunds } from './ledger';
+import { accountFor, naturalBalance, postTransfer, unlockFunds } from './ledger';
+import { AuditAction, audit } from './audit';
 
 /**
  * Settling a spot trade on the custody ledger.
@@ -111,6 +112,25 @@ export async function settleSpotTrade(
       );
 
       /**
+       * The reservation must still be there to spend.
+       *
+       * If it is not, the ledger's sign CHECK would refuse the sell leg with a
+       * raw Postgres error that reaches an operator as a generic failure. Said
+       * plainly instead, because the only way to get here is a reservation
+       * released before its trade settled, and whoever reads this needs to know
+       * that is what happened rather than that "settlement failed".
+       */
+      const lockedAvailable = naturalBalance(sellLocked);
+      if (lockedAvailable.lessThan(sold)) {
+        throw new ValidationError(
+          `Trade ${reference} cannot settle: ${sold.toFixed()} ${sellAsset} was reserved for it, ` +
+            `but only ${lockedAvailable.toFixed()} is still locked. The reservation was released ` +
+            `before the trade settled, so the ledger cannot be balanced without an operator.`,
+          { reference, required: sold.toFixed(), locked: lockedAvailable.toFixed(), asset: sellAsset },
+        );
+      }
+
+      /**
        * Sell leg: the participant's locked balance is spent, and the omnibus
        * holds that much less of the asset — it left the pooled wallet.
        */
@@ -175,10 +195,9 @@ export async function settleCustodyTradeAfterConfirm(
   if (!params.receivedBaseUnits) {
     // A confirmed swap whose received amount could not be read cannot be
     // settled accurately. Leaving it for an operator is better than crediting a
-    // guessed number.
-    console.error('[custody] trade confirmed but no received amount could be read; not settling', {
-      transactionId: params.transactionId,
-    });
+    // guessed number — but it must be *findable*, not just logged, because the
+    // participant's reservation stays held until somebody acts.
+    await recordUnsettleable(db, params, 'The received amount could not be read from the receipt');
     return;
   }
 
@@ -194,9 +213,11 @@ export async function settleCustodyTradeAfterConfirm(
     }),
   ]);
   if (!sellToken || !buyToken) {
-    console.error('[custody] cannot settle trade: a token is not in the registry', {
-      transactionId: params.transactionId,
-    });
+    await recordUnsettleable(
+      db,
+      params,
+      'A token in this trade is not in the registry for its chain',
+    );
     return;
   }
 
@@ -241,4 +262,43 @@ export async function releaseCustodyTradeLock(
     reference: `trade-unlock:${params.transactionId}`,
     memo: `Trade ${params.transactionId} did not settle; releasing the reserved ${sellToken.symbol}`,
   });
+}
+
+/**
+ * Records a confirmed swap that could not be settled.
+ *
+ * These cases used to be a `console.error` and nothing else, which meant a
+ * participant's balance could stay locked against a trade that had completed
+ * on-chain with no trace an operator could find — no queue, no flag, only a
+ * worker log line that scrolls away. An audit row is queryable and attributed,
+ * so the condition can be listed and cleared.
+ *
+ * It never throws: the caller is inside a status transition, and failing to
+ * write the note must not roll back the confirmation it is describing.
+ */
+async function recordUnsettleable(
+  db: DbClient,
+  params: { transactionId: string; userId: string; quoteId: string },
+  reason: string,
+): Promise<void> {
+  console.error('[custody] trade confirmed but could not be settled', {
+    transactionId: params.transactionId,
+    reason,
+  });
+
+  try {
+    await audit(db, {
+      action: AuditAction.TRADE_SETTLEMENT_FAILED,
+      entityType: 'Transaction',
+      entityId: params.transactionId,
+      actorType: 'SYSTEM',
+      actorUserId: params.userId,
+      after: { quoteId: params.quoteId, reason, reservationStillHeld: true },
+    });
+  } catch (error) {
+    console.error('[custody] could not record the settlement failure', {
+      transactionId: params.transactionId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }

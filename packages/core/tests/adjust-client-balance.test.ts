@@ -69,6 +69,9 @@ vi.mock('@flt/db', async () => {
     ...actual,
     prisma: {
       user: { findUnique: vi.fn(async () => USER) },
+      // The asset must exist in the registry: a balance in an asset FLT does
+      // not custody could never be withdrawn or reconciled.
+      token: { findFirst: vi.fn(async () => ({ symbol: 'USDC', decimals: 6 })) },
       $transaction: vi.fn(async (fn: (client: unknown) => Promise<unknown>) => fn(tx)),
     },
   };

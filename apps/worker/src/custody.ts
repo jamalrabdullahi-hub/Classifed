@@ -2,7 +2,6 @@ import { CustodyDepositStatus, prisma, type CustodyDeposit } from '@flt/db';
 import { custodyProvider, ensureWalletGas, sweepErc20ToOmnibus } from '@flt/providers';
 import {
   MIN_CRYPTO_DEPOSIT_USD,
-  chargeCryptoDepositGasFee,
   creditCryptoDeposit,
   cryptoDepositGasFeeBaseUnits,
 } from '@flt/core/services/custody-deposits';
@@ -226,15 +225,26 @@ async function sweepDetected(): Promise<number> {
     try {
       /**
        * The deposit address holds only stablecoin, so the sweep cannot pay its
-       * own gas. Fund it from the omnibus first; a failure here is logged and
-       * the sweep still runs (and retries on the next pass).
+       * own gas: fund it from the omnibus first, and do not attempt the sweep
+       * if that fails.
+       *
+       * This used to log the top-up failure and sweep anyway. The sweep then
+       * failed for want of gas and spent one of only three attempts, so a gas
+       * shortage or an RPC blip lasting ninety seconds permanently exhausted the
+       * budget and stranded the deposit — funds safe at the deposit address, but
+       * never credited and surfaced nowhere. A top-up that fails is a reason to
+       * come back next pass, not to spend an attempt on a sweep that cannot
+       * succeed.
        */
-      await ensureWalletGas({ chainId: row.chainId, address: wallet.address }).catch((error) => {
-        console.error('[custody] gas top-up failed', {
+      try {
+        await ensureWalletGas({ chainId: row.chainId, address: wallet.address });
+      } catch (error) {
+        console.error('[custody] gas top-up failed; leaving the deposit for the next pass', {
           id: row.id,
           error: error instanceof Error ? error.message : String(error),
         });
-      });
+        continue;
+      }
 
       const hash = await sweepErc20ToOmnibus({
         wallet,
@@ -311,25 +321,21 @@ async function creditConfirmed(): Promise<{ credited: number; failed: number }> 
     try {
       const gasFeeBaseUnits = cryptoDepositGasFeeBaseUnits(row.amountBaseUnits, row.decimals);
 
+      /**
+       * Credit and fee together, in one ledger transaction.
+       *
+       * The participant funds their own gas out of this deposit — the omnibus
+       * fronted it to make the sweep possible, and this recovers it, capped at
+       * 1% of the deposit. Both movements post atomically so the fee can never
+       * be charged against a balance the credit did not put there.
+       */
       const { credited: didCredit } = await creditCryptoDeposit({
         userId: row.userId,
         asset: row.asset,
         amountBaseUnits: row.amountBaseUnits,
         decimals: row.decimals,
         reference: row.sweepTxHash,
-      });
-
-      /**
-       * The participant funds their own gas out of this deposit — the omnibus
-       * fronted it to make the sweep possible, and this recovers it, capped at
-       * 1% of the deposit.
-       */
-      await chargeCryptoDepositGasFee({
-        userId: row.userId,
-        asset: row.asset,
         gasFeeBaseUnits,
-        decimals: row.decimals,
-        reference: row.sweepTxHash,
       });
 
       await prisma.custodyDeposit.update({

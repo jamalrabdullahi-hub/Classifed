@@ -47,3 +47,10 @@ brand/fonts/
 # Local go-live notes — contains LIVE SECRETS, never commit
 GO-LIVE-ENV.txt
 
+# Ad-hoc operator scripts. These have held server credentials in plaintext;
+# the pattern is ignored so a `git add -A` can never publish one. Credentials
+# belong in an SSH key or the server's own .env, never in a file here.
+_*.py
+_*.sh
+*_tmp.py
+*_tmp.sh

@@ -121,4 +121,37 @@ describe('creditCryptoDeposit', () => {
     const result = await creditCryptoDeposit(base);
     expect(result).toEqual({ credited: false });
   });
+
+  it('posts the network fee in the same transfer batch as the credit', async () => {
+    /**
+     * Credit and fee were two separate transactions. If the process died between
+     * them, the participant could spend the whole deposit and the later fee
+     * charge would drive USER_AVAILABLE positive — a sign-constraint violation
+     * that left the deposit row retrying every pass forever. Both movements now
+     * post together.
+     */
+    const { creditCryptoDeposit } = await subject();
+    await creditCryptoDeposit({ ...base, gasFeeBaseUnits: '20000' });
+
+    const kinds = h.transfers.map((t) => t.kind);
+    expect(kinds).toContain(LedgerTransferKind.DEPOSIT);
+    expect(kinds).toContain(LedgerTransferKind.FEE);
+    // One transaction: both were recorded by the same mocked client.
+    expect(h.transfers).toHaveLength(2);
+  });
+
+  it('refuses a fee that would consume the whole deposit', async () => {
+    const { creditCryptoDeposit } = await subject();
+    await expect(
+      creditCryptoDeposit({ ...base, gasFeeBaseUnits: base.amountBaseUnits }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    expect(h.transfers).toHaveLength(0);
+  });
+
+  it('credits without a fee when none is charged', async () => {
+    const { creditCryptoDeposit } = await subject();
+    await creditCryptoDeposit(base);
+    expect(h.transfers).toHaveLength(1);
+    expect(h.transfers[0]!.kind).toBe(LedgerTransferKind.DEPOSIT);
+  });
 });

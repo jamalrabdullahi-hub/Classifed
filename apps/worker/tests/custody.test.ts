@@ -15,7 +15,6 @@ const mocks = vi.hoisted(() => ({
   getWithdrawal: vi.fn(),
   sweepErc20ToOmnibus: vi.fn(),
   creditCryptoDeposit: vi.fn(),
-  chargeCryptoDepositGasFee: vi.fn(),
   cryptoDepositGasFeeBaseUnits: vi.fn(),
   custodyRows: [] as Array<Record<string, unknown>>,
   updates: [] as Array<{ where: { id: string }; data: Record<string, unknown> }>,
@@ -31,7 +30,6 @@ vi.mock('@flt/providers', () => ({
 
 vi.mock('@flt/core/services/custody-deposits', () => ({
   creditCryptoDeposit: mocks.creditCryptoDeposit,
-  chargeCryptoDepositGasFee: mocks.chargeCryptoDepositGasFee,
   cryptoDepositGasFeeBaseUnits: mocks.cryptoDepositGasFeeBaseUnits,
   MIN_CRYPTO_DEPOSIT_USD: 5,
 }));
@@ -97,7 +95,6 @@ beforeEach(() => {
   mocks.getWithdrawal.mockReset();
   mocks.sweepErc20ToOmnibus.mockReset();
   mocks.creditCryptoDeposit.mockReset().mockResolvedValue({ credited: true });
-  mocks.chargeCryptoDepositGasFee.mockReset().mockResolvedValue(undefined);
   mocks.cryptoDepositGasFeeBaseUnits.mockReset().mockReturnValue('0');
 });
 

@@ -2453,6 +2453,13 @@ model CustodyDeposit {
 enum WithdrawalStatus {
   /// Requested and the funds are locked, but nothing has been broadcast yet.
   PENDING
+  /// A broadcast has been attempted and its outcome is not yet known.
+  ///
+  /// Set before the send, so a send whose response is lost cannot look like a
+  /// send that never happened. A row here is never re-broadcast blindly: the
+  /// worker first looks on-chain for a matching transfer, and only returns it to
+  /// PENDING when it can see that nothing left.
+  BROADCASTING
   /// A transfer from the omnibus has been broadcast. Not yet confirmed.
   SENT
   /// Confirmed in a mined receipt. The ledger has been debited. Terminal.
@@ -2493,6 +2500,13 @@ model Withdrawal {
 
   status        WithdrawalStatus @default(PENDING)
   failureReason String?
+
+  /// How many times a broadcast has been attempted. A row that keeps returning
+  /// to PENDING is a row an operator needs to look at.
+  broadcastAttempts Int @default(0)
+  /// When the most recent broadcast was attempted, so a BROADCASTING row that
+  /// needs resolving can be aged.
+  broadcastAt DateTime?
 
   sentAt      DateTime?
   completedAt DateTime?

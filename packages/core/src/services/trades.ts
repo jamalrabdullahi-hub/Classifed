@@ -309,11 +309,25 @@ export async function transitionTransaction(
   }
 
   /**
-   * A swap that did not land moved nothing, so the reservation taken at execute
-   * is given back. No-ops unless custody is on.
+   * A swap that can never land moved nothing, so the reservation taken at
+   * execute is given back. No-ops unless custody is on.
+   *
+   * ## Why DROPPED does not release
+   *
+   * DROPPED means "no receipt yet and it has been a while" — not "gone".
+   * `DROPPED -> CONFIRMED` is a legal transition and the monitor keeps polling
+   * dropped transactions, because a congested transaction routinely mines after
+   * the ten-minute mark. Releasing there and settling later spent the same
+   * reservation twice: the funds went back to spendable, the swap then
+   * confirmed, and settlement tried to debit a `USER_LOCKED` balance that was no
+   * longer there. The participant kept money the omnibus had already paid out.
+   *
+   * So only the two genuinely terminal outcomes release: REVERTED (mined and
+   * failed, so nothing moved) and FAILED (the monitor has concluded the
+   * transaction can never be mined).
    */
   if (
-    (next === TransactionStatus.REVERTED || next === TransactionStatus.DROPPED) &&
+    (next === TransactionStatus.REVERTED || next === TransactionStatus.FAILED) &&
     current.quoteId &&
     current.kind === TransactionKind.SWAP
   ) {

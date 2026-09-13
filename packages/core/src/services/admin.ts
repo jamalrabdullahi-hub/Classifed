@@ -673,6 +673,25 @@ export async function adjustClientBalance(
   const asset = input.asset.trim().toUpperCase();
   if (!asset) throw new ValidationError('An asset is required');
 
+  /**
+   * The asset must be one FLT actually custodies.
+   *
+   * A typo here does not fail — it silently opens ledger accounts for an asset
+   * that does not exist. The participant then sees a balance they can never
+   * withdraw (`requestWithdrawal` requires an enabled token) and reconciliation
+   * reports a permanent shortfall for it, because the custodian side can never
+   * produce a matching holding. An alert that can never be cleared is worse
+   * than no alert: it teaches operators to ignore the one check that proves
+   * solvency.
+   */
+  const known = await prisma.token.findFirst({ where: { symbol: asset, isEnabled: true } });
+  if (!known) {
+    throw new ValidationError(
+      `There is no enabled ${asset} token, so a balance in it could never be withdrawn or reconciled`,
+      { asset },
+    );
+  }
+
   let amount: Decimal;
   try {
     amount = new Decimal(input.amount);

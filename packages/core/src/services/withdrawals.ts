@@ -12,6 +12,7 @@ import { Decimal, fromBaseUnits, toBaseUnits } from '../domain/money';
 import { checksumAddress } from '../domain/address';
 import { newId } from '../domain/id';
 import { accountFor, clientBalance, lockFunds, postTransfer, unlockFunds } from './ledger';
+import { assertMayTrade } from './kyc';
 
 /**
  * Withdrawals: taking a custodial balance back out.
@@ -55,6 +56,17 @@ export async function requestWithdrawal(
   user: User,
   input: { asset: string; chainId: number; amount: string; destinationAddress: string },
 ): Promise<Withdrawal> {
+  /**
+   * The same gate every other money-moving service applies.
+   *
+   * `quotes.ts`, `perps.ts`, `protection-purchase.ts` and `algorithms.ts` all
+   * call this; withdrawal did not, which made suspension cosmetic on the one
+   * action that takes funds out of custody. Suspending an account is what an
+   * operator does when they believe it is compromised or fraudulent, and it has
+   * to stop the withdrawal before it stops the trading.
+   */
+  assertMayTrade(user);
+
   const asset = input.asset.trim().toUpperCase();
 
   const token = await prisma.token.findFirst({
@@ -112,6 +124,59 @@ export async function requestWithdrawal(
   }
 }
 
+/**
+ * Claims a withdrawal for broadcast, before anything is sent.
+ *
+ * ## Why the status moves first
+ *
+ * A broadcast has three outcomes, not two: it left, it did not leave, or **we
+ * do not know**. The third is the dangerous one — an RPC that accepts the
+ * transaction and then times out, or a database write that fails after the
+ * transfer is already on the wire. Leaving the row PENDING in that case made
+ * the next pass broadcast a second transfer, and the participant was paid
+ * twice while the ledger debited once.
+ *
+ * So the row is moved out of PENDING *before* the send. Anything that goes
+ * wrong afterwards leaves it in BROADCASTING, which the worker treats as "find
+ * out what happened" rather than "try again".
+ *
+ * Returns null when the row is not claimable — already claimed, already sent,
+ * or gone — so a concurrent pass cannot broadcast the same withdrawal twice.
+ */
+export async function claimWithdrawalForBroadcast(
+  withdrawalId: string,
+): Promise<Withdrawal | null> {
+  const claimed = await prisma.withdrawal.updateMany({
+    where: { id: withdrawalId, status: WithdrawalStatus.PENDING },
+    data: {
+      status: WithdrawalStatus.BROADCASTING,
+      broadcastAt: new Date(),
+      broadcastAttempts: { increment: 1 },
+    },
+  });
+  if (claimed.count === 0) return null;
+  return prisma.withdrawal.findUnique({ where: { id: withdrawalId } });
+}
+
+/**
+ * Returns a claimed withdrawal to PENDING, for a broadcast that provably never
+ * left.
+ *
+ * Only safe when the caller has established that no transfer exists — a
+ * validation error raised before the send, or an on-chain check that found
+ * nothing. Calling this on a genuinely ambiguous failure is what reintroduces
+ * the double payment.
+ */
+export async function releaseWithdrawalClaim(
+  withdrawalId: string,
+  reason: string,
+): Promise<void> {
+  await prisma.withdrawal.updateMany({
+    where: { id: withdrawalId, status: WithdrawalStatus.BROADCASTING },
+    data: { status: WithdrawalStatus.PENDING, failureReason: reason },
+  });
+}
+
 /** Records that the omnibus transfer was broadcast. */
 export async function markWithdrawalSent(
   withdrawalId: string,
@@ -119,7 +184,10 @@ export async function markWithdrawalSent(
 ): Promise<Withdrawal> {
   const withdrawal = await prisma.withdrawal.findUnique({ where: { id: withdrawalId } });
   if (!withdrawal) throw new NotFoundError('Withdrawal');
-  if (withdrawal.status !== WithdrawalStatus.PENDING) {
+  if (
+    withdrawal.status !== WithdrawalStatus.PENDING &&
+    withdrawal.status !== WithdrawalStatus.BROADCASTING
+  ) {
     throw new ValidationError('This withdrawal is not awaiting a transfer', {
       status: withdrawal.status,
     });
