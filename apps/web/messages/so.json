@@ -681,6 +681,8 @@
     "total": "Wadarta",
     "liquidationEst": "Liquidation (qiyaas)",
     "blockedNotice": "{leverage}x, suuqu wuxuu ku dhici doonaa liquidation ka hor inta uusan ilaalintu gaarin xadkeeda, sidaa darteed caymiska marnaba ma xallin doono marka hore. {max}x ayaa ugu badan ee ilaalintani taageerto.",
+    "minimumHint": "Ugu yaraan ${amount}",
+    "belowMinimum": "Goobtu waxay u baahan tahay ugu yaraan ${amount} oo qiimaha jagada ah.",
     "execute": "Fuli",
     "executeLong": "Kordhin {symbol} · {leverage}x",
     "executeShort": "Hoos u dhig {symbol} · {leverage}x",

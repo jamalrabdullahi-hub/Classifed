@@ -8,6 +8,7 @@ import {
   type Wallet,
   prisma,
 } from '@flt/db';
+import { env } from '@flt/config';
 import { ForbiddenError, NotFoundError, ValidationError } from '../domain/errors';
 import { newId } from '../domain/id';
 import { Decimal } from '../domain/money';
@@ -109,7 +110,21 @@ export async function createPolicy(
     );
   }
 
-  const positions = await venue.getPositions({ address: context.wallet.address });
+  /**
+   * Where the position actually is.
+   *
+   * Under custody every position is opened on the **omnibus's** venue account,
+   * not on the participant's own wallet — so reading the participant's address
+   * finds nothing and a policy can never be written, which is precisely how
+   * insurance came to be unbuyable. The participant's wallet is still the right
+   * address when custody is off and they hold the position themselves.
+   */
+  const positionAddress =
+    env().CUSTODY_PROVIDER === 'privy' && env().OMNIBUS_EVM_ADDRESS
+      ? env().OMNIBUS_EVM_ADDRESS!
+      : context.wallet.address;
+
+  const positions = await venue.getPositions({ address: positionAddress });
   const position = positions.find((candidate) => candidate.symbol === symbol);
   if (!position) {
     throw new ValidationError(

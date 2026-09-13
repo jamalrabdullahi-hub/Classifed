@@ -52,6 +52,12 @@ export async function openCustodyPerpPosition(params: {
   walletId: string;
   marketId: string;
   intent: PerpOrderIntent;
+  /**
+   * Cover is being bought with this order, so the pre-existing-policy check is
+   * satisfied by the policy the caller writes once the position exists. See the
+   * note on `assertLeveragedCover`.
+   */
+  buyingCover?: boolean;
 }): Promise<CustodyOpenResult> {
   const venue = new HyperliquidPerpVenue();
   const request = { address: omnibus(), intent: params.intent };
@@ -72,6 +78,7 @@ export async function openCustodyPerpPosition(params: {
     leverage: params.intent.leverage,
     reduceOnly: params.intent.reduceOnly,
     symbol: params.intent.symbol,
+    buyingCover: params.buyingCover,
   });
 
   const orderId = newId();

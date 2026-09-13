@@ -157,8 +157,20 @@ export async function assertLeveragedCover(params: {
   reduceOnly?: boolean;
   /** For the error message only; the policy is resolved by market id. */
   symbol?: string;
+  /**
+   * Cover is being bought as part of this same order.
+   *
+   * Without this the requirement is circular and leveraged trading is simply
+   * impossible: opening demands an existing policy, and `createPolicy` demands
+   * an existing position to anchor the policy to. Neither can go first. An
+   * order that carries its own cover satisfies the rule by writing the policy
+   * immediately after the fill, which is the only ordering the two constraints
+   * both allow.
+   */
+  buyingCover?: boolean;
 }): Promise<void> {
   if (params.leverage <= 1 || params.reduceOnly) return;
+  if (params.buyingCover) return;
   // Honor the deployment's protection policy — see the note above.
   if (!protectionRequired()) return;
 
@@ -895,5 +907,55 @@ export function assertBracketPrices(params: {
       stopLossPrice: params.stopLossPrice ?? null,
     },
     params.markPrice,
+  );
+}
+
+/**
+ * Hyperliquid's minimum order **value**, in USD.
+ *
+ * The venue refuses anything below it, and the ticket rounds the contract count
+ * DOWN so a position is never larger than the dollars approved — which means an
+ * order sized at exactly $10 can land just under. Held here rather than in a
+ * route because both the prepare path and the live custody path have to apply
+ * the same number, and they did not: the rule was added to the prepare route
+ * the ticket stopped using, so the terminal's own orders reached the venue
+ * unchecked and came back with an opaque rejection.
+ */
+export const MIN_ORDER_VALUE_USD = new Decimal(10);
+
+/**
+ * The smallest order value this venue will accept, and the dollar figure that
+ * clears it.
+ *
+ * The minimum is a *value*, not a contract count, so the amount that satisfies
+ * it is one whole contract's worth at or above the minimum:
+ * `ceil(minimum / price) * price`. Returned rather than thrown so the ticket
+ * can state it before anybody types, instead of only rejecting afterwards.
+ */
+export function minimumOrderUsd(venueSlug: string, markPrice: string | null): Decimal | null {
+  if (venueSlug !== 'hyperliquid' || !markPrice) return null;
+  const price = new Decimal(markPrice);
+  if (price.lessThanOrEqualTo(0)) return null;
+  return MIN_ORDER_VALUE_USD.dividedBy(price).ceil().times(price);
+}
+
+/** Refuses an order whose value is under the venue's floor, naming the figure that clears it. */
+export function assertMinimumOrderValue(params: {
+  venueSlug: string;
+  venueName: string;
+  contracts: Decimal;
+  markPrice: string;
+}): void {
+  if (params.venueSlug !== 'hyperliquid') return;
+
+  const price = new Decimal(params.markPrice);
+  const notional = params.contracts.times(price);
+  if (notional.greaterThanOrEqualTo(MIN_ORDER_VALUE_USD)) return;
+
+  const minimumUsd = minimumOrderUsd(params.venueSlug, params.markPrice) ?? MIN_ORDER_VALUE_USD;
+  throw new ValidationError(
+    `${params.venueName} needs a minimum order value of $${MIN_ORDER_VALUE_USD.toFixed(2)}. ` +
+      `Increase the size to at least $${minimumUsd.toFixed(2)}.`,
+    { minimumUsd: minimumUsd.toFixed(2), notional: notional.toFixed(2) },
   );
 }

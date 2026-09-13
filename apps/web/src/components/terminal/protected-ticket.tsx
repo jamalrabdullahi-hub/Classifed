@@ -129,6 +129,9 @@ const POLICY_NOTE_KEYS: Record<PolicyKind, string> = {
   OMNI: 'policyNoteOmni',
 };
 
+/** Hyperliquid's minimum order value in USD; mirrors MIN_ORDER_VALUE_USD in core. */
+const MIN_ORDER_VALUE_USD = 10;
+
 export function ProtectedTicket({
   symbol,
   markPrice,
@@ -210,6 +213,23 @@ export function ProtectedTicket({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+
+  /**
+   * The venue's minimum order value, in dollars, at the current mark.
+   *
+   * Stated in the field rather than discovered through a rejection. The floor
+   * is a *value* ($10), and because the contract count is rounded down an order
+   * typed as exactly $10 can land just under it — so the figure shown is the
+   * one that actually clears: one whole contract's worth at or above the floor.
+   */
+  const minimumUsd = useMemo(() => {
+    const price = Number(markPrice);
+    if (!Number.isFinite(price) || price <= 0) return null;
+    return Math.ceil(MIN_ORDER_VALUE_USD / price) * price;
+  }, [markPrice]);
+
+  const belowMinimum =
+    minimumUsd !== null && amount.trim().length > 0 && Number(amount) < minimumUsd;
 
   const leverage = Number(leverageText);
   const leverageValid = Number.isInteger(leverage) && leverage >= 1 && leverage <= maxLeverage;
@@ -299,7 +319,8 @@ export function ProtectedTicket({
   }, [pricing, insured, z, onPriceLinesChange, tt]);
 
   const blocked = insured && pricing !== null && !pricing.waterfallHolds;
-  const ready = Boolean(amount) && leverageValid && (!insured || pricing !== null) && !blocked;
+  const ready =
+    Boolean(amount) && leverageValid && (!insured || pricing !== null) && !blocked && !belowMinimum;
 
   /**
    * Places the order the way this platform was designed to place orders: the
@@ -334,6 +355,23 @@ export function ProtectedTicket({
         triggerPrice: needsTrigger(orderType) ? triggerPrice.trim() : null,
         takeProfitPrice: bracket && takeProfit.trim() ? takeProfit.trim() : null,
         stopLossPrice: bracket && stopLoss.trim() ? stopLoss.trim() : null,
+        /**
+         * The cover the panel above just priced, sent with the order.
+         *
+         * It used to be priced and displayed and then left behind: the premium
+         * appeared on screen, the order went out without it, and under
+         * PROTECTION_MODE=required the open was refused for having no policy —
+         * one that could not have been written beforehand, because a policy has
+         * to anchor to a position that exists. Sending the terms with the order
+         * is what lets the server write it the moment the fill lands.
+         */
+        cover: insured
+          ? {
+              kind: policy,
+              percentile: pricing?.confidence,
+              horizonDays,
+            }
+          : undefined,
       });
 
       setDone(tt('orderSent'));
@@ -396,8 +434,19 @@ export function ProtectedTicket({
         value={amount}
         onChange={setAmount}
         placeholder="1000"
-        hint={pricing ? `≈ ${pricing.marginRequired.times(leverage).dividedBy(markPrice ?? 1).toFixed(6)} ${symbol}` : undefined}
+        hint={
+          pricing
+            ? `≈ ${pricing.marginRequired.times(leverage).dividedBy(markPrice ?? 1).toFixed(6)} ${symbol}`
+            : minimumUsd !== null
+              ? tt('minimumHint', { amount: minimumUsd.toFixed(2) })
+              : undefined
+        }
       />
+      {belowMinimum && minimumUsd !== null ? (
+        <p className="-mt-1 text-[10.5px] text-[var(--negative)]">
+          {tt('belowMinimum', { amount: minimumUsd.toFixed(2) })}
+        </p>
+      ) : null}
 
       <LabeledInput
         label={tt('leverageLabel')}

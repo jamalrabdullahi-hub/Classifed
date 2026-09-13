@@ -681,6 +681,8 @@
     "total": "Total",
     "liquidationEst": "Liquidation (est.)",
     "blockedNotice": "At {leverage}x the venue liquidates before cover reaches its boundary, so insurance would never resolve first. {max}x is the most this cover supports.",
+    "minimumHint": "Minimum ${amount}",
+    "belowMinimum": "The venue needs at least ${amount} of position value.",
     "execute": "Execute",
     "executeLong": "Long {symbol} · {leverage}x",
     "executeShort": "Short {symbol} · {leverage}x",
