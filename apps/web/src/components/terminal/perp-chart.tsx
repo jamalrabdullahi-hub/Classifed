@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import type { Candle, PerpCandleInterval } from '@flt/core/ports';
 import { cn } from '@flt/ui';
-import { ApiError, get } from '@/lib/api';
+import { ApiError, apiFetch } from '@/lib/api';
 import { PriceChart, type PriceLineSpec } from '@/components/price-chart';
 import {
   INDICATOR_TYPES,
@@ -78,15 +78,22 @@ export function PerpChart({
 
     async function load() {
       try {
-        const next = await get<{ candles: Candle[] }>(
+        // Bounded: a venue that never answers must end in a message, not an
+        // endless "loading chart".
+        const next = await apiFetch<{ candles: Candle[] }>(
           `/api/perps/markets/${encodeURIComponent(symbol)}/candles?interval=${interval}&limit=240`,
+          { signal: AbortSignal.timeout(15_000) },
         );
         if (cancelled) return;
         setCandles(next.candles);
         setError(null);
       } catch (caught) {
         if (!cancelled) {
-          setError(caught instanceof ApiError ? caught.message : t('chartUnavailable'));
+          setError(
+            caught instanceof ApiError && caught.code !== 'NETWORK_ERROR' && caught.code !== 'INTERNAL_ERROR'
+              ? caught.message
+              : t('chartUnavailable'),
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);

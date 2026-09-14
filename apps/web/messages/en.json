@@ -512,7 +512,7 @@
     "cross": "cross"
   },
   "perpMarketPage": {
-    "footerNote": "Prices, book depth and trades are reported by {venue}, not by FLT, and are not quotes. A perpetual has no expiry: it stays open until you close it or until the market moves far enough against you that the venue closes it and the margin behind it is gone. There is no margin call. FLT caps leverage at {maxLeverage}× whatever the venue permits, prepares orders, and never holds your collateral or signs on your behalf."
+    "footerNote": "Prices, book depth and trades are reported by {venue}, not by FLT, and are not quotes. A perpetual has no expiry: it stays open until you close it or until the market moves far enough against you that the venue closes it and the margin behind it is gone. There is no margin call. On this market FLT caps leverage at {maxLeverage}× whatever the venue permits, prepares orders, and never holds your collateral or signs on your behalf."
   },
   "marketChart": {
     "couldNotLoad": "Could not load price history.",
@@ -606,7 +606,9 @@
     "bestAsk": "best ask",
     "spread": " · spread {spread}",
     "ordersResting": "{count} orders resting",
-    "usePriceAria": "Use {price} as the order price"
+    "usePriceAria": "Use {price} as the order price",
+    "lockedTitle": "The live order book is included with Basic and above",
+    "lockedCta": "See plans"
   },
   "terminal": {
     "chartLabel": "{symbol} chart",

@@ -1,3 +1,4 @@
+import { env } from '@flt/config';
 import { z } from 'zod';
 import { SubscriptionTier } from '@flt/db';
 import {
@@ -33,7 +34,7 @@ export const GET = handler({}, async ({ user }) => {
       priceUsd: plan.priceUsd,
       isFeatured: plan.isFeatured,
       feeDiscountBps: plan.feeDiscountBps,
-      maxLeverage: plan.maxLeverage,
+      maxLeverage: Math.min(plan.maxLeverage, env().PERP_MAX_LEVERAGE),
       watchlistLimit: plan.watchlistLimit,
       priceAlertLimit: plan.priceAlertLimit,
       historyDays: plan.historyDays,

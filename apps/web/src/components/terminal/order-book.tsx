@@ -241,53 +241,29 @@ function Row({
  * nothing.
  */
 function LockedLevel2() {
-  const rows = [
-    { p: '1.0918', s: '2.41', t: '8.72' },
-    { p: '1.0916', s: '1.10', t: '6.31' },
-    { p: '1.0914', s: '3.82', t: '5.21' },
-    { p: '1.0912', s: '0.94', t: '1.39' },
-    { p: '1.0910', s: '5.02', t: '0.45' },
-  ];
+  const t = useTranslations('orderBookPanel');
+  // Bar widths only — no prices. Made-up numbers next to a real mark price
+  // read as a broken book, not as a preview.
+  const widths = [72, 38, 86, 24, 58];
 
   return (
     <div className="relative h-full overflow-hidden text-[11px]">
-      <div className="select-none blur-[3px]" aria-hidden="true">
-        <div className="grid grid-cols-[1fr_1fr_1fr] px-2.5 py-1.5 font-[family-name:var(--font-mono)] text-[9.5px] uppercase tracking-[0.09em] text-[var(--text-subtle)]">
-          <span>Price</span>
-          <span className="text-right">Size</span>
-          <span className="text-right">Total</span>
-        </div>
-        {rows.map((row) => (
-          <div
-            key={row.p}
-            className="grid grid-cols-[1fr_1fr_1fr] px-2.5 py-[2px] font-[family-name:var(--font-mono)] text-[var(--negative)]"
-          >
-            <span>{row.p}</span>
-            <span className="text-right text-[var(--text-muted)]">{row.s}</span>
-            <span className="text-right text-[var(--text-subtle)]">{row.t}</span>
-          </div>
+      <div className="select-none space-y-[5px] px-2.5 py-2 opacity-60" aria-hidden="true">
+        {widths.map((width, index) => (
+          <div key={`a${index}`} className="h-2.5 rounded-[2px] bg-[var(--negative-subtle)]" style={{ width: `${width}%` }} />
         ))}
-        <div className="my-0.5 border-y border-[var(--border)] px-2.5 py-1.5 font-[family-name:var(--font-mono)] text-[13px] font-semibold text-[var(--text)]">
-          1.0920
-        </div>
-        {[...rows].reverse().map((row) => (
-          <div
-            key={`b${row.p}`}
-            className="grid grid-cols-[1fr_1fr_1fr] px-2.5 py-[2px] font-[family-name:var(--font-mono)] text-[var(--positive)]"
-          >
-            <span>{row.p}</span>
-            <span className="text-right text-[var(--text-muted)]">{row.s}</span>
-            <span className="text-right text-[var(--text-subtle)]">{row.t}</span>
-          </div>
+        <div className="my-1.5 h-4 w-1/3 rounded-[2px] bg-[var(--surface-raised)]" />
+        {[...widths].reverse().map((width, index) => (
+          <div key={`b${index}`} className="h-2.5 rounded-[2px] bg-[var(--positive-subtle)]" style={{ width: `${width}%` }} />
         ))}
       </div>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-[var(--canvas)]/70 px-4 text-center">
         <p className="max-w-[82%] text-[12px] font-medium leading-snug text-[var(--text)]">
-          Enhance your trading with Level 2 data
+          {t('lockedTitle')}
         </p>
         <Button asChild variant="primary" size="sm">
-          <Link href="/qorshayaal">Buy here</Link>
+          <Link href="/qorshayaal">{t('lockedCta')}</Link>
         </Button>
       </div>
     </div>

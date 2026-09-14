@@ -1,3 +1,4 @@
+import { env } from '@flt/config';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
@@ -62,7 +63,7 @@ export default async function UpgradePage() {
           priceUsd: plan.priceUsd,
           isFeatured: plan.isFeatured,
           feeDiscountBps: plan.feeDiscountBps,
-          maxLeverage: plan.maxLeverage,
+          maxLeverage: Math.min(plan.maxLeverage, env().PERP_MAX_LEVERAGE),
           apiAccess: plan.apiAccess,
           advancedRiskAnalytics: plan.advancedRiskAnalytics,
         }))}

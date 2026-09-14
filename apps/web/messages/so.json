@@ -512,7 +512,7 @@
     "cross": "cross"
   },
   "perpMarketPage": {
-    "footerNote": "Qiimayaasha, qoto dhererka buugga, iyo ganacsiyada waxaa soo warramaya {venue}, ma aha FLT, mana aha qiime la bixiyay. Perpetual-ku ma laha wakhti dhammaad ah: wuu socon karaa ilaa aad xirto ama ilaa suuqu kaa gees u dhaqaaqo si ku filan in suuqu xiro booska margin-kiisuna dhammaado. Wicitaan margin ah ma jiro. FLT wuxuu leverage-ka ku xaddidaa {maxLeverage}× wax kastoo suuqu oggol yahay, wuxuu diyaariyaa dalabyada, mana hayo hantidaada margin-ka ahna kuuma saxiixo."
+    "footerNote": "Qiimayaasha, qoto dhererka buugga, iyo ganacsiyada waxaa soo warramaya {venue}, ma aha FLT, mana aha qiime la bixiyay. Perpetual-ku ma laha wakhti dhammaad ah: wuu socon karaa ilaa aad xirto ama ilaa suuqu kaa gees u dhaqaaqo si ku filan in suuqu xiro booska margin-kiisuna dhammaado. Wicitaan margin ah ma jiro. Suuqan, FLT wuxuu leverage-ka ku xaddidaa {maxLeverage}× wax kastoo suuqu oggol yahay, wuxuu diyaariyaa dalabyada, mana hayo hantidaada margin-ka ahna kuuma saxiixo."
   },
   "marketChart": {
     "couldNotLoad": "Taariikhda qiimaha lama soo rari karin.",
@@ -606,7 +606,9 @@
     "bestAsk": "iibinta ugu fiican",
     "spread": " · farqiga {spread}",
     "ordersResting": "{count} dalab oo sugaya",
-    "usePriceAria": "Isticmaal {price} sida qiimaha dalabka"
+    "usePriceAria": "Isticmaal {price} sida qiimaha dalabka",
+    "lockedTitle": "Buugga dalabyada tooska ah wuxuu ku jiraa Basic iyo wixii ka sarreeya",
+    "lockedCta": "Eeg qorshayaasha"
   },
   "terminal": {
     "chartLabel": "Jaantuska {symbol}",

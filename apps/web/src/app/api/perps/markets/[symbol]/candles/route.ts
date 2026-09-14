@@ -1,4 +1,4 @@
-import { NotFoundError, ValidationError } from '@flt/core/domain';
+import { DomainError, NotFoundError, ValidationError } from '@flt/core/domain';
 import { resolveOfferedMarket } from '@flt/core/services/perps';
 import { isPerpCandleInterval } from '@flt/core/ports';
 import { perpVenues } from '@flt/providers';
@@ -12,7 +12,12 @@ import { routeHandler } from '@/server/api';
  * whole deployment; Hyperliquid's read API does not, and a cached candle on a
  * leveraged market is worse than a slow one — the last candle is the price the
  * position is being marked against.
+ *
+ * The venue call is bounded: a venue that does not answer produces a clear
+ * "unavailable" rather than a request that hangs and a chart stuck loading.
  */
+const VENUE_TIMEOUT_MS = 10_000;
+
 export const GET = routeHandler<unknown, { symbol: string }, unknown>(
   // Public market data — the chart renders for a signed-out visitor too.
   { auth: false },
@@ -30,12 +35,24 @@ export const GET = routeHandler<unknown, { symbol: string }, unknown>(
     }
 
     const limit = Number(url.searchParams.get('limit') ?? 200);
-    const candles = await venue.getCandles(
-      offered.market.symbol,
-      interval,
-      Number.isFinite(limit) ? Math.min(Math.max(limit, 20), 500) : 200,
-    );
-
-    return { symbol: offered.market.symbol, interval, candles };
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const candles = await Promise.race([
+        venue.getCandles(
+          offered.market.symbol,
+          interval,
+          Number.isFinite(limit) ? Math.min(Math.max(limit, 20), 500) : 200,
+        ),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new DomainError('CHART_UNAVAILABLE', 'Chart data is not available for this market right now.', 503)),
+            VENUE_TIMEOUT_MS,
+          );
+        }),
+      ]);
+      return { symbol: offered.market.symbol, interval, candles };
+    } finally {
+      clearTimeout(timer);
+    }
   },
 );

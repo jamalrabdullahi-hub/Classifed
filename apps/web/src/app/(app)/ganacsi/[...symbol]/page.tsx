@@ -134,7 +134,7 @@ export default async function PerpMarketPage({
       />
 
       <p className="text-[11px] leading-relaxed text-[var(--text-subtle)]">
-        {t('footerNote', { venue: venue.meta.name, maxLeverage: env().PERP_MAX_LEVERAGE })}
+        {t('footerNote', { venue: venue.meta.name, maxLeverage })}
       </p>
     </div>
   );

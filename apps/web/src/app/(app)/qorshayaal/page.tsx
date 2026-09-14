@@ -1,3 +1,4 @@
+import { env } from '@flt/config';
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 import { SubscriptionTier, prisma } from '@flt/db';
@@ -57,7 +58,7 @@ export default async function PlansPage() {
           priceUsd: plan.priceUsd,
           isFeatured: plan.isFeatured,
           feeDiscountBps: plan.feeDiscountBps,
-          maxLeverage: plan.maxLeverage,
+          maxLeverage: Math.min(plan.maxLeverage, env().PERP_MAX_LEVERAGE),
           watchlistLimit: plan.watchlistLimit,
           priceAlertLimit: plan.priceAlertLimit,
           historyDays: plan.historyDays,
