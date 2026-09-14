@@ -26,8 +26,8 @@ export function Wordmark({ className }: { className?: string }) {
 export function CustodyNote({ className }: { className?: string }) {
   return (
     <p className={cn('text-[12px] leading-relaxed text-[var(--text-subtle)]', className)}>
-      FLT never holds your assets and never asks for a seed phrase or private key. Every trade is
-      signed in your own wallet and settled on-chain.
+      FLT holds wallet balances in custody for you and never asks for a seed phrase or private key.
+      Digital asset transfers cannot be reversed once sent.
     </p>
   );
 }

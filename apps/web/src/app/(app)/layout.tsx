@@ -33,6 +33,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // form that would appear to accept their password and then fail.
   if (user?.accountStatus === AccountStatus.SUSPENDED) redirect('/suspended');
 
+  // Signed out, the only page that renders here is the wallet landing, which
+  // carries its own header and footer (see src/middleware.ts).
+  if (!user) return <Providers>{children}</Providers>;
+
   return (
     <Providers>
       <div className="flex min-h-screen flex-col">

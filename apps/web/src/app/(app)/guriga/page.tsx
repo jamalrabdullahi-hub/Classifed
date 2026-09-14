@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { getTranslations } from 'next-intl/server';
-import { AccountStatus, KycStatus, prisma } from '@flt/db';
-import { ArrowRight, ArrowUpRight, ShieldCheck, Wallet } from 'lucide-react';
+import { getLocale, getTranslations } from 'next-intl/server';
+import { formatUnits } from 'viem';
+import { KycStatus, prisma } from '@flt/db';
+import { ArrowDownToLine, ArrowUpFromLine, ArrowUpRight, ShieldCheck, Wallet } from 'lucide-react';
 import {
-  Badge,
   Button,
   Card,
   CardContent,
@@ -12,142 +12,229 @@ import {
   CardTitle,
   EmptyState,
   Notice,
-  SectionHeader,
   StatusPill,
 } from '@flt/ui';
-import { explorerAddressUrl } from '@flt/core/chains';
-import { AddressChip } from '@flt/ui';
-import { ResendVerification } from '@/components/resend-verification';
-import { requireUserPage } from '@/server/session';
-import { entitlementsFor } from '@flt/core/services/entitlements';
+import { findChain } from '@flt/core/chains';
 import { custodyPortfolio } from '@flt/core/services/portfolio-usd';
-import { OnboardingChecklist } from '@/components/onboarding-checklist';
-import { UpgradeBanner } from '@/components/upgrade-banner';
+import { ResendVerification } from '@/components/resend-verification';
+import { currentUser } from '@/server/session';
+import { WalletLanding } from './wallet-landing';
+import { ReceiveAddress } from './receive-address';
 
-export async function generateMetadata(): Promise<Metadata> {
-  return { title: (await getTranslations('meta'))('titleHome') };
-}
 export const dynamic = 'force-dynamic';
 
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('meta');
+  if (await currentUser()) return { title: t('titleHome') };
+
+  // The one page crawlers are allowed to index.
+  return {
+    title: { absolute: t('landingTitle') },
+    description: t('rootDescription'),
+    robots: { index: true, follow: false },
+    alternates: { canonical: '/guriga' },
+  };
+}
+
+type Tone = 'neutral' | 'positive' | 'warning' | 'negative' | 'info';
+
+interface Movement {
+  id: string;
+  direction: 'in' | 'out';
+  label: string;
+  amount: string;
+  status: string;
+  tone: Tone;
+  at: Date;
+}
+
 /**
- * Home.
+ * The wallet.
  *
- * Deliberately a status screen rather than a trading terminal. It answers three
- * questions — can I trade, what is connected, what happened recently — and
- * points at the work. A dashboard full of live prices would encourage exactly
- * the behaviour the brief rules out.
+ * Signed out, the wallet landing — the only public page. Signed in, the
+ * account's custodied balances and the three things you do with them: add
+ * money, receive to the account's address, and take money out.
  */
-export default async function DashboardPage() {
-  const user = await requireUserPage();
-  const t = await getTranslations('dashboard');
-  // Only free accounts are prompted, and the banner itself enforces that too —
-  // one forgetful call site should not start nagging paying customers.
-  const entitlements = await entitlementsFor(user.id);
+export default async function WalletPage() {
+  const user = await currentUser();
+  if (!user) return <WalletLanding />;
 
-  const [kyc, wallets, recentTransactions, portfolio] = await Promise.all([
-    prisma.kycProfile.findUnique({ where: { userId: user.id } }),
-    prisma.wallet.findMany({
-      where: { userId: user.id, verifiedAt: { not: null } },
-      include: { chain: { select: { name: true } } },
-      orderBy: [{ isPreferred: 'desc' }, { createdAt: 'asc' }],
-    }),
-    prisma.transaction.findMany({
-      where: { userId: user.id },
-      orderBy: { submittedAt: 'desc' },
-      take: 5,
-    }),
-    custodyPortfolio(user.id),
-  ]);
+  const t = await getTranslations('custodyWallet');
+  const locale = await getLocale();
 
-  const verified = user.accountStatus === AccountStatus.KYC_APPROVED;
-  const canTrade = verified && !user.tradingDisabled && wallets.length > 0;
+  const [portfolio, kyc, depositWallet, custodyDeposits, withdrawals, fiatDeposits, fiatWithdrawals] =
+    await Promise.all([
+      custodyPortfolio(user.id),
+      prisma.kycProfile.findUnique({ where: { userId: user.id } }),
+      prisma.wallet.findFirst({
+        where: { userId: user.id, connector: 'privy-embedded' },
+        include: { chain: { select: { name: true } } },
+      }),
+      prisma.custodyDeposit.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' }, take: 10 }),
+      prisma.withdrawal.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' }, take: 10 }),
+      prisma.fiatDeposit.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' }, take: 10 }),
+      prisma.fiatWithdrawal.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' }, take: 10 }),
+    ]);
+
+  // Token decimals for on-chain amounts, looked up once for every pair shown.
+  const pairs = [...custodyDeposits, ...withdrawals].map((row) => ({ chainId: row.chainId, symbol: row.asset }));
+  const tokens = pairs.length
+    ? await prisma.token.findMany({ where: { OR: pairs }, select: { chainId: true, symbol: true, decimals: true } })
+    : [];
+  const decimalsFor = (chainId: number, symbol: string) =>
+    tokens.find((token) => token.chainId === chainId && token.symbol === symbol)?.decimals;
+
+  const onChainAmount = (chainId: number, symbol: string, baseUnits: string) => {
+    const decimals = decimalsFor(chainId, symbol);
+    if (decimals === undefined) return symbol;
+    const value = Number(formatUnits(BigInt(baseUnits), decimals));
+    return `${value.toLocaleString(locale, { maximumFractionDigits: 6 })} ${symbol}`;
+  };
+  const usd = (value: { toString(): string } | null) =>
+    value === null
+      ? '—'
+      : `$${Number(value.toString()).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const movements: Movement[] = [
+    ...custodyDeposits.map((row) => ({
+      id: `cd-${row.id}`,
+      direction: 'in' as const,
+      label: t('movementDeposit', { network: findChain(row.chainId)?.name ?? '' }),
+      amount: onChainAmount(row.chainId, row.asset, row.amountBaseUnits),
+      status: row.status === 'CREDITED' ? t('statusDone') : row.status === 'FAILED' ? t('statusHeld') : t('statusPending'),
+      tone: (row.status === 'CREDITED' ? 'positive' : row.status === 'FAILED' ? 'warning' : 'info') as Tone,
+      at: row.createdAt,
+    })),
+    ...withdrawals.map((row) => ({
+      id: `w-${row.id}`,
+      direction: 'out' as const,
+      label: t('movementSend', { network: findChain(row.chainId)?.name ?? '' }),
+      amount: onChainAmount(row.chainId, row.asset, row.amountBaseUnits),
+      status:
+        row.status === 'COMPLETED' || row.status === 'SENT'
+          ? t('statusDone')
+          : row.status === 'FAILED'
+            ? t('statusFailed')
+            : t('statusPending'),
+      tone: (row.status === 'COMPLETED' || row.status === 'SENT'
+        ? 'positive'
+        : row.status === 'FAILED'
+          ? 'negative'
+          : 'info') as Tone,
+      at: row.createdAt,
+    })),
+    ...fiatDeposits.map((row) => ({
+      id: `fd-${row.id}`,
+      direction: 'in' as const,
+      label: t('movementCashIn', { method: row.method }),
+      amount: usd(row.netUsd ?? row.amountFiat),
+      status:
+        row.status === 'DELIVERED' ? t('statusDone') : row.status === 'REJECTED' ? t('statusFailed') : t('statusPending'),
+      tone: (row.status === 'DELIVERED' ? 'positive' : row.status === 'REJECTED' ? 'negative' : 'info') as Tone,
+      at: row.createdAt,
+    })),
+    ...fiatWithdrawals.map((row) => ({
+      id: `fw-${row.id}`,
+      direction: 'out' as const,
+      label: t('movementCashOut', { method: row.method }),
+      amount: usd(row.netUsd),
+      status: row.status === 'PAID' ? t('statusDone') : row.status === 'REJECTED' ? t('statusFailed') : t('statusPending'),
+      tone: (row.status === 'PAID' ? 'positive' : row.status === 'REJECTED' ? 'negative' : 'info') as Tone,
+      at: row.createdAt,
+    })),
+  ]
+    .sort((a, b) => b.at.getTime() - a.at.getTime())
+    .slice(0, 10);
+
+  const total = Number(portfolio.totalUsd);
 
   return (
-    <div className="space-y-8">
-      <UpgradeBanner tier={entitlements.tier} reason="general" />
-
-      <div>
-        <h1 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text)]">
-          {t('welcomeBack')}
-        </h1>
-        <p className="mt-1 text-[13px] text-[var(--text-muted)]">{user.email}</p>
-      </div>
-
-      <OnboardingChecklist
-        kycApproved={kyc?.status === KycStatus.APPROVED}
-        balanceUsd={portfolio.totalUsd}
-        emailVerified={user.emailVerifiedAt !== null}
-      />
-
-      {/* The most important thing on the page is whatever is currently blocking
-          the user. Only one of these renders at a time. */}
+    <div className="mx-auto max-w-4xl space-y-6">
       {!user.emailVerifiedAt ? (
         <Notice tone="warning" title={t('confirmEmailTitle')}>
           {t('confirmEmailBody')}
           <ResendVerification email={user.email} />
         </Notice>
-      ) : !verified ? (
-        <VerificationPrompt status={kyc?.status ?? null} reason={kyc?.rejectionReason ?? null} t={t} />
-      ) : user.tradingDisabled ? (
-        <Notice tone="negative" title={t('tradingDisabledTitle')}>
-          {t('tradingDisabledBody')}
-        </Notice>
-      ) : wallets.length === 0 ? (
-        <Notice tone="info" title={t('connectWalletTitle')}>
-          {t('connectWalletBody')}
-          <div className="mt-3">
-            <Button asChild variant="primary" size="sm">
-              <Link href="/boorso">
-                {t('connectWallet')}
-                <ArrowRight className="size-3.5" />
-              </Link>
-            </Button>
-          </div>
+      ) : kyc?.status !== KycStatus.APPROVED ? (
+        <Notice
+          tone={kyc?.status === KycStatus.REJECTED ? 'negative' : 'info'}
+          title={
+            kyc?.status === KycStatus.IN_REVIEW
+              ? t('kycReviewTitle')
+              : kyc?.status === KycStatus.REJECTED
+                ? t('kycRejectedTitle')
+                : t('kycTitle')
+          }
+          icon={<ShieldCheck className="size-4" />}
+        >
+          {kyc?.status === KycStatus.REJECTED ? (kyc.rejectionReason ?? t('kycRejectedBody')) : t('kycBody')}
+          {kyc?.status !== KycStatus.IN_REVIEW ? (
+            <div className="mt-3">
+              <Button asChild variant="secondary" size="sm">
+                <Link href="/xaqiijin">{t('kycCta')}</Link>
+              </Button>
+            </div>
+          ) : null}
         </Notice>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <div>
-              <CardTitle>{t('connectedWallets')}</CardTitle>
-            </div>
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/boorso">
-                {t('manage')}
-                <ArrowUpRight className="size-3.5" />
+      <Card>
+        <CardContent className="space-y-5 pt-6">
+          <div>
+            <p className="text-[12px] font-medium uppercase tracking-[0.1em] text-[var(--text-subtle)]">
+              {t('totalBalance')}
+            </p>
+            <p className="num mt-1.5 text-[36px] font-semibold tracking-[-0.02em] text-[var(--text)]">
+              ${total.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+            <p className="mt-1 text-[12.5px] text-[var(--text-muted)]">{t('heldForYou')}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="primary">
+              <Link href="/lacag-gelin">
+                <ArrowDownToLine className="size-4" />
+                {t('addMoney')}
               </Link>
             </Button>
-          </CardHeader>
+            <Button asChild variant="secondary">
+              <Link href="/lacag-qaadasho">
+                <ArrowUpFromLine className="size-4" />
+                {t('withdraw')}
+              </Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-          {wallets.length === 0 ? (
+      <div className="grid gap-5 md:grid-cols-5">
+        <Card className="md:col-span-3">
+          <CardHeader>
+            <CardTitle>{t('holdings')}</CardTitle>
+          </CardHeader>
+          {portfolio.holdings.length === 0 ? (
             <EmptyState
               icon={<Wallet className="size-4" />}
-              title={t('noWalletConnectedTitle')}
-              description={t('noWalletConnectedBody')}
-              action={
-                <Button asChild variant="primary" size="sm">
-                  <Link href="/boorso">{t('connectWallet')}</Link>
-                </Button>
-              }
+              title={t('emptyTitle')}
+              description={t('emptyBody')}
             />
           ) : (
-            <CardContent className="space-y-2.5">
-              {wallets.map((wallet) => (
-                <div
-                  key={wallet.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-sunken)] px-3.5 py-3"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Wallet className="size-4 text-[var(--text-subtle)]" aria-hidden="true" />
-                    <AddressChip
-                      address={wallet.address}
-                      explorerUrl={explorerAddressUrl(wallet.chainId, wallet.address)}
-                    />
+            <CardContent className="divide-y divide-[var(--border)] p-0">
+              {portfolio.holdings.map((holding) => (
+                <div key={holding.asset} className="flex items-center justify-between gap-4 px-5 py-3.5">
+                  <div className="min-w-0">
+                    <p className="text-[14px] font-medium text-[var(--text)]">{holding.asset}</p>
+                    <p className="truncate text-[12px] text-[var(--text-subtle)]">{holding.name ?? holding.asset}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {wallet.isPreferred ? <Badge tone="accent">{t('preferred')}</Badge> : null}
-                    <Badge tone="neutral">{wallet.chain.name}</Badge>
+                  <div className="text-right">
+                    <p className="num text-[14px] text-[var(--text)]">
+                      {Number(holding.available).toLocaleString(locale, { maximumFractionDigits: 6 })}
+                    </p>
+                    <p className="num text-[12px] text-[var(--text-subtle)]">
+                      {holding.valueUsd ? usd(holding.valueUsd) : '—'}
+                      {Number(holding.locked) > 0
+                        ? ` · ${t('reserved', { amount: Number(holding.locked).toLocaleString(locale, { maximumFractionDigits: 6 }) })}`
+                        : ''}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -155,177 +242,64 @@ export default async function DashboardPage() {
           )}
         </Card>
 
-        <Card>
+        <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle>{t('account')}</CardTitle>
+            <CardTitle>{t('receive')}</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3.5">
-            <Row
-              label={t('verification')}
-              value={
-                verified ? (
-                  <StatusPill tone="neutral">{t('approved')}</StatusPill>
-                ) : kyc?.status === KycStatus.IN_REVIEW ? (
-                  <StatusPill tone="warning" pulse>
-                    {t('inReview')}
-                  </StatusPill>
-                ) : kyc?.status === KycStatus.REJECTED ? (
-                  <StatusPill tone="negative">{t('rejected')}</StatusPill>
-                ) : (
-                  <StatusPill tone="neutral">{t('notStarted')}</StatusPill>
-                )
-              }
-            />
-            <Row
-              label={t('email')}
-              value={
-                user.emailVerifiedAt ? (
-                  <StatusPill tone="neutral">{t('confirmed')}</StatusPill>
-                ) : (
-                  <StatusPill tone="warning">{t('unconfirmed')}</StatusPill>
-                )
-              }
-            />
-            <Row
-              label={t('trading')}
-              value={
-                canTrade ? (
-                  <StatusPill tone="neutral">{t('enabled')}</StatusPill>
-                ) : (
-                  <StatusPill tone="neutral">{t('unavailable')}</StatusPill>
-                )
-              }
-            />
-            <Row label={t('accountType')} value={<Badge tone="neutral">{user.accountType}</Badge>} />
+          <CardContent>
+            {depositWallet ? (
+              <ReceiveAddress address={depositWallet.address} network={depositWallet.chain.name} />
+            ) : (
+              <div className="space-y-3">
+                <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{t('noAddress')}</p>
+                <Button asChild variant="secondary" size="sm">
+                  <Link href="/lacag-gelin">{t('addMoney')}</Link>
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      <div>
-        <SectionHeader
-          title={t('recentActivityTitle')}
-          action={
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/dhaqdhaqaaq">
-                {t('viewAll')}
-                <ArrowUpRight className="size-3.5" />
-              </Link>
-            </Button>
-          }
-        />
-
-        <Card className="mt-4">
-          {recentTransactions.length === 0 ? (
-            <EmptyState
-              title={t('noTransactionsTitle')}
-              description={t('noTransactionsBody')}
-              action={
-                canTrade ? (
-                  <Button asChild variant="secondary" size="sm">
-                    <Link href="/iibso">{t('placeATrade')}</Link>
-                  </Button>
-                ) : undefined
-              }
-            />
-          ) : (
-            <CardContent className="divide-y divide-[var(--border)] p-0">
-              {recentTransactions.map((transaction) => (
-                <Link
-                  key={transaction.id}
-                  href={`/dhaqdhaqaaq/${transaction.id}`}
-                  className="flex items-center justify-between gap-4 px-5 py-3.5 transition-colors hover:bg-[var(--surface-hover)]"
-                >
-                  <div className="min-w-0">
-                    <p className="text-[13px] font-medium text-[var(--text)]">
-                      {transaction.kind === 'SWAP' ? t('swap') : t('tokenApproval')}
-                    </p>
-                    <p className="num mt-0.5 truncate font-mono text-[11px] text-[var(--text-subtle)]">
-                      {transaction.txHash}
-                    </p>
-                  </div>
-                  <TransactionStatusPill status={transaction.status} t={t} />
-                </Link>
-              ))}
-            </CardContent>
-          )}
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-[13px] text-[var(--text-muted)]">{label}</span>
-      {value}
-    </div>
-  );
-}
-
-function TransactionStatusPill({
-  status,
-  t,
-}: {
-  status: string;
-  t: Awaited<ReturnType<typeof getTranslations<'dashboard'>>>;
-}) {
-  if (status === 'CONFIRMED') return <StatusPill tone="neutral">{t('statusConfirmed')}</StatusPill>;
-  if (status === 'REVERTED' || status === 'FAILED')
-    return (
-      <StatusPill tone="negative">
-        {status === 'REVERTED' ? t('statusReverted') : t('statusFailed')}
-      </StatusPill>
-    );
-  if (status === 'DROPPED') return <StatusPill tone="warning">{t('statusDropped')}</StatusPill>;
-  return (
-    <StatusPill tone="info" pulse>
-      {t('statusPending')}
-    </StatusPill>
-  );
-}
-
-function VerificationPrompt({
-  status,
-  reason,
-  t,
-}: {
-  status: KycStatus | null;
-  reason: string | null;
-  t: Awaited<ReturnType<typeof getTranslations<'dashboard'>>>;
-}) {
-  if (status === KycStatus.IN_REVIEW) {
-    return (
-      <Notice tone="info" title={t('reviewTitle')}>
-        {t('reviewBody')}
-      </Notice>
-    );
-  }
-
-  if (status === KycStatus.REJECTED) {
-    return (
-      <Notice tone="negative" title={t('rejectedTitle')}>
-        {reason ?? t('rejectedFallback')}
-        <div className="mt-3">
-          <Button asChild variant="secondary" size="sm">
-            <Link href="/xaqiijin">{t('submitAgain')}</Link>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('recent')}</CardTitle>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/dhaqdhaqaaq">
+              {t('viewAll')}
+              <ArrowUpRight className="size-3.5" />
+            </Link>
           </Button>
-        </div>
-      </Notice>
-    );
-  }
-
-  return (
-    <Notice tone="warning" title={t('verifyTitle')} icon={<ShieldCheck className="size-4" />}>
-      {t('verifyBody')}
-      <div className="mt-3">
-        <Button asChild variant="primary" size="sm">
-          <Link href="/xaqiijin">
-            {t('startVerification')}
-            <ArrowRight className="size-3.5" />
-          </Link>
-        </Button>
-      </div>
-    </Notice>
+        </CardHeader>
+        {movements.length === 0 ? (
+          <EmptyState title={t('noMovementsTitle')} description={t('noMovementsBody')} />
+        ) : (
+          <CardContent className="divide-y divide-[var(--border)] p-0">
+            {movements.map((movement) => (
+              <div key={movement.id} className="flex items-center justify-between gap-4 px-5 py-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  {movement.direction === 'in' ? (
+                    <ArrowDownToLine className="size-4 shrink-0 text-[var(--positive)]" aria-hidden="true" />
+                  ) : (
+                    <ArrowUpFromLine className="size-4 shrink-0 text-[var(--text-subtle)]" aria-hidden="true" />
+                  )}
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] text-[var(--text)]">{movement.label}</p>
+                    <p className="text-[11.5px] text-[var(--text-subtle)]">{movement.at.toLocaleString(locale)}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="num text-[13px] text-[var(--text)]">
+                    {movement.direction === 'in' ? '+' : '−'}
+                    {movement.amount}
+                  </span>
+                  <StatusPill tone={movement.tone}>{movement.status}</StatusPill>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        )}
+      </Card>
+    </div>
   );
 }
