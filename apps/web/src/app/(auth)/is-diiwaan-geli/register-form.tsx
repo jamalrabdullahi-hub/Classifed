@@ -91,6 +91,11 @@ export function RegisterForm({
             {t('register.signIn')}
           </Link>
         </p>
+        <ul className="mt-3 space-y-1 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-sunken)] px-3.5 py-3 text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+          {(t.raw('register.learnPoints') as string[]).map((point) => (
+            <li key={point}>{point}</li>
+          ))}
+        </ul>
       </header>
 
       <form onSubmit={onSubmit} className="space-y-4">

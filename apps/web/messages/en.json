@@ -238,17 +238,22 @@
       "mfaError": "That code was not accepted."
     },
     "register": {
-      "heading": "Open an FLT account",
+      "heading": "Create your free FTL Learn account",
       "haveAccount": "Already have one?",
       "signIn": "Sign in",
       "passwordHint": "At least {count} characters. Length matters more than symbols.",
-      "submit": "Create account",
-      "disclaimer": "You will need to verify your identity before withdrawing. FLT never asks for a seed phrase or private key.",
+      "submit": "Create free account",
+      "disclaimer": "FTL never asks for a seed phrase or private key.",
       "genericError": "Could not create the account. Try again.",
       "checkInboxTitle": "Check your inbox",
       "checkInboxBody": "If {email} can be registered, a confirmation link is on its way. The link is valid for 24 hours.",
       "goToSignIn": "Go to sign in",
-      "honeypot": "Leave this field empty"
+      "honeypot": "Leave this field empty",
+      "learnPoints": [
+        "Lessons on digital keys, safe storage and scam awareness.",
+        "A Learn account cannot trade.",
+        "FTL Exchange is a separate product: trading needs its own application, identity verification and approval."
+      ]
     },
     "forgot": {
       "heading": "Reset your password",
@@ -1118,7 +1123,7 @@
     "titleInstrumentSymbol": "{symbol}",
     "titleForgotPassword": "Reset your password",
     "titleSignIn": "Sign in",
-    "titleOpenAccount": "Open an account",
+    "titleOpenAccount": "Create your free FTL Learn account",
     "titleNewPassword": "Choose a new password",
     "titleConfirmEmail": "Confirm your email",
     "landingTitle": "FLT Wallet — store, receive and send digital assets"
@@ -1877,5 +1882,20 @@
       "body": "FTL Exchange is a separate product. You have to apply for it separately, with identity verification and review. Your lessons do not depend on it.",
       "cta": "How to apply"
     }
+  },
+  "tradingLock": {
+    "title": "Trading is not enabled on this account",
+    "body": "FTL Exchange is a separate product from FTL Learn. To use it, you apply separately, and it is only turned on once your application is approved.",
+    "step1": "Verify your identity.",
+    "step2": "A person reviews your application.",
+    "step3": "If approved, trading is enabled on your account.",
+    "statusLabel": "Your status:",
+    "statusNotApplied": "Not applied",
+    "statusInReview": "Identity verification in review",
+    "statusAwaitingApproval": "Verified, waiting for trading approval",
+    "statusDisabled": "Trading has been disabled on this account. Contact support.",
+    "cta": "Apply for trading",
+    "back": "Back to lessons",
+    "note": "Trading carries risk, including losing the money you put in. Nothing here is financial advice."
   }
 }

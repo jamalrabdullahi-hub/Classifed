@@ -95,10 +95,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url, 307);
   }
 
-  if (pathname === '/signup') {
+  // Sign-up is FTL Learn's page on either address; the auth layout reads this.
+  if (pathname === '/signup' || pathname === '/is-diiwaan-geli') {
+    const headers = new Headers(request.headers);
+    headers.set('x-flt-surface', 'signup');
+    if (pathname === '/is-diiwaan-geli') return NextResponse.next({ request: { headers } });
     const url = request.nextUrl.clone();
     url.pathname = '/is-diiwaan-geli';
-    return NextResponse.rewrite(url);
+    return NextResponse.rewrite(url, { request: { headers } });
   }
 
   return NextResponse.next();

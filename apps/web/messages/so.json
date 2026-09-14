@@ -238,17 +238,22 @@
       "mfaError": "Koodhkaas lama aqbalin."
     },
     "register": {
-      "heading": "Furo akoon FLT ah",
+      "heading": "Samee akoonkaaga bilaashka ah ee FTL Learn",
       "haveAccount": "Horeba miyaad u lahayd mid?",
       "signIn": "Gal",
       "passwordHint": "Ugu yaraan {count} xaraf. Dhererku wuu ka muhiimsan yahay calaamadaha.",
-      "submit": "Samee akoon",
-      "disclaimer": "Waa inaad xaqiijisaa aqoonsigaaga ka hor intaadan lacag bixin. FLT marnaba kuma weydiiso seed phrase ama furaha sirta ah.",
+      "submit": "Samee akoon bilaash ah",
+      "disclaimer": "FTL marnaba kuma weydiiso seed phrase ama furaha sirta ah.",
       "genericError": "Akoonka lama abuuri karin. Isku day mar kale.",
       "checkInboxTitle": "Hubi sanduuqaaga boostada",
       "checkInboxBody": "Haddii {email} la diiwaan gelin karo, linkiga xaqiijinta ayaa soo socda. Linkigu wuxuu shaqeeyaa 24 saacadood.",
       "goToSignIn": "Aad gelitaanka",
-      "honeypot": "Goobtan madhan u daa"
+      "honeypot": "Goobtan madhan u daa",
+      "learnPoints": [
+        "Casharro ku saabsan furayaasha dijitaalka ah, kaydinta ammaan ah iyo ka digtoonaanta khiyaanada.",
+        "Akoonka Learn ma ganacsan karo.",
+        "FTL Exchange waa badeecad kale: ganacsigu wuxuu u baahan yahay codsi u gaar ah, xaqiijin aqoonsi iyo oggolaansho."
+      ]
     },
     "forgot": {
       "heading": "Dib u deji furahaaga sirta ah",
@@ -1118,7 +1123,7 @@
     "titleInstrumentSymbol": "{symbol}",
     "titleForgotPassword": "Dib U Deji Furahaaga",
     "titleSignIn": "Gal",
-    "titleOpenAccount": "Furo Akoon",
+    "titleOpenAccount": "Samee akoonkaaga bilaashka ah ee FTL Learn",
     "titleNewPassword": "Dooro Furan Cusub",
     "titleConfirmEmail": "Xaqiiji Iimaylkaaga",
     "landingTitle": "FLT Wallet — kaydi, hel oo dir hanti dijitaal ah"
@@ -1877,5 +1882,20 @@
       "body": "FLT Exchange waa badeecad kale. Waa inaad si gaar ah u codsato, oo leh xaqiijin aqoonsi iyo dib u eegis. Casharradaadu kuma xirna.",
       "cta": "Sida loo codsado"
     }
+  },
+  "tradingLock": {
+    "title": "Ganacsiga lagama furin akoonkan",
+    "body": "FTL Exchange waa badeecad ka duwan FTL Learn. Si aad u isticmaasho, si gaar ah ayaad u codsataa, waxaana la furaa oo keliya marka codsigaaga la oggolaado.",
+    "step1": "Xaqiiji aqoonsigaaga.",
+    "step2": "Qof ayaa dib u eegaya codsigaaga.",
+    "step3": "Haddii la oggolaado, ganacsiga ayaa akoonkaaga laga furayaa.",
+    "statusLabel": "Xaaladdaada:",
+    "statusNotApplied": "Lama codsan",
+    "statusInReview": "Xaqiijinta aqoonsiga dib ayaa loo eegayaa",
+    "statusAwaitingApproval": "La xaqiijiyay, sugaya oggolaanshaha ganacsiga",
+    "statusDisabled": "Ganacsiga waa laga joojiyay akoonkan. La xiriir taageerada.",
+    "cta": "Codso ganacsi",
+    "back": "Ku noqo casharrada",
+    "note": "Ganacsigu wuxuu leeyahay khatar, oo ay ku jirto in aad lumiso lacagta aad geliso. Waxba halkan kuma aha talo maaliyadeed."
   }
 }

@@ -6,7 +6,8 @@ import { RegisterForm } from './register-form';
 import { currentUser } from '@/server/session';
 
 export async function generateMetadata(): Promise<Metadata> {
-  return { title: (await getTranslations('meta'))('titleOpenAccount') };
+  // Absolute: this is FTL Learn's sign-up, so it does not carry the exchange's title suffix.
+  return { title: { absolute: (await getTranslations('meta'))('titleOpenAccount') } };
 }
 
 /** Where a new account may be sent after sign-up. A fixed list, never a free URL. */
@@ -18,7 +19,8 @@ export default async function RegisterPage({
   searchParams: Promise<{ next?: string }>;
 }) {
   const { next } = await searchParams;
-  const destination = next && NEXT_PATHS.has(next) ? next : '/guriga';
+  // Every new account starts as a Learn account, so it lands on the lessons.
+  const destination = next && NEXT_PATHS.has(next) ? next : '/educate/home';
 
   if (await currentUser()) redirect(destination);
   // Only the public site key reaches the browser; the secret stays on the server.
