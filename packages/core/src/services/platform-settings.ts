@@ -156,7 +156,7 @@ export async function setEvcSettings(
 
 /**
  * The USSD string a participant dials, in the format EVC Plus expects:
- * `*712*<merchant>*<whole>*<cents>#`.
+ * `*798*<merchant>*<whole>*<cents>#`.
  *
  * The amount is split into whole units and cents rather than sent as a decimal
  * because that is the shape of the dial string, and doing the split here means
@@ -166,7 +166,7 @@ export async function setEvcSettings(
 export function evcUssdCode(merchantNumber: string, amountUsd: string): string {
   const [whole = '0', fraction = ''] = amountUsd.split('.');
   const cents = fraction.padEnd(2, '0').slice(0, 2);
-  return `*712*${merchantNumber}*${whole}*${cents}#`;
+  return `*798*${merchantNumber}*${whole}*${cents}#`;
 }
 
 export interface RemittanceSettings {

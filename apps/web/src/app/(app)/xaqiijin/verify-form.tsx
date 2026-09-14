@@ -476,12 +476,15 @@ export function VerifyForm({
               </Button>
             ) : null}
             {step < 4 ? (
-              <Button type="button" variant="primary" block disabled={!canAdvance} onClick={() => setStep(step + 1)}>
+              // Distinct keys: without them React reuses this <button> for the
+              // submit button on step 4 and flips its type mid-click, which
+              // submits an empty final step the moment you press Next.
+              <Button key="next" type="button" variant="primary" block disabled={!canAdvance} onClick={() => setStep(step + 1)}>
                 {t('next')}
                 <ArrowRight className="size-3.5" />
               </Button>
             ) : (
-              <Button type="submit" variant="primary" block loading={pending} disabled={!canAdvance}>
+              <Button key="submit" type="submit" variant="primary" block loading={pending} disabled={!canAdvance}>
                 {t('submitForReview')}
               </Button>
             )}

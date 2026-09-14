@@ -36,7 +36,7 @@ const schema = z.object({
 });
 
 export const POST = handler(
-  { schema, rateLimit: { rule: RateLimits.REGISTER, scope: 'kyc-submit' } },
+  { schema, rateLimit: { rule: RateLimits.WALLET_LINK, scope: 'kyc-submit' } },
   async ({ body, user, context }) => {
     const profile = await submitKyc(
       user,

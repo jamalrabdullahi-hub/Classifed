@@ -102,7 +102,14 @@ export async function submitKyc(
     if (existing.status === KycStatus.IN_REVIEW) {
       throw new ConflictError('KYC_IN_REVIEW', 'Your verification is already under review.');
     }
-    kycStateMachine.assertTransition(existing.status, KycStatus.IN_REVIEW);
+    // A profile exists before the first submission (uploading the ID document
+    // creates it as NOT_STARTED), and a rejected or expired one is being
+    // resubmitted. None of those may jump straight to IN_REVIEW, so the
+    // submission passes through PENDING, which is exactly what it is.
+    if (existing.status !== KycStatus.PENDING) {
+      kycStateMachine.assertTransition(existing.status, KycStatus.PENDING);
+    }
+    kycStateMachine.assertTransition(KycStatus.PENDING, KycStatus.IN_REVIEW);
   }
 
   const riskTier = computeRiskTier(input);

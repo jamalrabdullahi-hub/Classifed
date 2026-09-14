@@ -76,7 +76,7 @@ export function EvcSettingsForm({
 
           <Field
             label="Merchant number"
-            description="Digits only. Participants dial *712*<this number>*<amount>*<cents>#."
+            description="Digits only. Participants dial *798*<this number>*<amount>*<cents>#."
           >
             {(props) => (
               <Input
