@@ -1630,7 +1630,7 @@
     },
     "separate": {
       "title": "Learn.FTLexchange.com is separate from FTLexchange.com",
-      "body": "This is an independent educational resource. It offers no services and no accounts, and reading it gives no access to FTLexchange.com or anything on it. Nothing here is financial advice."
+      "body": "Everything on this page is free to read without an account. Signing up creates an account on FTLexchange.com, a separate platform. Nothing here is financial advice."
     },
     "chain": {
       "title": "What is a blockchain?",
@@ -1820,7 +1820,7 @@
         "When unsure, stop and ask someone you trust in person."
       ]
     },
-    "footer": "Learn is an educational resource at learn.ftlexchange.com, separate from FTLexchange.com. It has no accounts, offers no financial services or advice, and does not give access to FTLexchange.com.",
+    "footer": "Learn is an educational resource at learn.ftlexchange.com, published alongside FTLexchange.com. Reading it needs no account; signing up creates an FTLexchange.com account. Nothing here is financial advice.",
     "demo": {
       "title": "Public-key cryptography, live",
       "intro": "A key pair is two linked numbers. The private key makes a signature; the public key lets anyone check it, without being able to make one. Try it: this runs entirely in your browser.",
@@ -1860,6 +1860,12 @@
           "body": "FIDO2/passkey keys (USB or NFC) sign sign-in challenges bound to the real website address, which makes them resistant to phishing sites."
         }
       ]
+    },
+    "cta": {
+      "label": "Sign up to learn more",
+      "title": "Keep learning",
+      "body": "Create a free account to go further: guided lessons on securing your keys, and a place to put what you have learned into practice.",
+      "note": "Creates an account on FTLexchange.com, where you will continue."
     }
   }
 }

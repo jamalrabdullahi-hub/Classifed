@@ -1,41 +1,54 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 /**
- * Host routing for Learn, plus the request path for server layouts.
+ * Host routing for Learn and the sign-up funnel.
  *
- * learn.ftlexchange.com is a separate educational site. On that host the root
- * is rewritten to `/baro` and every other page path redirects back to the
- * root, so nothing of the exchange is reachable through it. On the exchange's
- * own domain, `/baro` redirects to the Learn host rather than living in two
- * places.
+ * learn.ftlexchange.com serves two pages:
+ *   - `/`        → Learn (`/baro`)
+ *   - `/signup`  → registration (`/is-diiwaan-geli`), which creates an
+ *                  FTLexchange account and continues on ftlexchange.com
+ * Every other page path on that host belongs to the exchange and redirects
+ * to the same path on ftlexchange.com.
  *
- * Nothing here gates or hides the exchange: signed-out visitors and crawlers
- * see the same site on ftlexchange.com that anybody else does.
+ * On ftlexchange.com, `/signup` redirects to learn.ftlexchange.com/signup and
+ * `/baro` to the Learn root, so each page lives at one address. Off the
+ * production domain (local development) both are served in place.
+ *
+ * Nothing here gates or hides the exchange.
  */
 
 const LEARN_HOST = 'learn.ftlexchange.com';
+const EXCHANGE_ORIGIN = 'https://ftlexchange.com';
 const LEARN_PATH = '/baro';
+const SIGNUP_PATH = '/is-diiwaan-geli';
 
 const STATIC_FILES = /^\/(favicon\.ico|icon\.svg|icon-\d+\.png|maskable-\d+\.png|apple-icon\.png|og\.png|robots\.txt|sitemap\.xml|manifest\.webmanifest)$/;
 
+function rewrite(request: NextRequest, pathname: string) {
+  const url = request.nextUrl.clone();
+  url.pathname = pathname;
+  return NextResponse.rewrite(url);
+}
+
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
   const host = (request.headers.get('host') ?? '').split(':')[0]?.toLowerCase() ?? '';
 
   if (host === LEARN_HOST) {
-    if (pathname === '/') {
-      const url = request.nextUrl.clone();
-      url.pathname = LEARN_PATH;
-      return NextResponse.rewrite(url);
-    }
+    if (pathname === '/') return rewrite(request, LEARN_PATH);
+    if (pathname === '/signup') return rewrite(request, SIGNUP_PATH);
     if (STATIC_FILES.test(pathname)) return NextResponse.next();
-    const url = request.nextUrl.clone();
-    url.pathname = '/';
-    url.search = '';
-    return NextResponse.redirect(url, 308);
+    return NextResponse.redirect(`${EXCHANGE_ORIGIN}${pathname}${search}`, 308);
   }
 
-  if (pathname === LEARN_PATH && host.endsWith('ftlexchange.com')) {
+  const onExchangeDomain = host.endsWith('ftlexchange.com');
+
+  if (pathname === '/signup') {
+    return onExchangeDomain
+      ? NextResponse.redirect(`https://${LEARN_HOST}/signup${search}`, 308)
+      : rewrite(request, SIGNUP_PATH);
+  }
+  if (pathname === LEARN_PATH && onExchangeDomain) {
     return NextResponse.redirect(`https://${LEARN_HOST}/`, 308);
   }
 

@@ -87,12 +87,12 @@ export function jsonError(error: unknown, requestId: string): NextResponse {
  * request's own Host, because Host is attacker-controllable behind a
  * misconfigured proxy.
  */
-function assertSameOrigin(request: NextRequest): void {
+function assertSameOrigin(request: NextRequest, extraOrigins: readonly string[] = []): void {
   const origin = request.headers.get('origin');
   if (!origin) return; // Same-origin navigations and server-side calls omit it.
 
-  const expected = new URL(env().WEB_APP_URL).origin;
-  if (origin !== expected) {
+  const allowed = [env().WEB_APP_URL, ...extraOrigins].map((url) => new URL(url).origin);
+  if (!allowed.includes(origin)) {
     throw new DomainError('CSRF_REJECTED', 'Cross-origin request rejected', 403);
   }
 }
@@ -109,6 +109,11 @@ interface HandlerOptions<TBody> {
   idempotency?: string;
   /** HTTP status on success. Defaults to 200. */
   status?: number;
+  /**
+   * Further origins allowed past the CSRF check, for a route that another
+   * first-party site posts to (Learn's sign-up form). Empty by default.
+   */
+  allowedOrigins?: readonly string[];
 }
 
 interface HandlerArgs<TBody> {
@@ -127,7 +132,7 @@ export function handler<TBody, TResult>(
 
     try {
       if (request.method !== 'GET' && request.method !== 'HEAD') {
-        assertSameOrigin(request);
+        assertSameOrigin(request, options.allowedOrigins);
       }
 
       const user = options.auth === false ? null : await requireUser();
@@ -200,7 +205,7 @@ export function routeHandler<TBody, TParams, TResult>(
 
     try {
       if (request.method !== 'GET' && request.method !== 'HEAD') {
-        assertSameOrigin(request);
+        assertSameOrigin(request, options.allowedOrigins);
       }
 
       const user = options.auth === false ? null : await requireUser();

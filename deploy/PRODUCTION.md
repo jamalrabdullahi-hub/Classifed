@@ -319,7 +319,11 @@ Server side, three things:
 web app (`src/app/baro`, host routing in `src/middleware.ts`). To publish it:
 add a proxied DNS record for `learn` in Cloudflare (the origin certificate must
 cover it, e.g. `*.ftlexchange.com`), then copy the nginx block and reload.
-The exchange is not hidden from anyone; Learn simply does not link to it.
+The exchange is not hidden from anyone. Learn's one link is **Sign up to learn
+more**, to `learn.ftlexchange.com/signup`, which posts to ftlexchange.com's
+registration route (CORS allows only `LEARN_APP_URL`) and continues on
+ftlexchange.com signed in. `ftlexchange.com/signup` redirects there. Add
+`learn.ftlexchange.com` to the Turnstile widget's hostnames.
 
 **Registration** has three layers:
 

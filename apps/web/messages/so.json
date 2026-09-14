@@ -1630,7 +1630,7 @@
     },
     "separate": {
       "title": "Learn.FTLexchange.com waa ka duwan yahay FTLexchange.com",
-      "body": "Kani waa il waxbarasho oo madax-bannaan. Ma bixiyo adeeg ama akoon, akhriskiisuna kuma siinayo gelitaan FTLexchange.com. Waxba halkan kuma aha talo maaliyadeed."
+      "body": "Wax walba oo boggan ku jira waa bilaash in la akhriyo akoon la'aan. Is-diiwaangelintu waxay akoon ka samaysaa FTLexchange.com, oo ah platform kale. Waxba halkan kuma aha talo maaliyadeed."
     },
     "chain": {
       "title": "Waa maxay blockchain?",
@@ -1820,7 +1820,7 @@
         "Markaad hubin weydo, joogso oo weydii qof aad aamminto."
       ]
     },
-    "footer": "Learn waa il waxbarasho oo ku taal learn.ftlexchange.com, oo ka duwan FTLexchange.com. Ma laha akoon, ma bixiyo adeeg ama talo maaliyadeed, kumana siinayo gelitaan FTLexchange.com.",
+    "footer": "Learn waa il waxbarasho oo ku taal learn.ftlexchange.com, lana daabacay FTLexchange.com. Akhriskiisu akoon uma baahna; is-diiwaangelintu waxay samaysaa akoon FTLexchange.com. Waxba halkan kuma aha talo maaliyadeed.",
     "demo": {
       "title": "Cryptography furaha guud, si toos ah",
       "intro": "Lammaanaha furayaashu waa laba tiro oo isku xiran. Furaha sirta ah wuxuu sameeyaa saxiix; furaha guud wuxuu u oggolaanayaa qof kasta inuu hubiyo, isagoon mid samayn karin. Tijaabi: waxay gebi ahaanba ka dhacdaa browser-kaaga.",
@@ -1860,6 +1860,12 @@
           "body": "Furayaasha FIDO2/passkey (USB ama NFC) waxay saxiixaan galitaanka oo ku xiran cinwaanka website-ka dhabta ah, taas oo ka dhigaysa kuwo u adkaysta boggaga phishing."
         }
       ]
+    },
+    "cta": {
+      "label": "Is diiwaan geli si aad wax badan u barato",
+      "title": "Sii wad barashada",
+      "body": "Samee akoon bilaash ah si aad u sii socoto: casharro hagaya oo ku saabsan ilaalinta furayaashaada, iyo meel aad ku dhaqan geliso waxaad baratay.",
+      "note": "Wuxuu akoon ka samaynayaa FTLexchange.com, halkaas oo aad ka sii wadi doonto."
     }
   }
 }

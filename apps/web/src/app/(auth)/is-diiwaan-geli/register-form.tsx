@@ -27,7 +27,14 @@ const MIN_PASSWORD_LENGTH = 12;
  * has an account — it reads as "go check your inbox" either way, which is
  * also correct advice for someone who forgot they already signed up.
  */
-export function RegisterForm({ turnstileSiteKey }: { turnstileSiteKey: string | null }) {
+export function RegisterForm({
+  turnstileSiteKey,
+  exchangeBase,
+}: {
+  turnstileSiteKey: string | null;
+  /** The exchange's origin when this form is served on Learn; empty otherwise. */
+  exchangeBase: string;
+}) {
   const t = useTranslations('auth');
   const router = useRouter();
   // When the form was shown, for the server's fill-time check.
@@ -48,14 +55,32 @@ export function RegisterForm({ turnstileSiteKey }: { turnstileSiteKey: string | 
     const website = String(form.get('website') ?? '');
     const turnstileToken = form.get('cf-turnstile-response');
 
+    const payload = {
+      email,
+      password,
+      website,
+      renderedAt,
+      ...(typeof turnstileToken === 'string' && turnstileToken ? { turnstileToken } : {}),
+    };
+
     try {
-      await post('/api/auth/register', {
-        email,
-        password,
-        website,
-        renderedAt,
-        ...(typeof turnstileToken === 'string' && turnstileToken ? { turnstileToken } : {}),
-      });
+      if (exchangeBase) {
+        // From Learn: the account and its session cookie are ftlexchange.com's.
+        const response = await fetch(`${exchangeBase}/api/auth/register`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+          const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+          throw new ApiError('REGISTER_FAILED', body?.error?.message ?? t('register.genericError'), response.status);
+        }
+        window.location.assign(`${exchangeBase}/guriga`);
+        return;
+      }
+
+      await post('/api/auth/register', payload);
       // A fresh signup is now signed in (session cookie set by the route).
       // A repeat submission for an already-registered email is not — the
       // response body can't tell the two apart, but this redirect can still
@@ -78,7 +103,7 @@ export function RegisterForm({ turnstileSiteKey }: { turnstileSiteKey: string | 
         </h1>
         <p className="mt-1.5 text-[13px] text-[var(--text-muted)]">
           {t('register.haveAccount')}{' '}
-          <Link href="/gal" className="link">
+          <Link href={`${exchangeBase}/gal`} className="link">
             {t('register.signIn')}
           </Link>
         </p>

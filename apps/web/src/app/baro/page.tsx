@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 import { Fingerprint, Info, Snowflake, Usb, ShieldCheck } from 'lucide-react';
+import { Button } from '@flt/ui';
 import { ThemeToggle } from '@/components/theme';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import {
@@ -77,6 +78,9 @@ export default async function LearnPage() {
           <div className="flex items-center gap-3">
             <LanguageSwitcher className="hidden sm:inline-flex" />
             <ThemeToggle />
+            <Button asChild variant="primary" size="sm">
+              <a href="/signup">{t('cta.label')}</a>
+            </Button>
           </div>
         </div>
       </header>
@@ -168,6 +172,18 @@ export default async function LearnPage() {
             </ul>
           </div>
         </Section>
+        <section className="flex flex-col items-start gap-4 rounded-[var(--radius-xl)] border border-[var(--accent-border)] bg-[var(--surface)] p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
+          <div className="max-w-xl">
+            <h2 className="text-[20px] font-semibold tracking-[-0.01em] text-[var(--text)]">{t('cta.title')}</h2>
+            <p className="mt-1.5 text-[13.5px] leading-relaxed text-[var(--text-muted)]">{t('cta.body')}</p>
+          </div>
+          <div className="flex flex-col items-start gap-1.5 sm:items-end">
+            <Button asChild variant="primary">
+              <a href="/signup">{t('cta.label')}</a>
+            </Button>
+            <p className="text-[11.5px] text-[var(--text-subtle)]">{t('cta.note')}</p>
+          </div>
+        </section>
       </main>
 
       <footer className="border-t border-[var(--border)] py-8">

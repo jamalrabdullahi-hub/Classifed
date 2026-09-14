@@ -1,3 +1,4 @@
+import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { env } from '@flt/config';
 import { signupBotSignal } from '@flt/core/domain/signup-signals';
@@ -25,6 +26,14 @@ import { assertTurnstile } from '@/server/turnstile';
  * response would mean logging the caller into a stranger's account on a
  * repeat signup, which is a worse failure mode than that narrow signal.
  *
+ * ## Signing up from Learn
+ *
+ * The form at learn.ftlexchange.com/signup posts here, to ftlexchange.com, with
+ * credentials. The two are the same site, so the session cookie this response
+ * sets is ftlexchange.com's own and the browser keeps it; the page then moves
+ * to ftlexchange.com already signed in. Only the Learn origin is allowed
+ * cross-origin, and only on this route.
+ *
  * ## Automated signups
  *
  * Three layers, cheapest first: the per-IP rate limit, the honeypot and
@@ -42,11 +51,25 @@ const schema = z.object({
   turnstileToken: z.string().max(4096).optional(),
 });
 
-export const POST = handler(
+function learnOrigin(): string {
+  return new URL(env().LEARN_APP_URL).origin;
+}
+
+function withCors(response: NextResponse, request: NextRequest): NextResponse {
+  if (request.headers.get('origin') === learnOrigin()) {
+    response.headers.set('Access-Control-Allow-Origin', learnOrigin());
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+    response.headers.set('Vary', 'Origin');
+  }
+  return response;
+}
+
+const registerHandler = handler(
   {
     auth: false,
     schema,
     rateLimit: { rule: RateLimits.REGISTER, scope: 'register' },
+    allowedOrigins: [env().LEARN_APP_URL],
   },
   async ({ body, context }) => {
     const signal = signupBotSignal({ honeypot: body.website, renderedAt: body.renderedAt });
@@ -93,3 +116,18 @@ export const POST = handler(
     return GENERIC_RESPONSE;
   },
 );
+
+export async function POST(request: NextRequest) {
+  return withCors(await registerHandler(request), request);
+}
+
+/** CORS preflight for the Learn sign-up form. */
+export async function OPTIONS(request: NextRequest) {
+  const response = new NextResponse(null, { status: 204 });
+  if (request.headers.get('origin') === learnOrigin()) {
+    response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'content-type');
+    response.headers.set('Access-Control-Max-Age', '600');
+  }
+  return withCors(response, request);
+}
