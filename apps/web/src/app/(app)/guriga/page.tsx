@@ -17,23 +17,13 @@ import {
 import { findChain } from '@flt/core/chains';
 import { custodyPortfolio } from '@flt/core/services/portfolio-usd';
 import { ResendVerification } from '@/components/resend-verification';
-import { currentUser } from '@/server/session';
-import { WalletLanding } from './wallet-landing';
+import { requireUserPage } from '@/server/session';
 import { ReceiveAddress } from './receive-address';
 
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations('meta');
-  if (await currentUser()) return { title: t('titleHome') };
-
-  // The one page crawlers are allowed to index.
-  return {
-    title: { absolute: t('landingTitle') },
-    description: t('rootDescription'),
-    robots: { index: true, follow: false },
-    alternates: { canonical: '/guriga' },
-  };
+  return { title: (await getTranslations('meta'))('titleHome') };
 }
 
 type Tone = 'neutral' | 'positive' | 'warning' | 'negative' | 'info';
@@ -51,13 +41,11 @@ interface Movement {
 /**
  * The wallet.
  *
- * Signed out, the wallet landing — the only public page. Signed in, the
- * account's custodied balances and the three things you do with them: add
+ * The account's custodied balances and the three things you do with them: add
  * money, receive to the account's address, and take money out.
  */
 export default async function WalletPage() {
-  const user = await currentUser();
-  if (!user) return <WalletLanding />;
+  const user = await requireUserPage();
 
   const t = await getTranslations('custodyWallet');
   const locale = await getLocale();

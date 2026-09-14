@@ -319,20 +319,23 @@ Server side, three things:
 web app (`src/app/baro`, host routing in `src/middleware.ts`). To publish it:
 add a proxied DNS record for `learn` in Cloudflare (the origin certificate must
 cover it, e.g. `*.ftlexchange.com`), then copy the nginx block and reload.
-The exchange is not hidden from anyone. Learn's one link is **Sign up to learn
-more**, to `learn.ftlexchange.com/signup`, which posts to ftlexchange.com's
-registration route (CORS allows only `LEARN_APP_URL`) and continues on
-ftlexchange.com signed in. `ftlexchange.com/signup` redirects there. Add
-`learn.ftlexchange.com` to the Turnstile widget's hostnames.
+Learn has no accounts and makes no requests to the exchange. Its one link is
+a labelled **Open an FTLexchange account** button to `ftlexchange.com/signup`.
 
-**Registration** has three layers:
+**Signed out**, ftlexchange.com serves only sign-in, sign-up, password
+recovery, email confirmation and the legal pages (`src/middleware.ts`); other
+pages redirect to `/gal` and non-auth APIs answer 401.
 
-1. The per-IP rate limit (`RateLimits.REGISTER`) and nginx `flt_auth` zone.
-2. A honeypot field and a minimum fill time (`signupBotSignal`). A hit returns
-   the normal success message and creates nothing.
-3. Cloudflare Turnstile, when `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`
-   are set in the server `.env` (create a widget for `ftlexchange.com` in the
-   Cloudflare dashboard).
+**Sign-in and sign-up** stop automated clients early:
+
+1. nginx `flt_authpage`: 6 page views a minute per IP with a burst of 4, then 429.
+2. nginx `flt_auth` plus the app's per-IP limits on `/api/auth/*`.
+3. A honeypot field and a minimum fill time (`signupBotSignal`) on both forms.
+4. Cloudflare Turnstile on both forms when `TURNSTILE_SITE_KEY` and
+   `TURNSTILE_SECRET_KEY` are set (widget hostname: `ftlexchange.com`).
+
+In Cloudflare, add a **Rate limiting rule**: path in `/gal`, `/signup`,
+`/is-diiwaan-geli`, requests per IP over 10 per minute → Block for 10 minutes.
 
 At the edge, Security → Bots → **Bot Fight Mode** blocks common automated
 clients without hiding pages from verified crawlers.

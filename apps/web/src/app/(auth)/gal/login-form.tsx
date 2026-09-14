@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Script from 'next/script';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { ShieldCheck } from 'lucide-react';
@@ -21,9 +22,11 @@ interface LoginResponse {
  * them together means the password never has to be held in memory across a
  * navigation, and the user is not bounced to a second URL mid-flow.
  */
-export function LoginForm() {
+export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | null }) {
   const router = useRouter();
   const t = useTranslations('auth');
+  // When the form was shown, for the server's fill-time check.
+  const [renderedAt] = useState(() => Date.now());
   const [stage, setStage] = useState<'credentials' | 'mfa'>('credentials');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,8 +39,17 @@ export function LoginForm() {
     setError(null);
     setPending(true);
 
+    const form = new FormData(event.currentTarget as HTMLFormElement);
+    const turnstileToken = form.get('cf-turnstile-response');
+
     try {
-      const result = await post<LoginResponse>('/api/auth/login', { email, password });
+      const result = await post<LoginResponse>('/api/auth/login', {
+        email,
+        password,
+        website: String(form.get('website') ?? ''),
+        renderedAt,
+        ...(typeof turnstileToken === 'string' && turnstileToken ? { turnstileToken } : {}),
+      });
 
       if (result.mfaRequired) {
         setStage('mfa');
@@ -180,6 +192,22 @@ export function LoginForm() {
             />
           )}
         </Field>
+
+        {/* Honeypot: off-screen, out of the tab order and hidden from assistive
+            tech. People never see it; form-filling scripts complete it. */}
+        <div aria-hidden="true" className="absolute -left-[10000px] h-px w-px overflow-hidden">
+          <label>
+            {t('register.honeypot')}
+            <input type="text" name="website" tabIndex={-1} autoComplete="off" defaultValue="" />
+          </label>
+        </div>
+
+        {turnstileSiteKey ? (
+          <>
+            <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer />
+            <div className="cf-turnstile" data-sitekey={turnstileSiteKey} data-theme="auto" />
+          </>
+        ) : null}
 
         <Button type="submit" variant="primary" block loading={pending}>
           {t('login.signIn')}

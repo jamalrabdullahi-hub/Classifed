@@ -1565,22 +1565,6 @@
     "cancel": "Cancel",
     "error": "Could not send the request. Try again."
   },
-  "walletLanding": {
-    "eyebrow": "FLT Wallet",
-    "title": "A secure wallet for your digital assets",
-    "intro": "Keep your digital assets in one protected account. Add funds, receive to your own address, and send when you need to.",
-    "create": "Create a wallet",
-    "signIn": "Sign in",
-    "storeTitle": "Store safely",
-    "storeBody": "Your balance is held in custody for you and recorded to your account.",
-    "receiveTitle": "Receive",
-    "receiveBody": "Every account gets its own address to receive stablecoins.",
-    "sendTitle": "Send",
-    "sendBody": "Send to an address or withdraw to a bank, EVC or PayPal account.",
-    "protectTitle": "Protected",
-    "protectBody": "Identity verification, two-factor sign-in and a record of every device.",
-    "custodyNote": "FLT holds wallet balances in custody on your behalf. Digital asset transfers cannot be reversed once sent."
-  },
   "custodyWallet": {
     "totalBalance": "Total balance",
     "heldForYou": "Held in custody for you by FLT.",
@@ -1630,7 +1614,7 @@
     },
     "separate": {
       "title": "Learn.FTLexchange.com is separate from FTLexchange.com",
-      "body": "Everything on this page is free to read without an account. Signing up creates an account on FTLexchange.com, a separate platform. Nothing here is financial advice."
+      "body": "This is an educational resource. It has no accounts and needs no sign-up, and reading it gives no access to FTLexchange.com. Nothing here is financial advice."
     },
     "chain": {
       "title": "What is a blockchain?",
@@ -1820,7 +1804,7 @@
         "When unsure, stop and ask someone you trust in person."
       ]
     },
-    "footer": "Learn is an educational resource at learn.ftlexchange.com, published alongside FTLexchange.com. Reading it needs no account; signing up creates an FTLexchange.com account. Nothing here is financial advice.",
+    "footer": "Learn is an educational resource at learn.ftlexchange.com, separate from FTLexchange.com. It has no accounts and offers no financial services or advice.",
     "demo": {
       "title": "Public-key cryptography, live",
       "intro": "A key pair is two linked numbers. The private key makes a signature; the public key lets anyone check it, without being able to make one. Try it: this runs entirely in your browser.",
@@ -1862,10 +1846,10 @@
       ]
     },
     "cta": {
-      "label": "Sign up to learn more",
-      "title": "Keep learning",
-      "body": "Create a free account to go further: guided lessons on securing your keys, and a place to put what you have learned into practice.",
-      "note": "Creates an account on FTLexchange.com, where you will continue."
+      "label": "Open an FTLexchange account",
+      "title": "FTLexchange",
+      "body": "Learn is published alongside FTLexchange.com, a separate platform with its own accounts. Signing up there is optional and is not needed to use anything on this page.",
+      "note": "Takes you to FTLexchange.com."
     }
   }
 }

@@ -1,33 +1,53 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 /**
- * Host routing for Learn and the sign-up funnel.
+ * Host routing, and the exchange's sign-in wall.
  *
- * learn.ftlexchange.com serves two pages:
- *   - `/`        → Learn (`/baro`)
- *   - `/signup`  → registration (`/is-diiwaan-geli`), which creates an
- *                  FTLexchange account and continues on ftlexchange.com
- * Every other page path on that host belongs to the exchange and redirects
- * to the same path on ftlexchange.com.
+ * ## learn.ftlexchange.com
  *
- * On ftlexchange.com, `/signup` redirects to learn.ftlexchange.com/signup and
- * `/baro` to the Learn root, so each page lives at one address. Off the
- * production domain (local development) both are served in place.
+ * A separate educational site with no accounts: only its root is served
+ * (rewritten to `/baro`). Any other path on that host redirects to the same
+ * path on ftlexchange.com. Learn's one link to the exchange is a labelled
+ * "Open an FTLexchange account" button; nothing else crosses over.
  *
- * Nothing here gates or hides the exchange.
+ * ## ftlexchange.com
+ *
+ * Signed out, a visitor can reach sign-in, sign-up, password recovery, email
+ * confirmation and the legal pages. Every other page redirects to sign-in and
+ * every API outside `/api/auth` answers 401. This checks only that a session
+ * cookie is present — the edge has no database — so every page and route still
+ * resolves the session itself.
  */
 
 const LEARN_HOST = 'learn.ftlexchange.com';
 const EXCHANGE_ORIGIN = 'https://ftlexchange.com';
-const LEARN_PATH = '/baro';
-const SIGNUP_PATH = '/is-diiwaan-geli';
+const SESSION_COOKIE = 'flt_session';
 
 const STATIC_FILES = /^\/(favicon\.ico|icon\.svg|icon-\d+\.png|maskable-\d+\.png|apple-icon\.png|og\.png|robots\.txt|sitemap\.xml|manifest\.webmanifest)$/;
 
-function rewrite(request: NextRequest, pathname: string) {
-  const url = request.nextUrl.clone();
-  url.pathname = pathname;
-  return NextResponse.rewrite(url);
+const PUBLIC_PAGES = [
+  '/',
+  '/baro',
+  '/gal',
+  '/signup',
+  '/is-diiwaan-geli',
+  '/dib-u-deji',
+  '/beddel-furaha',
+  '/xaqiiji-iimaylka',
+  '/privacy',
+  '/terms',
+  '/delete-account',
+  '/app',
+];
+
+const PUBLIC_PREFIXES = ['/api/auth/', '/api/assetlinks', '/.well-known/', '/downloads/'];
+
+function isPublic(pathname: string): boolean {
+  return (
+    PUBLIC_PAGES.includes(pathname) ||
+    PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
+    STATIC_FILES.test(pathname)
+  );
 }
 
 export function middleware(request: NextRequest) {
@@ -35,30 +55,43 @@ export function middleware(request: NextRequest) {
   const host = (request.headers.get('host') ?? '').split(':')[0]?.toLowerCase() ?? '';
 
   if (host === LEARN_HOST) {
-    if (pathname === '/') return rewrite(request, LEARN_PATH);
-    if (pathname === '/signup') return rewrite(request, SIGNUP_PATH);
+    if (pathname === '/') {
+      const url = request.nextUrl.clone();
+      url.pathname = '/baro';
+      return NextResponse.rewrite(url);
+    }
     if (STATIC_FILES.test(pathname)) return NextResponse.next();
     return NextResponse.redirect(`${EXCHANGE_ORIGIN}${pathname}${search}`, 308);
   }
 
-  const onExchangeDomain = host.endsWith('ftlexchange.com');
-
-  if (pathname === '/signup') {
-    return onExchangeDomain
-      ? NextResponse.redirect(`https://${LEARN_HOST}/signup${search}`, 308)
-      : rewrite(request, SIGNUP_PATH);
-  }
-  if (pathname === LEARN_PATH && onExchangeDomain) {
+  if (pathname === '/baro' && host.endsWith('ftlexchange.com')) {
     return NextResponse.redirect(`https://${LEARN_HOST}/`, 308);
   }
 
-  // Layouts cannot read the pathname; `(app)/layout.tsx` needs it for the
-  // signed-out wallet landing, which carries its own header.
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set('x-flt-path', pathname);
-  return NextResponse.next({ request: { headers: requestHeaders } });
+  const signedIn = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
+
+  if (!signedIn && !isPublic(pathname)) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json(
+        { error: { code: 'UNAUTHENTICATED', message: 'Sign in to continue' } },
+        { status: 401 },
+      );
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = '/gal';
+    url.search = '';
+    return NextResponse.redirect(url, 307);
+  }
+
+  if (pathname === '/signup') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/is-diiwaan-geli';
+    return NextResponse.rewrite(url);
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|api/).*)'],
+  matcher: ['/((?!_next/static|_next/image).*)'],
 };

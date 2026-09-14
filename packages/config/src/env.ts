@@ -46,8 +46,6 @@ const schema = z.object({
     ),
 
   WEB_APP_URL: z.string().url().default('http://localhost:3000'),
-  /** Learn, whose sign-up form posts to the exchange's registration route. */
-  LEARN_APP_URL: z.string().url().default('https://learn.ftlexchange.com'),
   ADMIN_APP_URL: z.string().url().default('http://localhost:3001'),
 
   // ── Chain ────────────────────────────────────────────────────────────────

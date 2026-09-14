@@ -1565,22 +1565,6 @@
     "cancel": "Jooji",
     "error": "Codsiga lama diri karin. Isku day mar kale."
   },
-  "walletLanding": {
-    "eyebrow": "FLT Wallet",
-    "title": "Boorso ammaan ah oo hantidaada dijitaalka ah",
-    "intro": "Hantidaada dijitaalka ah ku hay hal akoon oo la ilaaliyo. Lacag ku dar, ku hel cinwaankaaga, oo dir markaad u baahato.",
-    "create": "Samee boorso",
-    "signIn": "Gal",
-    "storeTitle": "Si ammaan ah u kaydi",
-    "storeBody": "Haraagaaga waa laguu hayaa waxaana lagu diiwaangeliyaa akoonkaaga.",
-    "receiveTitle": "Hel",
-    "receiveBody": "Akoon kasta wuxuu leeyahay cinwaan u gaar ah oo stablecoin lagu helo.",
-    "sendTitle": "Dir",
-    "sendBody": "U dir cinwaan ama u bixi bangi, EVC ama PayPal.",
-    "protectTitle": "La ilaaliyay",
-    "protectBody": "Xaqiijinta aqoonsiga, galitaan laba-tallaabo ah iyo diiwaanka qalab kasta.",
-    "custodyNote": "FLT ayaa kuu haysa haraaga boorsada. Wareejinta hantida dijitaalka ah lama celin karo marka la diro."
-  },
   "custodyWallet": {
     "totalBalance": "Haraaga guud",
     "heldForYou": "FLT ayaa kuu haysa.",
@@ -1630,7 +1614,7 @@
     },
     "separate": {
       "title": "Learn.FTLexchange.com waa ka duwan yahay FTLexchange.com",
-      "body": "Wax walba oo boggan ku jira waa bilaash in la akhriyo akoon la'aan. Is-diiwaangelintu waxay akoon ka samaysaa FTLexchange.com, oo ah platform kale. Waxba halkan kuma aha talo maaliyadeed."
+      "body": "Kani waa il waxbarasho. Ma laha akoon, uma baahna is-diiwaangelin, akhriskiisuna kuma siinayo gelitaan FTLexchange.com. Waxba halkan kuma aha talo maaliyadeed."
     },
     "chain": {
       "title": "Waa maxay blockchain?",
@@ -1820,7 +1804,7 @@
         "Markaad hubin weydo, joogso oo weydii qof aad aamminto."
       ]
     },
-    "footer": "Learn waa il waxbarasho oo ku taal learn.ftlexchange.com, lana daabacay FTLexchange.com. Akhriskiisu akoon uma baahna; is-diiwaangelintu waxay samaysaa akoon FTLexchange.com. Waxba halkan kuma aha talo maaliyadeed.",
+    "footer": "Learn waa il waxbarasho oo ku taal learn.ftlexchange.com, oo ka duwan FTLexchange.com. Ma laha akoon mana bixiyo adeeg ama talo maaliyadeed.",
     "demo": {
       "title": "Cryptography furaha guud, si toos ah",
       "intro": "Lammaanaha furayaashu waa laba tiro oo isku xiran. Furaha sirta ah wuxuu sameeyaa saxiix; furaha guud wuxuu u oggolaanayaa qof kasta inuu hubiyo, isagoon mid samayn karin. Tijaabi: waxay gebi ahaanba ka dhacdaa browser-kaaga.",
@@ -1862,10 +1846,10 @@
       ]
     },
     "cta": {
-      "label": "Is diiwaan geli si aad wax badan u barato",
-      "title": "Sii wad barashada",
-      "body": "Samee akoon bilaash ah si aad u sii socoto: casharro hagaya oo ku saabsan ilaalinta furayaashaada, iyo meel aad ku dhaqan geliso waxaad baratay.",
-      "note": "Wuxuu akoon ka samaynayaa FTLexchange.com, halkaas oo aad ka sii wadi doonto."
+      "label": "Fur akoon FTLexchange",
+      "title": "FTLexchange",
+      "body": "Learn waxaa la daabacay FTLexchange.com agtiisa, oo ah platform kale oo leh akoonno u gaar ah. Is-diiwaangelinta halkaas waa ikhtiyaari, looma baahna si aad wax uga isticmaasho boggan.",
+      "note": "Waxay kuu gudbinaysaa FTLexchange.com."
     }
   }
 }

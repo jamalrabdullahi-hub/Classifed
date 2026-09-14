@@ -1,5 +1,4 @@
 import { LegalLinks } from '@/components/legal-links';
-import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { AccountStatus } from '@flt/db';
 import { env } from '@flt/config';
@@ -16,15 +15,11 @@ import { currentUser } from '@/server/session';
  * Locking the whole application behind verification would leave them with a
  * single screen and nothing to do while they wait.
  *
- * ## This layout no longer requires a session
+ * ## Signed out
  *
- * The trading terminal (`/ganacsi`) and the plans page (`/qorshayaal`) are
- * deliberately open to a signed-out visitor — someone deciding whether to
- * open an account should be able to see the real screen first, not a
- * marketing description of it. Every other page under this group still
- * guards itself: each one calls `requireUserPage()` on its own and redirects
- * to `/gal` individually, so removing the blanket redirect here does not
- * open anything that was not already meant to be public.
+ * Nothing under this group is reachable without a session: `src/middleware.ts`
+ * sends a signed-out visitor to sign-in, and each page still calls
+ * `requireUserPage()` or checks the user itself.
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await currentUser();
@@ -33,11 +28,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // dedicated page explains what happened rather than bouncing them to a login
   // form that would appear to accept their password and then fail.
   if (user?.accountStatus === AccountStatus.SUSPENDED) redirect('/suspended');
-
-  // Signed out, the wallet landing carries its own header and footer.
-  // Every other page here keeps the normal shell, signed in or not.
-  const path = (await headers()).get('x-flt-path');
-  if (!user && path === '/guriga') return <Providers>{children}</Providers>;
 
   return (
     <Providers>

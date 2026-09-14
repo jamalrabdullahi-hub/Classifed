@@ -17,6 +17,9 @@ import { SignDemo } from './sign-demo';
 
 const CANONICAL = 'https://learn.ftlexchange.com/';
 
+/** Learn's one link to the exchange: its own sign-up page, on its own domain. */
+const SIGNUP_URL = 'https://ftlexchange.com/signup';
+
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('learn.meta');
   return {
@@ -79,7 +82,7 @@ export default async function LearnPage() {
             <LanguageSwitcher className="hidden sm:inline-flex" />
             <ThemeToggle />
             <Button asChild variant="primary" size="sm">
-              <a href="/signup">{t('cta.label')}</a>
+              <a href={SIGNUP_URL} rel="noopener">{t('cta.label')}</a>
             </Button>
           </div>
         </div>
@@ -179,7 +182,7 @@ export default async function LearnPage() {
           </div>
           <div className="flex flex-col items-start gap-1.5 sm:items-end">
             <Button asChild variant="primary">
-              <a href="/signup">{t('cta.label')}</a>
+              <a href={SIGNUP_URL} rel="noopener">{t('cta.label')}</a>
             </Button>
             <p className="text-[11.5px] text-[var(--text-subtle)]">{t('cta.note')}</p>
           </div>
