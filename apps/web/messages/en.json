@@ -925,7 +925,16 @@
     "confirmAndEnable": "Confirm and enable",
     "enableMfa": "Enable two-factor authentication",
     "beginError": "Could not start enrolment.",
-    "confirmError": "That code was not accepted."
+    "confirmError": "That code was not accepted.",
+    "tradingTitle": "Trading",
+    "tradingDesc": "Trading on FTL Exchange is a separate product. Your account cannot trade until you apply and are approved.",
+    "tradingOff": "Not enabled",
+    "tradingInReview": "Application in review",
+    "tradingEnabled": "Enabled",
+    "tradingStep1": "Apply: verify your identity.",
+    "tradingStep2": "A person reviews your application.",
+    "tradingStep3": "If approved, trading is enabled on this account.",
+    "tradingApply": "Apply to enable trading"
   },
   "tradeClient": {
     "broadcastTitle": "Transaction broadcast",
@@ -1610,13 +1619,17 @@
     },
     "tocLabel": "On this page",
     "hero": {
-      "eyebrow": "Learn",
+      "eyebrow": "FTL Learn",
       "title": "How digital keys work, and how to keep them safe",
-      "intro": "Public-key cryptography, blockchains, cold storage, hardware security keys and phishing, explained with diagrams and a live demo you can run in your browser. No account needed."
+      "intro": "Public-key cryptography, blockchains, cold storage, hardware security keys and phishing, explained with diagrams and a live demo you can run in your browser. Free to read, no account needed."
     },
     "separate": {
-      "title": "Learn.FTLexchange.com is separate from FTLexchange.com",
-      "body": "This is an educational resource. It has no accounts and needs no sign-up, and reading it gives no access to FTLexchange.com. Nothing here is financial advice."
+      "title": "This is FTL Learn",
+      "points": [
+        "FTL Learn is an education product. Trading is a different product: FTL Exchange.",
+        "A free FTL Learn account saves your lessons. It cannot trade.",
+        "Trading can only be enabled through a separate application in account settings, with identity verification and review."
+      ]
     },
     "chain": {
       "title": "What is a blockchain?",
@@ -1806,7 +1819,7 @@
         "When unsure, stop and ask someone you trust in person."
       ]
     },
-    "footer": "Learn is an educational resource at learn.ftlexchange.com, separate from FTLexchange.com. It has no accounts and offers no financial services or advice.",
+    "footer": "FTL Learn is an education product. Trading is a separate product that needs its own application. Nothing here is financial advice.",
     "demo": {
       "title": "Public-key cryptography, live",
       "intro": "A key pair is two linked numbers. The private key makes a signature; the public key lets anyone check it, without being able to make one. Try it: this runs entirely in your browser.",
@@ -1847,11 +1860,21 @@
         }
       ]
     },
-    "cta": {
-      "label": "Open an FTLexchange account",
-      "title": "FTLexchange",
-      "body": "Learn is published alongside FTLexchange.com, a separate platform with its own accounts. Signing up there is optional and is not needed to use anything on this page.",
-      "note": "Takes you to FTLexchange.com."
+    "account": {
+      "label": "Free Learn account",
+      "title": "Save your lessons",
+      "body": "A free account keeps the lessons in one place. It is a learning account: it cannot trade."
+    }
+  },
+  "educate": {
+    "title": "Your lessons",
+    "intro": "Everything from FTL Learn, in your account. Work through them in any order.",
+    "lessonsLabel": "Lessons",
+    "ad": {
+      "label": "Advertisement · FTL Exchange",
+      "title": "FTL Exchange is a separate product",
+      "body": "FTL Exchange is a separate product. You have to apply for it separately, with identity verification and review. Your lessons do not depend on it.",
+      "cta": "How to apply"
     }
   }
 }

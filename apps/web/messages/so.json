@@ -925,7 +925,16 @@
     "confirmAndEnable": "Xaqiiji oo fur",
     "enableMfa": "Fur xaqiijinta laba-tallaabo",
     "beginError": "Diiwaan gelinta lama bilaabin karin.",
-    "confirmError": "Koodhkaas lama aqbalin."
+    "confirmError": "Koodhkaas lama aqbalin.",
+    "tradingTitle": "Ganacsi",
+    "tradingDesc": "Ganacsiga FTL Exchange waa badeecad kale. Akoonkaagu ma ganacsan karo ilaa aad codsato oo lagu oggolaado.",
+    "tradingOff": "Lama furin",
+    "tradingInReview": "Codsiga dib ayaa loo eegayaa",
+    "tradingEnabled": "La furay",
+    "tradingStep1": "Codso: xaqiiji aqoonsigaaga.",
+    "tradingStep2": "Qof ayaa dib u eegaya codsigaaga.",
+    "tradingStep3": "Haddii la oggolaado, ganacsiga ayaa akoonkan laga furayaa.",
+    "tradingApply": "Codso in ganacsi laguu furo"
   },
   "tradeClient": {
     "broadcastTitle": "Dhaqdhaqaaqa waa la baahiyay",
@@ -1610,13 +1619,17 @@
     },
     "tocLabel": "Boggan",
     "hero": {
-      "eyebrow": "Baro",
+      "eyebrow": "FTL Learn",
       "title": "Sida furayaasha dijitaalka ah u shaqeeyaan, iyo sida loo ilaaliyo",
-      "intro": "Cryptography furaha guud, blockchain, kaydinta qabow, furayaasha ammaanka hardware iyo phishing, oo lagu sharraxay jaantusyo iyo tijaabo toos ah oo aad browser-kaaga ku samayn karto. Akoon looma baahna."
+      "intro": "Cryptography furaha guud, blockchain, kaydinta qabow, furayaasha ammaanka hardware iyo phishing, oo lagu sharraxay jaantusyo iyo tijaabo toos ah oo aad browser-kaaga ku samayn karto. Bilaash in la akhriyo, akoon looma baahna."
     },
     "separate": {
-      "title": "Learn.FTLexchange.com waa ka duwan yahay FTLexchange.com",
-      "body": "Kani waa il waxbarasho. Ma laha akoon, uma baahna is-diiwaangelin, akhriskiisuna kuma siinayo gelitaan FTLexchange.com. Waxba halkan kuma aha talo maaliyadeed."
+      "title": "Kani waa FTL Learn",
+      "points": [
+        "FTL Learn waa badeecad waxbarasho. Ganacsigu waa badeecad kale: FTL Exchange.",
+        "Akoonka bilaashka ah ee FTL Learn wuxuu kaydiyaa casharradaada. Ma ganacsan karo.",
+        "Ganacsiga waxaa lagu furi karaa oo keliya codsi gaar ah oo ku jira dejinta akoonka, oo leh xaqiijin aqoonsi iyo dib u eegis."
+      ]
     },
     "chain": {
       "title": "Waa maxay blockchain?",
@@ -1806,7 +1819,7 @@
         "Markaad hubin weydo, joogso oo weydii qof aad aamminto."
       ]
     },
-    "footer": "Learn waa il waxbarasho oo ku taal learn.ftlexchange.com, oo ka duwan FTLexchange.com. Ma laha akoon mana bixiyo adeeg ama talo maaliyadeed.",
+    "footer": "FTL Learn waa badeecad waxbarasho. Ganacsigu waa badeecad kale oo u baahan codsi u gaar ah. Waxba halkan kuma aha talo maaliyadeed.",
     "demo": {
       "title": "Cryptography furaha guud, si toos ah",
       "intro": "Lammaanaha furayaashu waa laba tiro oo isku xiran. Furaha sirta ah wuxuu sameeyaa saxiix; furaha guud wuxuu u oggolaanayaa qof kasta inuu hubiyo, isagoon mid samayn karin. Tijaabi: waxay gebi ahaanba ka dhacdaa browser-kaaga.",
@@ -1847,11 +1860,21 @@
         }
       ]
     },
-    "cta": {
-      "label": "Fur akoon FTLexchange",
-      "title": "FTLexchange",
-      "body": "Learn waxaa la daabacay FTLexchange.com agtiisa, oo ah platform kale oo leh akoonno u gaar ah. Is-diiwaangelinta halkaas waa ikhtiyaari, looma baahna si aad wax uga isticmaasho boggan.",
-      "note": "Waxay kuu gudbinaysaa FTLexchange.com."
+    "account": {
+      "label": "Akoon Learn oo bilaash ah",
+      "title": "Kaydi casharradaada",
+      "body": "Akoon bilaash ah ayaa casharrada hal meel ku haya. Waa akoon waxbarasho: ma ganacsan karo."
+    }
+  },
+  "educate": {
+    "title": "Casharradaada",
+    "intro": "Wax walba oo FTL Learn ah, akoonkaaga. U mar si kasta oo aad rabto.",
+    "lessonsLabel": "Casharrada",
+    "ad": {
+      "label": "Xayeysiis · FTL Exchange",
+      "title": "FTL Exchange waa badeecad kale",
+      "body": "FLT Exchange waa badeecad kale. Waa inaad si gaar ah u codsato, oo leh xaqiijin aqoonsi iyo dib u eegis. Casharradaadu kuma xirna.",
+      "cta": "Sida loo codsado"
     }
   }
 }

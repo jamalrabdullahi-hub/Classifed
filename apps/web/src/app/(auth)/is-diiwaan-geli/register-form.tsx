@@ -27,7 +27,14 @@ const MIN_PASSWORD_LENGTH = 12;
  * has an account — it reads as "go check your inbox" either way, which is
  * also correct advice for someone who forgot they already signed up.
  */
-export function RegisterForm({ turnstileSiteKey }: { turnstileSiteKey: string | null }) {
+export function RegisterForm({
+  turnstileSiteKey,
+  destination,
+}: {
+  turnstileSiteKey: string | null;
+  /** Where to land after sign-up: the wallet, or the lessons for a Learn sign-up. */
+  destination: string;
+}) {
   const t = useTranslations('auth');
   const router = useRouter();
   // When the form was shown, for the server's fill-time check.
@@ -63,7 +70,7 @@ export function RegisterForm({ turnstileSiteKey }: { turnstileSiteKey: string | 
       // response body can't tell the two apart, but this redirect can still
       // land safely on either: guriga simply bounces back to /gal if there
       // is no session, which reads as "sign in" rather than an error.
-      router.push('/guriga');
+      router.push(destination);
       router.refresh();
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : t('register.genericError'));

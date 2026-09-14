@@ -42,6 +42,16 @@ const PUBLIC_PAGES = [
 
 const PUBLIC_PREFIXES = ['/api/auth/', '/api/assetlinks', '/.well-known/', '/downloads/'];
 
+/**
+ * Marks a request as Learn, so the root layout ships only Learn's own text to
+ * the browser — not the exchange's message catalogue.
+ */
+function learnHeaders(request: NextRequest): Headers {
+  const headers = new Headers(request.headers);
+  headers.set('x-flt-surface', 'learn');
+  return headers;
+}
+
 function isPublic(pathname: string): boolean {
   return (
     PUBLIC_PAGES.includes(pathname) ||
@@ -58,14 +68,16 @@ export function middleware(request: NextRequest) {
     if (pathname === '/') {
       const url = request.nextUrl.clone();
       url.pathname = '/baro';
-      return NextResponse.rewrite(url);
+      return NextResponse.rewrite(url, { request: { headers: learnHeaders(request) } });
     }
     if (STATIC_FILES.test(pathname)) return NextResponse.next();
     return NextResponse.redirect(`${EXCHANGE_ORIGIN}${pathname}${search}`, 308);
   }
 
-  if (pathname === '/baro' && host.endsWith('ftlexchange.com')) {
-    return NextResponse.redirect(`https://${LEARN_HOST}/`, 308);
+  if (pathname === '/baro') {
+    if (host.endsWith('ftlexchange.com')) return NextResponse.redirect(`https://${LEARN_HOST}/`, 308);
+    // Local development serves Learn in place.
+    return NextResponse.next({ request: { headers: learnHeaders(request) } });
   }
 
   const signedIn = Boolean(request.cookies.get(SESSION_COOKIE)?.value);

@@ -9,8 +9,23 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations('meta'))('titleOpenAccount') };
 }
 
-export default async function RegisterPage() {
-  if (await currentUser()) redirect('/guriga');
+/** Where a new account may be sent after sign-up. A fixed list, never a free URL. */
+const NEXT_PATHS = new Set(['/educate/home']);
+
+export default async function RegisterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const { next } = await searchParams;
+  const destination = next && NEXT_PATHS.has(next) ? next : '/guriga';
+
+  if (await currentUser()) redirect(destination);
   // Only the public site key reaches the browser; the secret stays on the server.
-  return <RegisterForm turnstileSiteKey={env().TURNSTILE_SECRET_KEY ? (env().TURNSTILE_SITE_KEY ?? null) : null} />;
+  return (
+    <RegisterForm
+      turnstileSiteKey={env().TURNSTILE_SECRET_KEY ? (env().TURNSTILE_SITE_KEY ?? null) : null}
+      destination={destination}
+    />
+  );
 }

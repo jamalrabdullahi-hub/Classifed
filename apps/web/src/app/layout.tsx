@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { IBM_Plex_Mono, IBM_Plex_Sans } from 'next/font/google';
+import { headers } from 'next/headers';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, getLocale, getTranslations } from 'next-intl/server';
 import './globals.css';
@@ -108,6 +109,22 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const locale = await getLocale();
   const messages = await getMessages();
 
+  /*
+   * Learn ships only Learn's own text to the browser. Without this every page
+   * serialises the whole catalogue — trading, leverage, swaps — into its HTML,
+   * and Learn's page source would carry the exchange's copy even though none of
+   * it is shown. Set by `src/middleware.ts` for learn.ftlexchange.com.
+   */
+  const isLearn = (await headers()).get('x-flt-surface') === 'learn';
+  const all = messages as Record<string, Record<string, unknown>>;
+  const clientMessages = isLearn
+    ? {
+        learn: all.learn,
+        themeToggle: all.themeToggle,
+        nav: { language: all.nav?.language },
+      }
+    : messages;
+
   return (
     /*
      * The font variables go on <html>, not <body>.
@@ -126,9 +143,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ThemeScript />
       </head>
       <body className="min-h-screen antialiased">
-        <NextIntlClientProvider locale={locale} messages={messages}>
+        <NextIntlClientProvider locale={locale} messages={clientMessages}>
           <TooltipProvider>
-            <ReferralBanner />
+            {isLearn ? null : <ReferralBanner />}
             {children}
           </TooltipProvider>
         </NextIntlClientProvider>

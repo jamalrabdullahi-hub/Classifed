@@ -193,6 +193,34 @@ export default async function AccountPage() {
         </CardContent>
       </Card>
 
+      <Card id="trading" className="scroll-mt-20">
+        <CardHeader>
+          <div>
+            <CardTitle>{ta('tradingTitle')}</CardTitle>
+            <CardDescription>{ta('tradingDesc')}</CardDescription>
+          </div>
+          {kyc?.status === 'APPROVED' ? (
+            <StatusPill tone="positive">{ta('tradingEnabled')}</StatusPill>
+          ) : kyc?.status === 'IN_REVIEW' ? (
+            <StatusPill tone="warning">{ta('tradingInReview')}</StatusPill>
+          ) : (
+            <StatusPill tone="neutral">{ta('tradingOff')}</StatusPill>
+          )}
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <ol className="ml-4 list-decimal space-y-1 text-[13px] leading-relaxed text-[var(--text-muted)]">
+            <li>{ta('tradingStep1')}</li>
+            <li>{ta('tradingStep2')}</li>
+            <li>{ta('tradingStep3')}</li>
+          </ol>
+          {kyc?.status !== 'APPROVED' && kyc?.status !== 'IN_REVIEW' ? (
+            <Button asChild variant="secondary">
+              <Link href="/xaqiijin">{ta('tradingApply')}</Link>
+            </Button>
+          ) : null}
+        </CardContent>
+      </Card>
+
       <DeleteAccount blockers={blockers} />
     </div>
   );
