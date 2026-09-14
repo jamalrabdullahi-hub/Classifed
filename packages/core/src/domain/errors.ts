@@ -92,6 +92,16 @@ export class TradingDisabledError extends DomainError {
   }
 }
 
+export class TradingNotApprovedError extends DomainError {
+  constructor() {
+    super(
+      'TRADING_NOT_APPROVED',
+      'This account is not approved for trading yet. Apply to enable trading in your account settings.',
+      403,
+    );
+  }
+}
+
 // ── Wallets ─────────────────────────────────────────────────────────────────
 
 export class InvalidAddressError extends DomainError {

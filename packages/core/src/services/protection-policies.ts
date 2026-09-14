@@ -15,7 +15,7 @@ import { Decimal } from '../domain/money';
 import { protectionStateMachine, type ProtectionState } from '../protection/state';
 import type { PolicyAssessment } from '../protection/policies';
 import { requiredReduction } from '../protection/contribution';
-import { assertMayTrade } from './kyc';
+import { assertMayPlaceTrades } from './kyc';
 import { AuditAction, audit } from './audit';
 import {
   calculateProtection,
@@ -85,7 +85,7 @@ export async function createPolicy(
   context: PolicyContext,
   input: CreatePolicyInput,
 ): Promise<{ policy: ProtectionPolicy; assessment: PolicyAssessment }> {
-  assertMayTrade(context.user);
+  assertMayPlaceTrades(context.user);
 
   const symbol = input.symbol.toUpperCase();
 

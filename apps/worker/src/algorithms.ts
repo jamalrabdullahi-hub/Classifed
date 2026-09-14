@@ -1,3 +1,4 @@
+import { mayPlaceTrades } from '@flt/core/services/kyc';
 import { AlgorithmKind, AlgorithmStatus, PerpOrderKind, prisma, type TradingAlgorithm, type UserAlgorithm } from '@flt/db';
 import { env } from '@flt/config';
 import { Decimal, DomainError } from '@flt/core/domain';
@@ -95,7 +96,7 @@ export async function runAlgorithmPass(): Promise<AlgorithmRunResult> {
       status: AlgorithmStatus.ACTIVE,
       OR: [{ lastRunAt: null }, { lastRunAt: { lt: new Date(now.getTime() - MIN_RERUN_MS) } }],
     },
-    include: { algorithm: true },
+    include: { algorithm: true, user: true },
     orderBy: { lastRunAt: { sort: 'asc', nulls: 'first' } },
     take: 100,
   });
@@ -107,6 +108,17 @@ export async function runAlgorithmPass(): Promise<AlgorithmRunResult> {
 
   for (const subscription of due) {
     try {
+      /**
+       * The same gate a person placing a trade passes: verified, not disabled,
+       * and approved for trading. A revoked approval or a disabled account
+       * stops a running strategy on its next pass, without closing anything.
+       */
+      if (!mayPlaceTrades(subscription.user)) {
+        result.refused += 1;
+        await touchAlgorithmRun(subscription.id);
+        continue;
+      }
+
       /**
        * The participant's own limits, checked before anything is decided.
        * A tripped guardrail pauses the subscription and says which one —

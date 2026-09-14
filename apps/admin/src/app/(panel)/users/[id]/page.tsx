@@ -270,6 +270,15 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                 hint="Entitlements — what this account can do, separate from pricing."
               />
               <DetailRow
+                label="Trading approval"
+                value={
+                  user.tradingApprovedAt
+                    ? `Approved ${user.tradingApprovedAt.toLocaleString()}`
+                    : 'Not approved'
+                }
+                hint="The customer's separate trading application."
+              />
+              <DetailRow
                 label="Trading"
                 value={user.tradingDisabled ? 'Disabled' : 'Enabled'}
               />
@@ -289,6 +298,8 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
             userId={user.id}
             suspended={user.accountStatus === 'SUSPENDED'}
             tradingDisabled={user.tradingDisabled}
+            tradingApproved={user.tradingApprovedAt !== null}
+            kycApproved={user.accountStatus === 'KYC_APPROVED'}
             canSuspend={can(admin, PERMISSIONS.SUSPEND_USER)}
             canToggleTrading={can(admin, PERMISSIONS.TOGGLE_TRADING)}
           />

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   PERMISSIONS,
   setAccountType,
+  setTradingApproval,
   setTradingDisabled,
   setUserSuspension,
 } from '@flt/core/services/admin';
@@ -20,6 +21,7 @@ import { adminHandler, reasonSchema } from '@/server/api';
 const schema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('suspend'), suspended: z.boolean(), reason: reasonSchema }),
   z.object({ action: z.literal('trading'), disabled: z.boolean(), reason: reasonSchema }),
+  z.object({ action: z.literal('approval'), approved: z.boolean(), reason: reasonSchema }),
   z.object({
     action: z.literal('tier'),
     accountType: z.enum(['INVESTOR', 'TRADER', 'INSTITUTION']),
@@ -38,6 +40,14 @@ export const POST = adminHandler<z.infer<typeof schema>, { id: string }, unknown
         { userId: params.id, suspended: body.suspended, reason: body.reason },
       );
       return { suspended: body.suspended };
+    }
+
+    if (body.action === 'approval') {
+      await setTradingApproval(
+        { admin, ip: context.ip, userAgent: context.userAgent, requestId: context.requestId },
+        { userId: params.id, approved: body.approved, reason: body.reason },
+      );
+      return { tradingApproved: body.approved };
     }
 
     if (body.action === 'trading') {

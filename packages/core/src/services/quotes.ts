@@ -19,7 +19,7 @@ import {
 import { newId } from '../domain/id';
 import { Decimal, differenceInBps, toDecimal } from '../domain/money';
 import { addressesEqual, checksumAddress } from '../domain/address';
-import { assertMayTrade } from './kyc';
+import { assertMayPlaceTrades } from './kyc';
 import { calldataHash } from './crypto/hashing';
 import { AuditAction, audit } from './audit';
 import { entitlementsFor } from './entitlements';
@@ -88,7 +88,7 @@ export async function createQuote(
   risk: RiskEngine,
   context: QuoteContext,
 ): Promise<QuoteResult> {
-  assertMayTrade(context.user);
+  assertMayPlaceTrades(context.user);
   assertTradeable(context.sellToken);
   assertTradeable(context.buyToken);
 

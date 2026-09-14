@@ -28,7 +28,7 @@ import {
   type PerpOrderIntent,
   type PerpSide,
 } from '../domain/perps';
-import { assertMayTrade } from './kyc';
+import { assertMayPlaceTrades } from './kyc';
 import {
   assertDailyTradesRemaining,
   assertLeverageAllowed,
@@ -394,7 +394,7 @@ export async function prepareOpen(
 
   const { user, wallet, intent } = context;
 
-  assertMayTrade(user);
+  assertMayPlaceTrades(user);
   if (!wallet.verifiedAt) {
     throw new WalletNotVerifiedError();
   }
@@ -580,7 +580,7 @@ export async function prepareClose(
   },
 ): Promise<{ order: PerpOrder; action: PreparedAction }> {
   assertPerpsEnabled();
-  assertMayTrade(context.user);
+  assertMayPlaceTrades(context.user);
 
   if (!context.wallet.verifiedAt) {
     throw new WalletNotVerifiedError();

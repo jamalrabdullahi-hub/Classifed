@@ -355,6 +355,51 @@ export async function setTradingDisabled(
   });
 }
 
+/**
+ * Approves or revokes a customer's trading application.
+ *
+ * Separate from `setTradingDisabled`: approval is the customer's application
+ * being accepted; disabling is an operational stop that overrides it. Approval
+ * requires identity verification to be approved first — trading is layered on
+ * top of verification, never a substitute for it.
+ */
+export async function setTradingApproval(
+  context: AdminActionContext,
+  input: { userId: string; approved: boolean; reason: string },
+): Promise<void> {
+  assertCan(context.admin, PERMISSIONS.TOGGLE_TRADING);
+  if (!input.reason.trim()) throw new ValidationError('A reason is required');
+
+  const user = await prisma.user.findUnique({ where: { id: input.userId } });
+  if (!user) throw new NotFoundError('User');
+  if (input.approved && user.accountStatus !== 'KYC_APPROVED') {
+    throw new ValidationError('Approve identity verification before approving trading.');
+  }
+
+  const approvedAt = input.approved ? (user.tradingApprovedAt ?? new Date()) : null;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: user.id },
+      data: {
+        tradingApprovedAt: approvedAt,
+        tradingApprovedById: input.approved ? context.admin.id : null,
+      },
+    });
+
+    await recordAdminAction(tx, context, {
+      action: input.approved
+        ? AuditAction.ADMIN_USER_TRADING_APPROVED
+        : AuditAction.ADMIN_USER_TRADING_APPROVAL_REVOKED,
+      entityType: 'User',
+      entityId: user.id,
+      before: { tradingApprovedAt: user.tradingApprovedAt?.toISOString() ?? null },
+      after: { tradingApprovedAt: approvedAt?.toISOString() ?? null },
+      reason: input.reason,
+    });
+  });
+}
+
 export async function setTokenEnabled(
   context: AdminActionContext,
   input: { tokenId: string; enabled: boolean; reason: string },

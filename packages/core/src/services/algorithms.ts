@@ -22,7 +22,7 @@ import { ForbiddenError, NotFoundError, ValidationError } from '../domain/errors
 import { newId } from '../domain/id';
 import { Decimal } from '../domain/money';
 import { accountFor, clientBalance, postTransfer } from './ledger';
-import { assertMayTrade } from './kyc';
+import { assertMayPlaceTrades } from './kyc';
 import { entitlementsFor } from './entitlements';
 import { AuditAction, audit } from './audit';
 
@@ -528,7 +528,7 @@ export async function activateAlgorithm(
   input: ActivateAlgorithmInput,
   context: { ip?: string | null; userAgent?: string | null; requestId?: string | null } = {},
 ): Promise<{ subscription: UserAlgorithm; algorithm: TradingAlgorithm }> {
-  assertMayTrade(user);
+  assertMayPlaceTrades(user);
 
   const algorithm = await prisma.tradingAlgorithm.findUnique({ where: { slug: input.slug } });
   if (!algorithm || !algorithm.isActive) throw new NotFoundError('Offering');
@@ -1239,7 +1239,7 @@ export async function createOfferingFromBacktest(
   user: User,
   input: CreateOfferingInput,
 ): Promise<TradingAlgorithm> {
-  assertMayTrade(user);
+  assertMayPlaceTrades(user);
 
   const name = input.name.trim();
   if (name.length < 2) throw new ValidationError('Give the algo a name');

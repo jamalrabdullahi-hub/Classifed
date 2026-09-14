@@ -13,6 +13,7 @@ import {
   KycRequiredError,
   NotFoundError,
   TradingDisabledError,
+  TradingNotApprovedError,
   ValidationError,
 } from '../domain/errors';
 import { newId } from '../domain/id';
@@ -342,6 +343,29 @@ export function assertMayTrade(user: User): void {
   }
   if (user.accountStatus !== AccountStatus.KYC_APPROVED) {
     throw new KycRequiredError(user.accountStatus);
+  }
+}
+
+/**
+ * The gate for placing trades: everything `assertMayTrade` requires, plus the
+ * separate trading approval an administrator grants.
+ *
+ * `assertMayTrade` alone still guards withdrawals. Tying money leaving to the
+ * trading application would trap the balance of anybody not approved to trade.
+ */
+export function assertMayPlaceTrades(user: User): void {
+  assertMayTrade(user);
+  if (!user.tradingApprovedAt) {
+    throw new TradingNotApprovedError();
+  }
+}
+
+export function mayPlaceTrades(user: User): boolean {
+  try {
+    assertMayPlaceTrades(user);
+    return true;
+  } catch {
+    return false;
   }
 }
 

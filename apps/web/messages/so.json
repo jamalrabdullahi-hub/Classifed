@@ -934,7 +934,8 @@
     "tradingStep1": "Codso: xaqiiji aqoonsigaaga.",
     "tradingStep2": "Qof ayaa dib u eegaya codsigaaga.",
     "tradingStep3": "Haddii la oggolaado, ganacsiga ayaa akoonkan laga furayaa.",
-    "tradingApply": "Codso in ganacsi laguu furo"
+    "tradingApply": "Codso in ganacsi laguu furo",
+    "tradingAwaitingApproval": "La xaqiijiyay, sugaya oggolaansho"
   },
   "tradeClient": {
     "broadcastTitle": "Dhaqdhaqaaqa waa la baahiyay",

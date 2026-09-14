@@ -14,7 +14,7 @@ import { Decimal } from '../domain/money';
 import { publicClient } from '../chains/client';
 import { protectionStateMachine } from '../protection/state';
 import { protectionEligibility } from '../protection/premium';
-import { assertMayTrade } from './kyc';
+import { assertMayPlaceTrades } from './kyc';
 import { AuditAction, audit } from './audit';
 import { quoteProtection } from './protection-quote';
 import { resolveProtectionSettings } from './protection-settings';
@@ -118,7 +118,7 @@ export async function preparePurchase(
   context: { user: User; wallet: Wallet },
   input: PurchaseInput,
 ): Promise<PreparedPurchase> {
-  assertMayTrade(context.user);
+  assertMayPlaceTrades(context.user);
 
   const symbol = input.symbol.toUpperCase();
 

@@ -213,6 +213,10 @@ model User {
   /// Set by an administrator. Independent of KYC so compliance and operations
   /// do not overwrite each other's decisions.
   tradingDisabled  Boolean       @default(false)
+  /// Trading is a separate application: set when an administrator approves
+  /// it, on top of approved identity verification. Null means not approved.
+  tradingApprovedAt   DateTime?
+  tradingApprovedById String?
   suspendedAt      DateTime?
   suspensionReason String?
   lastLoginAt      DateTime?

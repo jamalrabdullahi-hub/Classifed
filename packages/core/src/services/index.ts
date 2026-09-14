@@ -64,7 +64,9 @@ export {
   decideKyc,
   getKycProfile,
   assertMayTrade,
+  assertMayPlaceTrades,
   mayTrade,
+  mayPlaceTrades,
   type SubmitKycInput,
 } from './kyc';
 export { attachDocument, purgeExpiredDocuments, type AttachDocumentInput } from './kyc-documents';

@@ -249,6 +249,8 @@ export const AuditAction = {
   ADMIN_USER_REINSTATED: 'admin.user.reinstated',
   ADMIN_USER_TRADING_DISABLED: 'admin.user.trading_disabled',
   ADMIN_USER_TRADING_ENABLED: 'admin.user.trading_enabled',
+  ADMIN_USER_TRADING_APPROVED: 'admin.user.trading_approved',
+  ADMIN_USER_TRADING_APPROVAL_REVOKED: 'admin.user.trading_approval_revoked',
   ADMIN_KYC_DECIDED: 'admin.kyc.decided',
   ADMIN_TOKEN_DISABLED: 'admin.token.disabled',
   ADMIN_TOKEN_ENABLED: 'admin.token.enabled',

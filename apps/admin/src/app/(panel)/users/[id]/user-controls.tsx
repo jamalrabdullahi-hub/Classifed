@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Ban, CircleSlash, RotateCcw } from 'lucide-react';
+import { Ban, CircleSlash, RotateCcw, ShieldCheck } from 'lucide-react';
 import {
   Button,
   Card,
@@ -32,18 +32,25 @@ import {
 
 type Action =
   | { kind: 'suspend'; suspended: boolean }
-  | { kind: 'trading'; disabled: boolean };
+  | { kind: 'trading'; disabled: boolean }
+  | { kind: 'approval'; approved: boolean };
 
 export function UserControls({
   userId,
   suspended,
   tradingDisabled,
+  tradingApproved,
+  kycApproved,
   canSuspend,
   canToggleTrading,
 }: {
   userId: string;
   suspended: boolean;
   tradingDisabled: boolean;
+  /** The separate trading application has been approved by an administrator. */
+  tradingApproved: boolean;
+  /** Identity verification is approved — required before trading can be. */
+  kycApproved: boolean;
   canSuspend: boolean;
   canToggleTrading: boolean;
 }) {
@@ -61,7 +68,9 @@ export function UserControls({
     const body =
       pending.kind === 'suspend'
         ? { action: 'suspend', suspended: pending.suspended, reason }
-        : { action: 'trading', disabled: pending.disabled, reason };
+        : pending.kind === 'approval'
+          ? { action: 'approval', approved: pending.approved, reason }
+          : { action: 'trading', disabled: pending.disabled, reason };
 
     try {
       const response = await fetch(`/api/users/${userId}`, {
@@ -124,6 +133,27 @@ export function UserControls({
 
           {canToggleTrading ? (
             <Button
+              variant={tradingApproved ? 'secondary' : 'primary'}
+              block
+              disabled={!tradingApproved && !kycApproved}
+              onClick={() => {
+                setPending({ kind: 'approval', approved: !tradingApproved });
+                setReason('');
+                setError(null);
+              }}
+            >
+              <ShieldCheck className="size-3.5" />
+              {tradingApproved ? 'Revoke trading approval' : 'Approve trading'}
+            </Button>
+          ) : null}
+          {canToggleTrading && !tradingApproved && !kycApproved ? (
+            <p className="text-[11px] text-[var(--text-subtle)]">
+              Trading can be approved once identity verification is approved.
+            </p>
+          ) : null}
+
+          {canToggleTrading ? (
+            <Button
               variant="secondary"
               block
               onClick={() => {
@@ -138,8 +168,9 @@ export function UserControls({
           ) : null}
 
           <p className="pt-1 text-[11px] leading-relaxed text-[var(--text-subtle)]">
-            Suspension is a compliance decision and revokes every active session. Disabling trading
-            is an operational one and leaves the account otherwise usable.
+            Suspension is a compliance decision and revokes every active session. Trading approval
+            is the separate application a customer makes to trade. Disabling trading is an
+            operational stop that overrides an approval without removing it.
           </p>
         </CardContent>
       </Card>
@@ -194,6 +225,9 @@ function titleFor(action: Action | null): string {
   if (action.kind === 'suspend') {
     return action.suspended ? 'Suspend this account' : 'Reinstate this account';
   }
+  if (action.kind === 'approval') {
+    return action.approved ? 'Approve trading' : 'Revoke trading approval';
+  }
   return action.disabled ? 'Disable trading' : 'Enable trading';
 }
 
@@ -206,6 +240,12 @@ function descriptionFor(action: Action | null): string {
       : 'The user will be able to sign in again. Trading is restored only if their verification is still approved.';
   }
 
+  if (action.kind === 'approval') {
+    return action.approved
+      ? 'This approves the customer\'s trading application. They will be able to request quotes and place trades. Withdrawals are not affected either way.'
+      : 'The customer will no longer be able to request quotes, place trades or start auto-trading. Their balance and withdrawals are not affected.';
+  }
+
   return action.disabled
     ? 'The user keeps their account and can sign in, but cannot request quotes or place trades.'
     : 'The user will be able to trade again, subject to their verification status.';
@@ -213,5 +253,6 @@ function descriptionFor(action: Action | null): string {
 
 function isDestructive(action: Action | null): boolean {
   if (!action) return false;
+  if (action.kind === 'approval') return !action.approved;
   return action.kind === 'suspend' ? action.suspended : action.disabled;
 }

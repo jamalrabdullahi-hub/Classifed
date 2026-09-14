@@ -199,8 +199,10 @@ export default async function AccountPage() {
             <CardTitle>{ta('tradingTitle')}</CardTitle>
             <CardDescription>{ta('tradingDesc')}</CardDescription>
           </div>
-          {kyc?.status === 'APPROVED' ? (
+          {kyc?.status === 'APPROVED' && user.tradingApprovedAt ? (
             <StatusPill tone="positive">{ta('tradingEnabled')}</StatusPill>
+          ) : kyc?.status === 'APPROVED' ? (
+            <StatusPill tone="warning">{ta('tradingAwaitingApproval')}</StatusPill>
           ) : kyc?.status === 'IN_REVIEW' ? (
             <StatusPill tone="warning">{ta('tradingInReview')}</StatusPill>
           ) : (
