@@ -17,9 +17,30 @@ import { Button } from '@flt/ui';
  * application, identity verification and review. No urgency, no promise.
  */
 export async function TradingLock({ user, children }: { user: User | null; children: React.ReactNode }) {
-  if (!user || mayPlaceTrades(user)) return <>{children}</>;
+  if (user && mayPlaceTrades(user)) return <>{children}</>;
 
   const t = await getTranslations('tradingLock');
+
+  if (!user) {
+    return (
+      <LockFrame content={children}>
+        <h2 id="trading-lock-title" className="mt-4 text-[18px] font-semibold tracking-[-0.01em] text-[var(--text)]">
+          {t('guestTitle')}
+        </h2>
+        <p className="mt-2 text-[13.5px] leading-relaxed text-[var(--text-muted)]">{t('guestBody')}</p>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Button asChild variant="primary">
+            <Link href="/gal">{t('signIn')}</Link>
+          </Button>
+          <Button asChild variant="secondary">
+            <Link href="/signup">{t('createAccount')}</Link>
+          </Button>
+        </div>
+        <p className="mt-4 text-[11.5px] leading-relaxed text-[var(--text-subtle)]">{t('note')}</p>
+      </LockFrame>
+    );
+  }
+
   const kyc = await prisma.kycProfile.findUnique({ where: { userId: user.id }, select: { status: true } });
 
   const status =
@@ -32,24 +53,7 @@ export async function TradingLock({ user, children }: { user: User | null; child
           : t('statusNotApplied');
 
   return (
-    <div className="relative">
-      <div aria-hidden="true" inert className="pointer-events-none select-none blur-[6px] saturate-50">
-        {children}
-      </div>
-
-      <div className="absolute inset-0 flex items-start justify-center bg-[var(--canvas)]/55 px-4 pt-16 sm:pt-24">
-        <div
-          role="dialog"
-          aria-labelledby="trading-lock-title"
-          className="w-full max-w-md rounded-[var(--radius-lg)] border border-[var(--border-strong)] bg-[var(--surface)] p-6 shadow-[var(--shadow-lg)]"
-        >
-          <div className="flex items-center gap-2.5">
-            <span className="flex size-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-sunken)]">
-              <Lock className="size-4 text-[var(--text)]" aria-hidden="true" />
-            </span>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-subtle)]">FTL Exchange</p>
-          </div>
-
+    <LockFrame content={children}>
           <h2 id="trading-lock-title" className="mt-4 text-[18px] font-semibold tracking-[-0.01em] text-[var(--text)]">
             {t('title')}
           </h2>
@@ -78,6 +82,31 @@ export async function TradingLock({ user, children }: { user: User | null; child
           </div>
 
           <p className="mt-4 text-[11.5px] leading-relaxed text-[var(--text-subtle)]">{t('note')}</p>
+    </LockFrame>
+  );
+}
+
+/** The blurred, inert screen and the prompt card over it. */
+function LockFrame({ content, children }: { content: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="relative min-h-[70vh]">
+      <div aria-hidden="true" inert className="pointer-events-none select-none blur-[6px] saturate-50">
+        {content}
+      </div>
+
+      <div className="absolute inset-0 flex items-start justify-center bg-[var(--canvas)]/55 px-4 pt-16 sm:pt-24">
+        <div
+          role="dialog"
+          aria-labelledby="trading-lock-title"
+          className="w-full max-w-md rounded-[var(--radius-lg)] border border-[var(--border-strong)] bg-[var(--surface)] p-6 shadow-[var(--shadow-lg)]"
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="flex size-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-sunken)]">
+              <Lock className="size-4 text-[var(--text)]" aria-hidden="true" />
+            </span>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-subtle)]">FTL Exchange</p>
+          </div>
+          {children}
         </div>
       </div>
     </div>

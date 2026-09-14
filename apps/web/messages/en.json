@@ -1623,7 +1623,7 @@
       "title": "Learn: public-key cryptography, secure key storage and phishing awareness",
       "description": "Interactive explainers on public-key cryptography, blockchains, cold storage, hardware security keys and how to recognise phishing and scams."
     },
-    "tocLabel": "On this page",
+    "tocLabel": "Lessons",
     "hero": {
       "eyebrow": "FTL Learn",
       "title": "How digital keys work, and how to keep them safe",
@@ -1869,7 +1869,8 @@
     "account": {
       "label": "Free Learn account",
       "title": "Save your lessons",
-      "body": "A free account keeps the lessons in one place. It is a learning account: it cannot trade."
+      "body": "A free account keeps the lessons in one place. It is a learning account: it cannot trade.",
+      "headerLabel": "Free account"
     }
   },
   "educate": {
@@ -1896,6 +1897,10 @@
     "statusDisabled": "Trading has been disabled on this account. Contact support.",
     "cta": "Apply for trading",
     "back": "Back to lessons",
-    "note": "Trading carries risk, including losing the money you put in. Nothing here is financial advice."
+    "note": "Trading carries risk, including losing the money you put in. Nothing here is financial advice.",
+    "guestTitle": "Sign in to use FTL Exchange",
+    "guestBody": "Trading is available only to signed-in accounts that have applied for trading and been approved. Sign in, or create a free account to start with the lessons.",
+    "signIn": "Sign in",
+    "createAccount": "Create free account"
   }
 }

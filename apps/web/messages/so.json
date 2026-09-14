@@ -1623,7 +1623,7 @@
       "title": "Baro: cryptography furaha guud, kaydinta ammaan ah ee furayaasha iyo ka digtoonaanta phishing",
       "description": "Sharraxaad is-dhexgal ah oo ku saabsan cryptography furaha guud, blockchain, kaydinta qabow, furayaasha ammaanka hardware iyo aqoonsiga phishing iyo khiyaanada."
     },
-    "tocLabel": "Boggan",
+    "tocLabel": "Casharrada",
     "hero": {
       "eyebrow": "FTL Learn",
       "title": "Sida furayaasha dijitaalka ah u shaqeeyaan, iyo sida loo ilaaliyo",
@@ -1869,7 +1869,8 @@
     "account": {
       "label": "Akoon Learn oo bilaash ah",
       "title": "Kaydi casharradaada",
-      "body": "Akoon bilaash ah ayaa casharrada hal meel ku haya. Waa akoon waxbarasho: ma ganacsan karo."
+      "body": "Akoon bilaash ah ayaa casharrada hal meel ku haya. Waa akoon waxbarasho: ma ganacsan karo.",
+      "headerLabel": "Akoon bilaash ah"
     }
   },
   "educate": {
@@ -1896,6 +1897,10 @@
     "statusDisabled": "Ganacsiga waa laga joojiyay akoonkan. La xiriir taageerada.",
     "cta": "Codso ganacsi",
     "back": "Ku noqo casharrada",
-    "note": "Ganacsigu wuxuu leeyahay khatar, oo ay ku jirto in aad lumiso lacagta aad geliso. Waxba halkan kuma aha talo maaliyadeed."
+    "note": "Ganacsigu wuxuu leeyahay khatar, oo ay ku jirto in aad lumiso lacagta aad geliso. Waxba halkan kuma aha talo maaliyadeed.",
+    "guestTitle": "Gal si aad u isticmaasho FTL Exchange",
+    "guestBody": "Ganacsigu wuxuu u furan yahay oo keliya akoonnada galay ee codsaday ganacsi lana oggolaaday. Gal, ama samee akoon bilaash ah si aad casharrada uga bilowdo.",
+    "signIn": "Gal",
+    "createAccount": "Samee akoon bilaash ah"
   }
 }

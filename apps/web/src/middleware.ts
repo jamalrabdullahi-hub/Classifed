@@ -27,6 +27,9 @@ const STATIC_FILES = /^\/(favicon\.ico|icon\.svg|icon-\d+\.png|maskable-\d+\.png
 
 const PUBLIC_PAGES = [
   '/',
+  // The terminal is the exchange's front page: a signed-out visitor sees it
+  // blurred behind a sign-in prompt (`TradingLock`), and can do nothing on it.
+  '/ganacsi',
   '/baro',
   '/gal',
   '/signup',
@@ -40,7 +43,15 @@ const PUBLIC_PAGES = [
   '/app',
 ];
 
-const PUBLIC_PREFIXES = ['/api/auth/', '/api/assetlinks', '/.well-known/', '/downloads/'];
+const PUBLIC_PREFIXES = [
+  '/api/auth/',
+  '/api/assetlinks',
+  '/.well-known/',
+  '/downloads/',
+  '/ganacsi/',
+  // Public market data the blurred terminal draws with. Read-only.
+  '/api/perps/markets',
+];
 
 /**
  * Marks a request as Learn, so the root layout ships only Learn's own text to

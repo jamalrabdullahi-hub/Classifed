@@ -1,19 +1,14 @@
-import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { currentUser } from '@/server/session';
 
 /**
- * The home page is Learn.
+ * The exchange's front door.
  *
- * A signed-out visitor to ftlexchange.com lands on learn.ftlexchange.com, the
- * educational site. A signed-in account holder goes to their wallet. Every
- * other exchange page stays reachable at its own address for anyone; only the
- * front door changed. Off the production domain (local development), Learn is
- * served at `/baro`.
+ * Signed in, the wallet. Signed out, the trading terminal, which renders
+ * blurred behind a sign-in prompt (`TradingLock`). ftlexchange.com never sends
+ * anybody to learn.ftlexchange.com — Learn is reached only from its own links
+ * and ads.
  */
 export default async function HomePage() {
-  if (await currentUser()) redirect('/guriga');
-
-  const host = ((await headers()).get('host') ?? '').split(':')[0] ?? '';
-  redirect(host.endsWith('ftlexchange.com') ? 'https://learn.ftlexchange.com/' : '/baro');
+  redirect((await currentUser()) ? '/guriga' : '/ganacsi');
 }
