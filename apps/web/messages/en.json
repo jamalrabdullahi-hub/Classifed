@@ -247,7 +247,8 @@
       "genericError": "Could not create the account. Try again.",
       "checkInboxTitle": "Check your inbox",
       "checkInboxBody": "If {email} can be registered, a confirmation link is on its way. The link is valid for 24 hours.",
-      "goToSignIn": "Go to sign in"
+      "goToSignIn": "Go to sign in",
+      "honeypot": "Leave this field empty"
     },
     "forgot": {
       "heading": "Reset your password",
@@ -1615,5 +1616,250 @@
     "kycRejectedTitle": "Verification was not approved",
     "kycRejectedBody": "Contact support to find out what to do next.",
     "kycCta": "Verify identity"
+  },
+  "learn": {
+    "meta": {
+      "title": "Learn: public-key cryptography, secure key storage and phishing awareness",
+      "description": "Interactive explainers on public-key cryptography, blockchains, cold storage, hardware security keys and how to recognise phishing and scams."
+    },
+    "tocLabel": "On this page",
+    "hero": {
+      "eyebrow": "Learn",
+      "title": "How digital keys work, and how to keep them safe",
+      "intro": "Public-key cryptography, blockchains, cold storage, hardware security keys and phishing, explained with diagrams and a live demo you can run in your browser. No account needed."
+    },
+    "separate": {
+      "title": "Learn.FTLexchange.com is separate from FTLexchange.com",
+      "body": "This is an independent educational resource. It offers no services and no accounts, and reading it gives no access to FTLexchange.com or anything on it. Nothing here is financial advice."
+    },
+    "chain": {
+      "title": "What is a blockchain?",
+      "intro": "A blockchain is a shared record kept by thousands of computers at once. Nobody can quietly change it, because every page of the record is tied to the one before it.",
+      "blocks": [
+        {
+          "label": "A transfer is requested",
+          "body": "Someone signs a message saying: move this amount from my address to that address."
+        },
+        {
+          "label": "The network checks it",
+          "body": "Computers on the network confirm the signature is genuine and the balance exists."
+        },
+        {
+          "label": "It joins a block",
+          "body": "Checked transfers are grouped into a block, stamped with the fingerprint of the previous block."
+        },
+        {
+          "label": "The chain grows",
+          "body": "Once added, changing that block would break every fingerprint after it, so it stays as written."
+        }
+      ],
+      "caption": "Each block carries the fingerprint (hash) of the one before it. Altering an old block changes its fingerprint and breaks the link, which every other computer would notice."
+    },
+    "assets": [
+      {
+        "title": "Bitcoin",
+        "body": "The first blockchain asset. A fixed supply recorded on its own network."
+      },
+      {
+        "title": "Stablecoins",
+        "body": "Tokens such as USDC and USDT designed to track the US dollar, backed by reserves held by their issuer."
+      },
+      {
+        "title": "Networks",
+        "body": "The same token can exist on several networks (Ethereum, Base, Solana). A transfer must use the network the receiver expects."
+      }
+    ],
+    "keys": {
+      "title": "Wallets, addresses and keys",
+      "intro": "A wallet does not hold coins. The coins stay on the blockchain; a wallet holds the keys that prove they are yours.",
+      "items": [
+        {
+          "title": "Address",
+          "tag": "Safe to share",
+          "body": "Where assets are sent, like an account number. Giving it out lets people send to you, nothing more.",
+          "example": "0x7a3f…c19e"
+        },
+        {
+          "title": "Private key",
+          "tag": "Never share",
+          "body": "The secret that authorises moving assets. Whoever has it controls the wallet, completely.",
+          "example": "•••••••••••••••••••••"
+        },
+        {
+          "title": "Recovery phrase",
+          "tag": "Offline only",
+          "body": "12 or 24 words that can rebuild every key in a wallet. It is the master copy of your wallet.",
+          "example": "word · word · word · … (12–24)"
+        }
+      ],
+      "custody": [
+        {
+          "title": "Self-custody",
+          "summary": "You hold the keys yourself.",
+          "points": [
+            "Nobody can freeze or move your assets but you",
+            "Lose the recovery phrase and nobody can restore access",
+            "Hardware wallets keep keys off internet-connected devices"
+          ]
+        },
+        {
+          "title": "Custodial",
+          "summary": "A company holds the keys for you.",
+          "points": [
+            "You sign in with an account instead of managing keys",
+            "Protect the account with a strong password and two-factor sign-in",
+            "Choose a regulated provider and read how it holds client assets"
+          ]
+        }
+      ]
+    },
+    "storage": {
+      "title": "How to store digital assets safely",
+      "intro": "Most losses are not hacks of the blockchain. They are lost phrases, reused passwords and rushed transfers. A simple routine prevents nearly all of them.",
+      "steps": [
+        {
+          "title": "Write the recovery phrase on paper",
+          "body": "Never type it into a phone, a photo, a note app, email or cloud storage. Store the paper somewhere private and fireproof."
+        },
+        {
+          "title": "Keep a second copy in another place",
+          "body": "One copy in one place can be lost to fire, water or theft. A metal backup plate survives both."
+        },
+        {
+          "title": "Use a hardware wallet for larger amounts",
+          "body": "It signs transfers without ever exposing the key to your computer or phone."
+        },
+        {
+          "title": "Lock down every account",
+          "body": "A unique password from a password manager, and two-factor sign-in with an authenticator app rather than SMS."
+        },
+        {
+          "title": "Keep devices updated",
+          "body": "Install system and app updates, and only install wallet apps from the official store or the maker's own website."
+        },
+        {
+          "title": "Tell someone you trust how to find it",
+          "body": "Not the phrase itself: where it is kept and what to do, so assets are not lost for good if something happens to you."
+        }
+      ],
+      "checksTitle": "Before every transfer",
+      "checks": [
+        {
+          "title": "Check the whole address",
+          "body": "Compare the first and last six characters at least. Malware can swap a copied address."
+        },
+        {
+          "title": "Match the network",
+          "body": "Send on the network the receiver named. The wrong network can mean the assets are gone."
+        },
+        {
+          "title": "Send a small test first",
+          "body": "For a new address, send a small amount and confirm it arrived before the rest."
+        },
+        {
+          "title": "Remember it is final",
+          "body": "Blockchain transfers cannot be cancelled or reversed once confirmed."
+        }
+      ]
+    },
+    "scams": {
+      "title": "Scam and security awareness",
+      "intro": "Scammers rely on urgency, trust and confusion. Knowing the patterns is the strongest protection there is.",
+      "flagLabel": "Red flag:",
+      "items": [
+        {
+          "title": "Fake support",
+          "how": "Someone claiming to be from a wallet or company contacts you first to fix a problem.",
+          "flag": "They ask for your recovery phrase, a code, or to share your screen."
+        },
+        {
+          "title": "Giveaways and doubling",
+          "how": "A post or video promises to send back double whatever you send.",
+          "flag": "You have to send first. Real giveaways never ask for that."
+        },
+        {
+          "title": "Phishing links",
+          "how": "An email, text or ad leads to a copy of a real website that captures what you type.",
+          "flag": "The address is slightly misspelled or arrived through an unexpected message."
+        },
+        {
+          "title": "Romance and friendship scams",
+          "how": "A new online contact builds trust for weeks, then introduces a platform that shows fake gains.",
+          "flag": "Someone you have never met in person steers you toward moving money."
+        },
+        {
+          "title": "Guaranteed returns",
+          "how": "A scheme promises fixed daily or monthly profits with no risk.",
+          "flag": "Anything guaranteed, especially with pressure to bring in friends."
+        },
+        {
+          "title": "Fake apps and extensions",
+          "how": "Lookalike wallet apps in app stores or search ads steal keys on setup.",
+          "flag": "An app asking you to import an existing phrase right after install."
+        },
+        {
+          "title": "Address poisoning",
+          "how": "A tiny transfer from a lookalike address is placed in your history so you copy it later.",
+          "flag": "An unexpected small transfer from an address that looks almost like one you use."
+        },
+        {
+          "title": "Impersonated authorities",
+          "how": "Messages claiming to be police, tax offices or banks demand payment in digital assets.",
+          "flag": "No real authority asks to be paid in cryptocurrency."
+        }
+      ]
+    },
+    "rules": {
+      "title": "Rules worth memorising",
+      "items": [
+        "Never share your recovery phrase or private key with anyone, for any reason.",
+        "No genuine company or support agent will ever ask for them.",
+        "Urgency is a warning sign. Slow down and verify.",
+        "Type important website addresses yourself instead of following links.",
+        "If it sounds too good to be true, it is.",
+        "When unsure, stop and ask someone you trust in person."
+      ]
+    },
+    "footer": "Learn is an educational resource at learn.ftlexchange.com, separate from FTLexchange.com. It has no accounts, offers no financial services or advice, and does not give access to FTLexchange.com.",
+    "demo": {
+      "title": "Public-key cryptography, live",
+      "intro": "A key pair is two linked numbers. The private key makes a signature; the public key lets anyone check it, without being able to make one. Try it: this runs entirely in your browser.",
+      "step1": "1. Create a key pair",
+      "step1Body": "Your browser generates an elliptic-curve (P-256) pair. Nothing is sent anywhere.",
+      "generate": "Generate keys",
+      "regenerate": "New key pair",
+      "unsupported": "This browser does not support Web Crypto.",
+      "publicKey": "Public key (shareable)",
+      "privateKey": "Private key",
+      "privateHidden": "Kept inside the browser, never shown",
+      "step2": "2. Sign a message",
+      "step2Body": "The private key turns the message into a signature only it could produce.",
+      "messageLabel": "Message to sign",
+      "defaultMessage": "I agree to meet at 3pm.",
+      "sign": "Sign",
+      "signature": "Signature:",
+      "step3": "3. Verify it",
+      "step3Body": "Anyone with the public key can confirm the signature matches the message.",
+      "verify": "Verify",
+      "valid": "Valid: signed by this key, message unchanged",
+      "invalid": "Invalid: the message changed after signing",
+      "tryTamper": "Now change one letter of the message and verify again."
+    },
+    "hardware": {
+      "items": [
+        {
+          "title": "Cold storage",
+          "body": "Keys generated and kept on a device that never connects to the internet. Malware cannot reach what is not online."
+        },
+        {
+          "title": "Hardware wallets",
+          "body": "A small device holds the private key in a secure chip and shows each request on its own screen, so you approve what you actually see."
+        },
+        {
+          "title": "Hardware security keys",
+          "body": "FIDO2/passkey keys (USB or NFC) sign sign-in challenges bound to the real website address, which makes them resistant to phishing sites."
+        }
+      ]
+    }
   }
 }

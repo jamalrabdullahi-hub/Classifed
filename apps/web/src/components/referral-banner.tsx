@@ -21,6 +21,8 @@ export function ReferralBanner() {
   const [dismissed, setDismissed] = useState(true); // default hidden until checked, avoids a flash
 
   useEffect(() => {
+    // Learn is a separate educational site: no FLT promotion on it.
+    if (window.location.hostname.startsWith('learn.') || window.location.pathname === '/baro') return;
     try {
       setDismissed(localStorage.getItem(DISMISS_KEY) === '1');
     } catch {

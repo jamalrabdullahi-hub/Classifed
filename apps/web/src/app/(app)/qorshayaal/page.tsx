@@ -4,7 +4,7 @@ import { SubscriptionTier, prisma } from '@flt/db';
 import { SectionHeader } from '@flt/ui';
 import { listPlans, currentSubscription } from '@flt/core/services/subscriptions';
 import { resolveEvcSettings } from '@flt/core/services/platform-settings';
-import { requireUserPage } from '@/server/session';
+import { currentUser } from '@/server/session';
 import { PlanPicker } from '@/components/plan-picker';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -28,7 +28,7 @@ export const dynamic = 'force-dynamic';
  * current plan and every "Choose" button asking them to sign in first.
  */
 export default async function PlansPage() {
-  const user = await requireUserPage();
+  const user = await currentUser();
   const t = await getTranslations('plans');
 
   const [plans, current, feeRule, evc] = await Promise.all([

@@ -313,16 +313,22 @@ Server side, three things:
 
 3. **Nothing else.** The app loads the live site, so every web deploy updates it.
 
-## Public surface and bots
+## Learn and signup protection
 
-Signed out, the only page is `/guriga` (the wallet landing); `src/middleware.ts`
-redirects everything else there, answers 401 on non-auth APIs, and sends
-`X-Robots-Tag: noindex` everywhere but `/guriga`. `robots.txt` allows `/guriga` only.
+**Learn** (`learn.ftlexchange.com`) is a separate educational site served by the
+web app (`src/app/baro`, host routing in `src/middleware.ts`). To publish it:
+add a proxied DNS record for `learn` in Cloudflare (the origin certificate must
+cover it, e.g. `*.ftlexchange.com`), then copy the nginx block and reload.
+The exchange is not hidden from anyone; Learn simply does not link to it.
 
-At the Cloudflare edge, in the dashboard:
+**Registration** has three layers:
 
-1. Security → Bots: turn on **Bot Fight Mode**.
-2. Security → WAF → Custom rules: *Managed Challenge* when
-   `not cf.client.bot and http.request.uri.path ne "/guriga" and not starts_with(http.request.uri.path, "/_next/") and not http.cookie contains "flt_session="`.
-   Verified crawlers (Meta, Google) keep reaching `/guriga` and are redirected
-   there from anywhere else.
+1. The per-IP rate limit (`RateLimits.REGISTER`) and nginx `flt_auth` zone.
+2. A honeypot field and a minimum fill time (`signupBotSignal`). A hit returns
+   the normal success message and creates nothing.
+3. Cloudflare Turnstile, when `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`
+   are set in the server `.env` (create a widget for `ftlexchange.com` in the
+   Cloudflare dashboard).
+
+At the edge, Security → Bots → **Bot Fight Mode** blocks common automated
+clients without hiding pages from verified crawlers.

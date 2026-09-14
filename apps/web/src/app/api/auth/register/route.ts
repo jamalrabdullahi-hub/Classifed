@@ -1,9 +1,11 @@
 import { z } from 'zod';
 import { env } from '@flt/config';
+import { signupBotSignal } from '@flt/core/domain/signup-signals';
 import { assertPasswordPolicy, register, RateLimits } from '@flt/core/services';
 import { mailProvider, provisionWalletsForUser } from '@flt/providers';
 import { handler } from '@/server/api';
 import { setSessionCookie } from '@/server/session';
+import { assertTurnstile } from '@/server/turnstile';
 
 /**
  * Registration.
@@ -22,10 +24,22 @@ import { setSessionCookie } from '@/server/session';
  * tightly rate-limited for that and other reasons; a byte-identical
  * response would mean logging the caller into a stranger's account on a
  * repeat signup, which is a worse failure mode than that narrow signal.
+ *
+ * ## Automated signups
+ *
+ * Three layers, cheapest first: the per-IP rate limit, the honeypot and
+ * fill-time signals (`signupBotSignal`), and Cloudflare Turnstile when it is
+ * configured. A honeypot or timing hit gets the ordinary success message and
+ * no account, so a script cannot tell it was caught.
  */
+const GENERIC_RESPONSE = { message: 'Check your inbox to confirm your email address.' };
+
 const schema = z.object({
   email: z.string().trim().email('Enter a valid email address').max(320),
   password: z.string().min(1, 'Enter a password'),
+  website: z.string().max(500).optional(),
+  renderedAt: z.number().int().optional(),
+  turnstileToken: z.string().max(4096).optional(),
 });
 
 export const POST = handler(
@@ -35,14 +49,24 @@ export const POST = handler(
     rateLimit: { rule: RateLimits.REGISTER, scope: 'register' },
   },
   async ({ body, context }) => {
+    const signal = signupBotSignal({ honeypot: body.website, renderedAt: body.renderedAt });
+    if (signal) {
+      console.warn(`[register] dropped likely automated signup (${signal}) from ${context.ip ?? 'unknown ip'}`);
+      return GENERIC_RESPONSE;
+    }
+
+    await assertTurnstile(body.turnstileToken, context.ip ?? null);
     assertPasswordPolicy(body.password);
 
     try {
-      const { user, verificationToken, issued } = await register(body, {
-        ip: context.ip,
-        userAgent: context.userAgent,
-        requestId: context.requestId,
-      });
+      const { user, verificationToken, issued } = await register(
+        { email: body.email, password: body.password },
+        {
+          ip: context.ip,
+          userAgent: context.userAgent,
+          requestId: context.requestId,
+        },
+      );
 
       await setSessionCookie(issued.token, issued.expiresAt);
 
@@ -66,6 +90,6 @@ export const POST = handler(
       if (code !== 'EMAIL_TAKEN') throw error;
     }
 
-    return { message: 'Check your inbox to confirm your email address.' };
+    return GENERIC_RESPONSE;
   },
 );

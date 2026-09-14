@@ -1,4 +1,5 @@
 import { LegalLinks } from '@/components/legal-links';
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { AccountStatus } from '@flt/db';
 import { env } from '@flt/config';
@@ -33,9 +34,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // form that would appear to accept their password and then fail.
   if (user?.accountStatus === AccountStatus.SUSPENDED) redirect('/suspended');
 
-  // Signed out, the only page that renders here is the wallet landing, which
-  // carries its own header and footer (see src/middleware.ts).
-  if (!user) return <Providers>{children}</Providers>;
+  // Signed out, the wallet landing carries its own header and footer.
+  // Every other page here keeps the normal shell, signed in or not.
+  const path = (await headers()).get('x-flt-path');
+  if (!user && path === '/guriga') return <Providers>{children}</Providers>;
 
   return (
     <Providers>

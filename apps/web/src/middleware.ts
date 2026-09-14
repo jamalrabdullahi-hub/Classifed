@@ -1,95 +1,51 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 /**
- * The public surface is the wallet page, and nothing else.
+ * Host routing for Learn, plus the request path for server layouts.
  *
- * A visitor without a session — a person arriving from an ad, a link preview,
- * a crawler — can reach `/guriga` (the wallet landing), the sign-in and
- * recovery screens, and the legal pages. Everything else redirects to
- * `/guriga`, and every API outside sign-in answers 401.
+ * learn.ftlexchange.com is a separate educational site. On that host the root
+ * is rewritten to `/baro` and every other page path redirects back to the
+ * root, so nothing of the exchange is reachable through it. On the exchange's
+ * own domain, `/baro` redirects to the Learn host rather than living in two
+ * places.
  *
- * This only checks that a session cookie is *present*: the edge runtime has no
- * database. It is a gate for the signed-out surface, not the authorisation
- * check — every page and route still resolves the session itself, so a forged
- * cookie reaches nothing more than the existing redirect to `/gal`.
- *
- * Every response except the landing carries `X-Robots-Tag: noindex`, so what a
- * crawler may index is exactly the page it is allowed to see.
+ * Nothing here gates or hides the exchange: signed-out visitors and crawlers
+ * see the same site on ftlexchange.com that anybody else does.
  */
 
-const SESSION_COOKIE = 'flt_session';
-const LANDING = '/guriga';
+const LEARN_HOST = 'learn.ftlexchange.com';
+const LEARN_PATH = '/baro';
 
-const PUBLIC_PAGES = [
-  LANDING,
-  '/gal',
-  '/is-diiwaan-geli',
-  '/dib-u-deji',
-  '/beddel-furaha',
-  '/xaqiiji-iimaylka',
-  '/suspended',
-  '/privacy',
-  '/terms',
-  '/delete-account',
-  '/app',
-];
-
-const PUBLIC_API = ['/api/auth/', '/api/assetlinks'];
-
-const PUBLIC_FILES = [
-  '/.well-known/',
-  '/downloads/',
-  '/robots.txt',
-  '/sitemap.xml',
-  '/manifest.webmanifest',
-  '/favicon.ico',
-  '/icon.svg',
-  '/icon-192.png',
-  '/icon-512.png',
-  '/maskable-512.png',
-  '/apple-icon.png',
-  '/og.png',
-];
-
-function matches(pathname: string, prefixes: string[]): boolean {
-  return prefixes.some((prefix) =>
-    prefix.endsWith('/')
-      ? pathname.startsWith(prefix) || pathname === prefix.slice(0, -1)
-      : pathname === prefix || pathname.startsWith(`${prefix}/`),
-  );
-}
-
-function withRobots(response: NextResponse, pathname: string): NextResponse {
-  if (pathname !== LANDING) response.headers.set('X-Robots-Tag', 'noindex, nofollow');
-  return response;
-}
+const STATIC_FILES = /^\/(favicon\.ico|icon\.svg|icon-\d+\.png|maskable-\d+\.png|apple-icon\.png|og\.png|robots\.txt|sitemap\.xml|manifest\.webmanifest)$/;
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const signedIn = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
+  const host = (request.headers.get('host') ?? '').split(':')[0]?.toLowerCase() ?? '';
 
-  const isPublic =
-    matches(pathname, PUBLIC_PAGES) || matches(pathname, PUBLIC_API) || matches(pathname, PUBLIC_FILES);
-
-  if (signedIn || isPublic) return withRobots(NextResponse.next(), pathname);
-
-  if (pathname.startsWith('/api/')) {
-    return withRobots(
-      NextResponse.json(
-        { error: { code: 'UNAUTHENTICATED', message: 'Sign in to continue' } },
-        { status: 401 },
-      ),
-      pathname,
-    );
+  if (host === LEARN_HOST) {
+    if (pathname === '/') {
+      const url = request.nextUrl.clone();
+      url.pathname = LEARN_PATH;
+      return NextResponse.rewrite(url);
+    }
+    if (STATIC_FILES.test(pathname)) return NextResponse.next();
+    const url = request.nextUrl.clone();
+    url.pathname = '/';
+    url.search = '';
+    return NextResponse.redirect(url, 308);
   }
 
-  const url = request.nextUrl.clone();
-  url.pathname = LANDING;
-  url.search = '';
-  return withRobots(NextResponse.redirect(url, 307), pathname);
+  if (pathname === LEARN_PATH && host.endsWith('ftlexchange.com')) {
+    return NextResponse.redirect(`https://${LEARN_HOST}/`, 308);
+  }
+
+  // Layouts cannot read the pathname; `(app)/layout.tsx` needs it for the
+  // signed-out wallet landing, which carries its own header.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-flt-path', pathname);
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {
-  // Next's own build output never needs a session.
-  matcher: ['/((?!_next/static|_next/image).*)'],
+  matcher: ['/((?!_next/static|_next/image|api/).*)'],
 };

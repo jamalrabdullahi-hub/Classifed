@@ -3,7 +3,6 @@ import { notFound, redirect } from 'next/navigation';
 import { env } from '@flt/config';
 import { listAllOfferedMarkets } from '@flt/core/services/perps';
 import { perpVenues } from '@flt/providers';
-import { requireUserPage } from '@/server/session';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,7 +42,6 @@ const LAST_MARKET_COOKIE = 'flt.last-market';
 const DEFAULT_SYMBOL = 'BTC';
 
 export default async function GanacsiIndexPage() {
-  await requireUserPage();
   if (!env().PERPS_ENABLED) notFound();
 
   const markets = await listAllOfferedMarkets(perpVenues());

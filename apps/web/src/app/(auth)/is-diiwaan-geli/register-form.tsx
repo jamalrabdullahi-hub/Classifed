@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Script from 'next/script';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { Check } from 'lucide-react';
@@ -26,9 +27,11 @@ const MIN_PASSWORD_LENGTH = 12;
  * has an account — it reads as "go check your inbox" either way, which is
  * also correct advice for someone who forgot they already signed up.
  */
-export function RegisterForm() {
+export function RegisterForm({ turnstileSiteKey }: { turnstileSiteKey: string | null }) {
   const t = useTranslations('auth');
   const router = useRouter();
+  // When the form was shown, for the server's fill-time check.
+  const [renderedAt] = useState(() => Date.now());
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -41,8 +44,18 @@ export function RegisterForm() {
     setError(null);
     setPending(true);
 
+    const form = new FormData(event.currentTarget as HTMLFormElement);
+    const website = String(form.get('website') ?? '');
+    const turnstileToken = form.get('cf-turnstile-response');
+
     try {
-      await post('/api/auth/register', { email, password });
+      await post('/api/auth/register', {
+        email,
+        password,
+        website,
+        renderedAt,
+        ...(typeof turnstileToken === 'string' && turnstileToken ? { turnstileToken } : {}),
+      });
       // A fresh signup is now signed in (session cookie set by the route).
       // A repeat submission for an already-registered email is not — the
       // response body can't tell the two apart, but this redirect can still
@@ -115,6 +128,22 @@ export function RegisterForm() {
             </>
           )}
         </Field>
+
+        {/* Honeypot: off-screen, out of the tab order and hidden from assistive
+            tech. People never see it; form-filling scripts complete it. */}
+        <div aria-hidden="true" className="absolute -left-[10000px] h-px w-px overflow-hidden">
+          <label>
+            {t('register.honeypot')}
+            <input type="text" name="website" tabIndex={-1} autoComplete="off" defaultValue="" />
+          </label>
+        </div>
+
+        {turnstileSiteKey ? (
+          <>
+            <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer />
+            <div className="cf-turnstile" data-sitekey={turnstileSiteKey} data-theme="auto" />
+          </>
+        ) : null}
 
         <Button type="submit" variant="primary" block loading={pending} disabled={!longEnough}>
           {t('register.submit')}

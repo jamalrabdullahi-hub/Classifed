@@ -247,7 +247,8 @@
       "genericError": "Akoonka lama abuuri karin. Isku day mar kale.",
       "checkInboxTitle": "Hubi sanduuqaaga boostada",
       "checkInboxBody": "Haddii {email} la diiwaan gelin karo, linkiga xaqiijinta ayaa soo socda. Linkigu wuxuu shaqeeyaa 24 saacadood.",
-      "goToSignIn": "Aad gelitaanka"
+      "goToSignIn": "Aad gelitaanka",
+      "honeypot": "Goobtan madhan u daa"
     },
     "forgot": {
       "heading": "Dib u deji furahaaga sirta ah",
@@ -1615,5 +1616,250 @@
     "kycRejectedTitle": "Xaqiijinta lama oggolaan",
     "kycRejectedBody": "La xiriir taageerada si aad u ogaato waxa xiga.",
     "kycCta": "Xaqiiji aqoonsiga"
+  },
+  "learn": {
+    "meta": {
+      "title": "Baro: cryptography furaha guud, kaydinta ammaan ah ee furayaasha iyo ka digtoonaanta phishing",
+      "description": "Sharraxaad is-dhexgal ah oo ku saabsan cryptography furaha guud, blockchain, kaydinta qabow, furayaasha ammaanka hardware iyo aqoonsiga phishing iyo khiyaanada."
+    },
+    "tocLabel": "Boggan",
+    "hero": {
+      "eyebrow": "Baro",
+      "title": "Sida furayaasha dijitaalka ah u shaqeeyaan, iyo sida loo ilaaliyo",
+      "intro": "Cryptography furaha guud, blockchain, kaydinta qabow, furayaasha ammaanka hardware iyo phishing, oo lagu sharraxay jaantusyo iyo tijaabo toos ah oo aad browser-kaaga ku samayn karto. Akoon looma baahna."
+    },
+    "separate": {
+      "title": "Learn.FTLexchange.com waa ka duwan yahay FTLexchange.com",
+      "body": "Kani waa il waxbarasho oo madax-bannaan. Ma bixiyo adeeg ama akoon, akhriskiisuna kuma siinayo gelitaan FTLexchange.com. Waxba halkan kuma aha talo maaliyadeed."
+    },
+    "chain": {
+      "title": "Waa maxay blockchain?",
+      "intro": "Blockchain waa diiwaan la wadaago oo kumanaan kombiyuutar isku mar hayaan. Qofna si qarsoodi ah uma beddeli karo, sababtoo ah bog kasta wuxuu ku xiran yahay kii ka horreeyay.",
+      "blocks": [
+        {
+          "label": "Wareejin ayaa la codsaday",
+          "body": "Qof ayaa saxiixa fariin leh: lacagtan ka wareeji cinwaankayga una dir cinwaankaas."
+        },
+        {
+          "label": "Shabakaddu way hubisaa",
+          "body": "Kombiyuutarrada shabakadda ayaa xaqiijiya in saxiixu run yahay oo haraagu jiro."
+        },
+        {
+          "label": "Waxay gashaa block",
+          "body": "Wareejinnada la hubiyay waxaa lagu ururiyaa block, oo lagu calaamadeeyo faraha block-ii hore."
+        },
+        {
+          "label": "Silsiladdu way kordhaa",
+          "body": "Marka la daro, beddelka block-kaas wuxuu jebinayaa faraha dhammaan kuwa ka dambeeya, sidaas darteed sida uu yahay ayuu ahaanayaa."
+        }
+      ],
+      "caption": "Block kasta wuxuu sitaa faraha (hash) kii ka horreeyay. Beddelka block hore wuxuu beddelaa farihiisa oo jebiyaa xiriirka, taas oo kombiyuutar kasta oo kale ogaanayo."
+    },
+    "assets": [
+      {
+        "title": "Bitcoin",
+        "body": "Hantidii ugu horreysay ee blockchain. Tiro go'an oo lagu diiwaangeliyay shabakaddeeda."
+      },
+      {
+        "title": "Stablecoins",
+        "body": "Tokens sida USDC iyo USDT oo loogu talagalay inay la socdaan doollarka Maraykanka, oo ay taageerayaan kaydad uu hayo bixiyuhu."
+      },
+      {
+        "title": "Shabakadaha",
+        "body": "Isla token-ku wuxuu ku jiri karaa shabakado badan (Ethereum, Base, Solana). Wareejintu waa inay isticmaashaa shabakadda qaataha."
+      }
+    ],
+    "keys": {
+      "title": "Boorsooyinka, cinwaannada iyo furayaasha",
+      "intro": "Boorsadu ma hayso lacagta. Lacagtu waxay ku jirtaa blockchain-ka; boorsadu waxay haysaa furayaasha caddeeya inay adiga kuu gaar tahay.",
+      "items": [
+        {
+          "title": "Cinwaan",
+          "tag": "Wadaag waa ammaan",
+          "body": "Meesha hantida loo diro, sida lambarka akoonka. Bixintiisu waxay u oggolaanaysaa dadka inay kuu diraan oo keliya.",
+          "example": "0x7a3f…c19e"
+        },
+        {
+          "title": "Furaha sirta ah",
+          "tag": "Weligaa ha wadaagin",
+          "body": "Sirta oggolaata wareejinta hantida. Qofkii haysta wuxuu si buuxda u maamulaa boorsada.",
+          "example": "•••••••••••••••••••••"
+        },
+        {
+          "title": "Weedha soo celinta",
+          "tag": "Offline oo keliya",
+          "body": "12 ama 24 eray oo dib u dhisi kara dhammaan furayaasha boorsada. Waa nuqulka ugu muhiimsan boorsadaada.",
+          "example": "eray · eray · eray · … (12–24)"
+        }
+      ],
+      "custody": [
+        {
+          "title": "Adigu haysta",
+          "summary": "Furayaasha adigaa haysta.",
+          "points": [
+            "Qofna ma xannibi karo mana wareejin karo hantidaada adiga mooyee",
+            "Haddii aad lumiso weedha soo celinta qofna dib kuuma soo celin karo",
+            "Hardware wallet wuxuu furayaasha ka fogeeyaa qalabka internetka ku xiran"
+          ]
+        },
+        {
+          "title": "Shirkad haysa",
+          "summary": "Shirkad ayaa furayaasha kuu haysa.",
+          "points": [
+            "Waxaad ku gashaa akoon halkii aad furayaal maamuli lahayd",
+            "Akoonka ku ilaali eray sir ah oo adag iyo galitaan laba-tallaabo ah",
+            "Dooro bixiye sharci ah oo akhri sida uu u hayo hantida macaamiisha"
+          ]
+        }
+      ]
+    },
+    "storage": {
+      "title": "Sida hantida dijitaalka ah si ammaan ah loo kaydiyo",
+      "intro": "Khasaaraha badankiisu maaha jabsi blockchain. Waa weedho lumay, erayo sir ah oo dib loo isticmaalay iyo wareejin degdeg ah. Hab fudud ayaa ka hortaga ku dhawaad dhammaan.",
+      "steps": [
+        {
+          "title": "Weedha soo celinta ku qor warqad",
+          "body": "Weligaa ha ku qorin taleefan, sawir, app qoraal, iimayl ama cloud. Warqadda meel gaar ah oo dab-u-adkaysata dhig."
+        },
+        {
+          "title": "Nuqul labaad meel kale dhig",
+          "body": "Hal nuqul hal meel ah wuxuu ku lumi karaa dab, biyo ama xatooyo. Saxan bir ah ayaa u adkaysta labadaba."
+        },
+        {
+          "title": "Lacag badan hardware wallet ku hay",
+          "body": "Wuxuu saxiixaa wareejinta isagoon furaha u bandhigin kombiyuutarkaaga ama taleefankaaga."
+        },
+        {
+          "title": "Akoon kasta xir",
+          "body": "Eray sir ah oo gaar ah oo ka yimid password manager, iyo galitaan laba-tallaabo ah oo app authenticator ah halkii SMS."
+        },
+        {
+          "title": "Qalabka cusboonaysii",
+          "body": "Ku rakib cusboonaysiinta, oo app boorso ka soo deji dukaanka rasmiga ah ama website-ka sameeyaha oo keliya."
+        },
+        {
+          "title": "U sheeg qof aad aamminto meesha uu yaal",
+          "body": "Maaha weedha lafteeda: meesha la dhigay iyo waxa la sameeyo, si hantidu u lumin haddii wax kugu dhacaan."
+        }
+      ],
+      "checksTitle": "Wareejin kasta ka hor",
+      "checks": [
+        {
+          "title": "Hubi cinwaanka oo dhan",
+          "body": "Isbarbar dhig ugu yaraan lixda xaraf ee hore iyo kuwa dambe. Malware ayaa beddeli kara cinwaan la koobiyeeyay."
+        },
+        {
+          "title": "Isku mid ka dhig shabakadda",
+          "body": "Ku dir shabakadda qaatahu sheegay. Shabakad khaldan waxay keeni kartaa in hantidu lunto."
+        },
+        {
+          "title": "Marka hore dir tijaabo yar",
+          "body": "Cinwaan cusub, dir qadar yar oo xaqiiji inuu gaadhay ka hor inta kale."
+        },
+        {
+          "title": "Xusuuso inay kama dambays tahay",
+          "body": "Wareejinta blockchain lama joojin karo lamana celin karo marka la xaqiijiyo."
+        }
+      ]
+    },
+    "scams": {
+      "title": "Ka digtoonaanta khiyaanada iyo ammaanka",
+      "intro": "Khiyaanooleyaashu waxay ku tiirsan yihiin degdeg, kalsooni iyo jahwareer. Aqoonta qaababkooda ayaa ah ilaalinta ugu xooggan.",
+      "flagLabel": "Calaamad khatar:",
+      "items": [
+        {
+          "title": "Taageero been abuur ah",
+          "how": "Qof sheegta inuu ka yimid shirkad ayaa kula soo xiriira si uu dhibaato kuugu hagaajiyo.",
+          "flag": "Wuxuu ku weydiiyaa weedha soo celinta, code, ama inaad shaashadda la wadaagto."
+        },
+        {
+          "title": "Hadiyado iyo labanlaab",
+          "how": "Qoraal ama muuqaal ayaa ballanqaada inuu kuu soo celinayo labanlaabka waxaad dirto.",
+          "flag": "Waa inaad marka hore dirtaa. Hadiyad dhab ah weligeed sidaas ma weydiiso."
+        },
+        {
+          "title": "Links phishing ah",
+          "how": "Iimayl, fariin ama xayeysiis ayaa kuu horseeda nuqul website dhab ah oo qabta waxaad qorto.",
+          "flag": "Cinwaanka website-ka waa la qalday ama wuxuu ka yimid fariin aan la filayn."
+        },
+        {
+          "title": "Khiyaanada jacaylka iyo saaxiibtinimada",
+          "how": "Qof cusub oo online ah ayaa toddobaadyo kalsooni dhisa, kadibna soo bandhiga platform muujiya faa'iido been ah.",
+          "flag": "Qof aadan weligaa si toos ah u arag ayaa kugu riixaya inaad lacag wareejiso."
+        },
+        {
+          "title": "Faa'iido la dammaanad qaaday",
+          "how": "Nidaam ayaa ballanqaada faa'iido maalinle ama bille ah oo aan khatar lahayn.",
+          "flag": "Wax kasta oo la dammaanad qaaday, gaar ahaan cadaadis ah inaad saaxiibbo keento."
+        },
+        {
+          "title": "App iyo extension been abuur ah",
+          "how": "App boorso u eg oo dukaamada ku jira ayaa xada furayaasha marka la rakibo.",
+          "flag": "App ku weydiinaya inaad geliso weedh jirta isla marka la rakibo."
+        },
+        {
+          "title": "Sumaynta cinwaanka",
+          "how": "Wareejin aad u yar oo ka timid cinwaan u eg ayaa lagu daraa taariikhdaada si aad mar dambe u koobiyeyso.",
+          "flag": "Wareejin yar oo aan la filayn oo ka timid cinwaan u eg mid aad isticmaasho."
+        },
+        {
+          "title": "Mas'uuliyiin la iska dhigay",
+          "how": "Fariimo sheeganaya inay yihiin booliis, cashuur ama bangi ayaa dalba lacag hanti dijitaal ah.",
+          "flag": "Mas'uul dhab ah ma weydiiyo in lagu bixiyo cryptocurrency."
+        }
+      ]
+    },
+    "rules": {
+      "title": "Xeerar mudan in la xafido",
+      "items": [
+        "Weligaa ha la wadaagin weedha soo celinta ama furaha sirta ah qofna, sabab kasta ha ahaatee.",
+        "Shirkad ama taageere dhab ah weligiis kuma weydiin doono.",
+        "Degdegu waa calaamad digniin. Is deji oo xaqiiji.",
+        "Cinwaannada website-yada muhiimka ah adigu qor halkii aad raaci lahayd links.",
+        "Haddii ay u muuqato wax aad u fiican oo aan run noqon karin, run maaha.",
+        "Markaad hubin weydo, joogso oo weydii qof aad aamminto."
+      ]
+    },
+    "footer": "Learn waa il waxbarasho oo ku taal learn.ftlexchange.com, oo ka duwan FTLexchange.com. Ma laha akoon, ma bixiyo adeeg ama talo maaliyadeed, kumana siinayo gelitaan FTLexchange.com.",
+    "demo": {
+      "title": "Cryptography furaha guud, si toos ah",
+      "intro": "Lammaanaha furayaashu waa laba tiro oo isku xiran. Furaha sirta ah wuxuu sameeyaa saxiix; furaha guud wuxuu u oggolaanayaa qof kasta inuu hubiyo, isagoon mid samayn karin. Tijaabi: waxay gebi ahaanba ka dhacdaa browser-kaaga.",
+      "step1": "1. Samee lammaane furayaal",
+      "step1Body": "Browser-kaagu wuxuu sameeyaa lammaane elliptic-curve (P-256). Waxba meelna looma diro.",
+      "generate": "Samee furayaal",
+      "regenerate": "Lammaane cusub",
+      "unsupported": "Browser-kan ma taageero Web Crypto.",
+      "publicKey": "Furaha guud (la wadaagi karo)",
+      "privateKey": "Furaha sirta ah",
+      "privateHidden": "Browser-ka ayuu ku jiraa, weligii lama muujiyo",
+      "step2": "2. Saxiix fariin",
+      "step2Body": "Furaha sirta ah wuxuu fariinta u beddelaa saxiix uu isagu keliya samayn karo.",
+      "messageLabel": "Fariinta la saxiixayo",
+      "defaultMessage": "Waxaan oggolahay inaan kulanno 3da galabnimo.",
+      "sign": "Saxiix",
+      "signature": "Saxiix:",
+      "step3": "3. Hubi",
+      "step3Body": "Qof kasta oo haysta furaha guud wuxuu xaqiijin karaa in saxiixu fariinta la jaan qaado.",
+      "verify": "Hubi",
+      "valid": "Sax: furahan ayaa saxiixay, fariintuna isma beddelin",
+      "invalid": "Khalad: fariinta ayaa la beddelay saxiixa kadib",
+      "tryTamper": "Hadda beddel hal xaraf oo fariinta ah oo mar kale hubi."
+    },
+    "hardware": {
+      "items": [
+        {
+          "title": "Kaydinta qabow",
+          "body": "Furayaal lagu sameeyay laguna hayo qalab aan weligii internetka ku xirmin. Malware ma gaari karo wax aan online ahayn."
+        },
+        {
+          "title": "Hardware wallets",
+          "body": "Qalab yar ayaa furaha sirta ah ku haya chip ammaan ah oo codsi kasta ku muujiya shaashaddiisa, si aad u oggolaato waxaad dhab ahaan aragto."
+        },
+        {
+          "title": "Furayaasha ammaanka hardware",
+          "body": "Furayaasha FIDO2/passkey (USB ama NFC) waxay saxiixaan galitaanka oo ku xiran cinwaanka website-ka dhabta ah, taas oo ka dhigaysa kuwo u adkaysta boggaga phishing."
+        }
+      ]
+    }
   }
 }

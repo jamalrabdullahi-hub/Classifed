@@ -74,6 +74,9 @@ const schema = z.object({
    */
   AUTO_WALLET_PROVISIONING_ENABLED: z.coerce.boolean().default(false),
   PRIVY_APP_ID: z.string().optional(),
+  /** Cloudflare Turnstile on registration. Both unset disables it. */
+  TURNSTILE_SITE_KEY: z.string().optional(),
+  TURNSTILE_SECRET_KEY: z.string().optional(),
   /**
    * The Android app's package name, published in /.well-known/assetlinks.json
    * so Chrome will open the app full-screen for this site.

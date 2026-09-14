@@ -9,7 +9,7 @@ import { listAllOfferedMarkets, resolveOfferedMarket } from '@flt/core/services/
 import { perpVenues } from '@flt/providers';
 import { entitlementsFor, fromPlan } from '@flt/core/services/entitlements';
 import { REFERRAL_SHARE_BPS } from '@flt/core/services/referrals';
-import { requireUserPage } from '@/server/session';
+import { currentUser } from '@/server/session';
 import { PerpTerminal } from '@/components/terminal/perp-terminal';
 import { RememberMarket } from '@/components/terminal/remember-market';
 import { TradePromos } from '@/components/trade-promos';
@@ -40,7 +40,7 @@ export default async function PerpMarketPage({
 }: {
   params: Promise<{ symbol: string[] }>;
 }) {
-  const user = await requireUserPage();
+  const user = await currentUser();
   const t = await getTranslations('perpMarketPage');
   const tn = await getTranslations('nav');
   if (!env().PERPS_ENABLED) notFound();
