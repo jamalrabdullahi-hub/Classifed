@@ -113,7 +113,7 @@ interface HandlerOptions<TBody> {
    * Further origins allowed past the CSRF check, for a route that another
    * first-party site posts to (Learn's sign-up form). Empty by default.
    */
-  allowedOrigins?: readonly string[];
+  allowedOrigins?: readonly string[] | (() => readonly string[]);
 }
 
 interface HandlerArgs<TBody> {
@@ -132,7 +132,10 @@ export function handler<TBody, TResult>(
 
     try {
       if (request.method !== 'GET' && request.method !== 'HEAD') {
-        assertSameOrigin(request, options.allowedOrigins);
+        assertSameOrigin(
+          request,
+          typeof options.allowedOrigins === 'function' ? options.allowedOrigins() : options.allowedOrigins,
+        );
       }
 
       const user = options.auth === false ? null : await requireUser();
@@ -205,7 +208,10 @@ export function routeHandler<TBody, TParams, TResult>(
 
     try {
       if (request.method !== 'GET' && request.method !== 'HEAD') {
-        assertSameOrigin(request, options.allowedOrigins);
+        assertSameOrigin(
+          request,
+          typeof options.allowedOrigins === 'function' ? options.allowedOrigins() : options.allowedOrigins,
+        );
       }
 
       const user = options.auth === false ? null : await requireUser();

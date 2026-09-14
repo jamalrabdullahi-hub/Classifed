@@ -69,7 +69,9 @@ const registerHandler = handler(
     auth: false,
     schema,
     rateLimit: { rule: RateLimits.REGISTER, scope: 'register' },
-    allowedOrigins: [env().LEARN_APP_URL],
+    // A function, so the environment is read per request rather than when
+    // `next build` imports this module.
+    allowedOrigins: () => [env().LEARN_APP_URL],
   },
   async ({ body, context }) => {
     const signal = signupBotSignal({ honeypot: body.website, renderedAt: body.renderedAt });
