@@ -28,13 +28,20 @@
   "webManifestUrl": "https://ftlexchange.com/manifest.webmanifest",
   "fallbackType": "customtabs",
   "features": {},
-  "alphaDependencies": { "enabled": false },
+  "alphaDependencies": {
+    "enabled": false
+  },
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
   "fullScopeUrl": "https://ftlexchange.com/",
   "minSdkVersion": 21,
-  "fingerprints": [],
+  "fingerprints": [
+    {
+      "name": "upload key (direct APK)",
+      "value": "90:0E:16:8A:64:FF:D4:A1:D2:EF:9D:6B:AC:21:38:2B:B6:F2:56:66:58:55:75:7D:26:64:BF:EA:2C:DA:82:2F"
+    }
+  ],
   "additionalTrustedOrigins": [],
   "retainedBundles": []
 }
