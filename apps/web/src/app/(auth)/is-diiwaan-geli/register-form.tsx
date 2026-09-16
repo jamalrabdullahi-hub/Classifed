@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Script from 'next/script';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
-import { Check } from 'lucide-react';
+import { Check, Eye, EyeOff } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Button, Field, Input, Notice, cn } from '@flt/ui';
 import { ApiError, post } from '@/lib/api';
@@ -30,10 +30,13 @@ const MIN_PASSWORD_LENGTH = 12;
 export function RegisterForm({
   turnstileSiteKey,
   destination,
+  variant,
 }: {
   turnstileSiteKey: string | null;
   /** Where to land after sign-up: the wallet, or the lessons for a Learn sign-up. */
   destination: string;
+  /** Which promise brought them here, so the copy answers it. */
+  variant: 'learn' | 'account';
 }) {
   const t = useTranslations('auth');
   const router = useRouter();
@@ -43,6 +46,7 @@ export function RegisterForm({
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [reveal, setReveal] = useState(false);
 
   const longEnough = password.length >= MIN_PASSWORD_LENGTH;
 
@@ -81,20 +85,27 @@ export function RegisterForm({
 
   return (
     <div className="animate-fade-up">
-      <header className="mb-6">
-        <h1 className="text-xl font-semibold tracking-[-0.02em] text-[var(--text)]">
-          {t('register.heading')}
+      <header className="mb-5">
+        <h1 className="text-[22px] font-semibold tracking-[-0.02em] text-[var(--text)]">
+          {variant === 'learn' ? t('register.heading') : t('register.headingAccount')}
         </h1>
         <p className="mt-1.5 text-[13px] text-[var(--text-muted)]">
-          {t('register.haveAccount')}{' '}
+          {t('register.timeHint')} · {t('register.haveAccount')}{' '}
           <Link href="/gal" className="link">
             {t('register.signIn')}
           </Link>
         </p>
-        <ul className="mt-3 space-y-1 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-sunken)] px-3.5 py-3 text-[12.5px] leading-relaxed text-[var(--text-muted)]">
-          {(t.raw('register.learnPoints') as string[]).map((point) => (
-            <li key={point}>{point}</li>
-          ))}
+
+        {/* What the account actually gives them, in their own terms. */}
+        <ul className="mt-4 space-y-2">
+          {(t.raw(variant === 'learn' ? 'register.learnPoints' : 'register.accountPoints') as string[]).map(
+            (point) => (
+              <li key={point} className="flex gap-2 text-[13px] leading-relaxed text-[var(--text-muted)]">
+                <Check className="mt-0.5 size-3.5 shrink-0 text-[var(--positive)]" aria-hidden="true" />
+                {point}
+              </li>
+            ),
+          )}
         </ul>
       </header>
 
@@ -109,6 +120,11 @@ export function RegisterForm({
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               autoComplete="email"
+              // Phone keyboards otherwise capitalise and autocorrect an address.
+              inputMode="email"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
               placeholder="you@example.com"
               required
               autoFocus
@@ -119,14 +135,26 @@ export function RegisterForm({
         <Field label={t('password')}>
           {(props) => (
             <>
-              <Input
-                {...props}
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                autoComplete="new-password"
-                required
-              />
+              <div className="relative">
+                <Input
+                  {...props}
+                  type={reveal ? 'text' : 'password'}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="new-password"
+                  className="pr-10"
+                  required
+                />
+                {/* Typing twelve characters blind on a phone is where people give up. */}
+                <button
+                  type="button"
+                  onClick={() => setReveal((shown) => !shown)}
+                  aria-label={reveal ? t('register.hidePassword') : t('register.showPassword')}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-[var(--radius-sm)] p-1.5 text-[var(--text-subtle)] hover:text-[var(--text)]"
+                >
+                  {reveal ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
               <p
                 className={cn(
                   'mt-1.5 flex items-center gap-1.5 text-[12px] transition-colors',
@@ -164,6 +192,9 @@ export function RegisterForm({
         </Button>
 
         <p className="text-center text-[12px] leading-relaxed text-[var(--text-subtle)]">
+          {t('register.noCard')}
+        </p>
+        <p className="text-center text-[11.5px] leading-relaxed text-[var(--text-subtle)]">
           {t('register.disclaimer')}
         </p>
       </form>

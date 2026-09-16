@@ -253,6 +253,17 @@
         "Casharro ku saabsan furayaasha dijitaalka ah, kaydinta ammaan ah iyo ka digtoonaanta khiyaanada.",
         "Akoonka Learn ma ganacsan karo.",
         "FTL Exchange waa badeecad kale: ganacsigu wuxuu u baahan yahay codsi u gaar ah, xaqiijin aqoonsi iyo oggolaansho."
+      ],
+      "headingAccount": "Samee akoonkaaga FLT",
+      "timeHint": "Wax ka yar daqiiqad",
+      "showPassword": "Muuji erayga sirta ah",
+      "hidePassword": "Qari erayga sirta ah",
+      "noCard": "Iimayl iyo eray sirta ah oo keliya. Kaadh ama lacag looma baahna si akoon loo furto.",
+      "accountPoints": [
+        "Haraag doollar ah oo FLT kuu haysa",
+        "Lacag ku dar EVC, wareejin bangi ama PayPal",
+        "La bax bank, EVC ama PayPal",
+        "Ganacsigu waa codsi gaar ah: xaqiijin, dib u eegis, oggolaansho"
       ]
     },
     "forgot": {
@@ -1126,7 +1137,8 @@
     "titleOpenAccount": "Samee akoonkaaga bilaashka ah ee FTL Learn",
     "titleNewPassword": "Dooro Furan Cusub",
     "titleConfirmEmail": "Xaqiiji Iimaylkaaga",
-    "landingTitle": "FLT Wallet — kaydi, hel oo dir hanti dijitaal ah"
+    "landingTitle": "FLT Wallet — kaydi, hel oo dir hanti dijitaal ah",
+    "titleOpenAccountFlt": "Samee akoonkaaga FLT"
   },
   "common": {
     "loading": "Waa la soo raraya…",

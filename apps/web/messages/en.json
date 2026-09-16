@@ -253,6 +253,17 @@
         "Lessons on digital keys, safe storage and scam awareness.",
         "A Learn account cannot trade.",
         "FTL Exchange is a separate product: trading needs its own application, identity verification and approval."
+      ],
+      "headingAccount": "Create your FLT account",
+      "timeHint": "Under a minute",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "noCard": "Email and password only. No card and no deposit to open an account.",
+      "accountPoints": [
+        "A dollar balance FLT holds in custody for you",
+        "Add money by EVC, bank transfer or PayPal",
+        "Cash out to a bank, EVC or PayPal",
+        "Trading is a separate application: verification, review, approval"
       ]
     },
     "forgot": {
@@ -1126,7 +1137,8 @@
     "titleOpenAccount": "Create your free FTL Learn account",
     "titleNewPassword": "Choose a new password",
     "titleConfirmEmail": "Confirm your email",
-    "landingTitle": "FLT Wallet — store, receive and send digital assets"
+    "landingTitle": "FLT Wallet — store, receive and send digital assets",
+    "titleOpenAccountFlt": "Create your FLT account"
   },
   "common": {
     "loading": "Loading…",
