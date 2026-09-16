@@ -14,6 +14,9 @@ const CANONICAL = 'https://learn.ftlexchange.com/';
  */
 const ACCOUNT_URL = 'https://ftlexchange.com/signup?next=/educate/home';
 
+/** The exchange funnel: its own sign-up, labelled as a different product. */
+const EXCHANGE_URL = 'https://ftlexchange.com/signup';
+
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('learn.meta');
   return {
@@ -30,11 +33,14 @@ export async function generateMetadata(): Promise<Metadata> {
 /**
  * FTL Learn — learn.ftlexchange.com, the public landing.
  *
- * Lessons only, and no exchange advertising of any kind. The static notice at
- * the top says what a reviewer needs to know without asking: this is FTL Learn,
- * trading is a different product, a Learn account cannot trade, and enabling
- * trading is a separate application. The one link off the page is the optional
- * free account.
+ * Lessons first. The static notice at the top says what a reviewer needs to
+ * know without asking: this is FTL Learn, trading is a different product, a
+ * Learn account cannot trade, and enabling trading is a separate application.
+ *
+ * Below the lessons sit two links, both labelled for what they are: the
+ * optional free Learn account, and — now that the exchange is authorised to
+ * advertise — FTL Exchange's own sign-up, marked as a separate product with
+ * its own application, review and approval before any trading is enabled.
  *
  * The header holds only the brand, language, theme and that account link: the
  * lesson titles are long in Somali and belong in the lesson index below, not
@@ -110,6 +116,32 @@ export default async function LearnPage() {
         <div className="space-y-12">
           <LearnLessons />
         </div>
+
+        <section
+          aria-labelledby="exchange-cta"
+          className="rounded-[var(--radius-xl)] border border-[var(--accent-border)] bg-[var(--surface)] p-6 sm:p-8"
+        >
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-subtle)]">
+            {t('exchange.label')}
+          </p>
+          <div className="mt-2 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="max-w-xl">
+              <h2 id="exchange-cta" className="text-[20px] font-semibold tracking-[-0.01em] text-[var(--text)]">
+                {t('exchange.title')}
+              </h2>
+              <p className="mt-1.5 text-[13.5px] leading-relaxed text-[var(--text-muted)]">{t('exchange.body')}</p>
+            </div>
+            <div className="flex shrink-0 flex-col items-start gap-1.5 sm:items-end">
+              <a
+                href={EXCHANGE_URL}
+                className="whitespace-nowrap rounded-[var(--radius-md)] bg-[var(--accent)] px-4 py-2.5 text-[13.5px] font-semibold text-[var(--text-inverse)] hover:bg-[var(--accent-hover)]"
+              >
+                {t('exchange.cta')}
+              </a>
+              <p className="text-[11.5px] text-[var(--text-subtle)]">{t('exchange.note')}</p>
+            </div>
+          </div>
+        </section>
 
         <section className="flex flex-col items-start gap-3 border-t border-[var(--border)] pt-10 sm:flex-row sm:items-center sm:justify-between">
           <div className="max-w-xl">

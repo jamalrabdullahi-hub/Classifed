@@ -4,14 +4,13 @@
   "name": "FLT-Exchange",
   "launcherName": "FLT",
   "display": "standalone",
-  "orientation": "portrait",
-  "themeColor": "#0a0c11",
-  "themeColorDark": "#0a0c11",
-  "navigationColor": "#0a0c11",
-  "navigationColorDark": "#0a0c11",
-  "navigationDividerColor": "#0a0c11",
-  "navigationDividerColorDark": "#0a0c11",
-  "backgroundColor": "#0a0c11",
+  "themeColor": "#0A0C11",
+  "themeColorDark": "#0A0C11",
+  "navigationColor": "#0A0C11",
+  "navigationColorDark": "#0A0C11",
+  "navigationDividerColor": "#0A0C11",
+  "navigationDividerColorDark": "#0A0C11",
+  "backgroundColor": "#0A0C11",
   "enableNotifications": false,
   "startUrl": "/guriga",
   "iconUrl": "https://ftlexchange.com/icon-512.png",
@@ -21,8 +20,8 @@
     "path": "../../../FLT-signing/flt-upload.keystore",
     "alias": "flt-upload"
   },
-  "appVersionName": "1.0.0",
-  "appVersionCode": 1,
+  "appVersionName": "1",
+  "appVersionCode": 2,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://ftlexchange.com/manifest.webmanifest",
@@ -36,6 +35,7 @@
   "isMetaQuest": false,
   "fullScopeUrl": "https://ftlexchange.com/",
   "minSdkVersion": 21,
+  "orientation": "portrait",
   "fingerprints": [
     {
       "name": "upload key (direct APK)",
@@ -43,5 +43,7 @@
     }
   ],
   "additionalTrustedOrigins": [],
-  "retainedBundles": []
+  "retainedBundles": [],
+  "displayOverride": [],
+  "appVersion": "1"
 }

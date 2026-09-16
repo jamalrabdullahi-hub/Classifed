@@ -1871,6 +1871,13 @@
       "title": "Save your lessons",
       "body": "A free account keeps the lessons in one place. It is a learning account: it cannot trade.",
       "headerLabel": "Free account"
+    },
+    "exchange": {
+      "label": "FTL Exchange · a separate product",
+      "title": "Ready to trade digital assets?",
+      "body": "FTL Exchange is a separate product from FTL Learn, run by the same company. Open an account there, then apply for trading: identity verification, a review, and approval before any trading is enabled.",
+      "cta": "Open an FTL Exchange account",
+      "note": "Trading carries risk, including loss of the money you put in."
     }
   },
   "educate": {
