@@ -48,6 +48,8 @@ const PUBLIC_PREFIXES = [
   '/api/assetlinks',
   '/.well-known/',
   '/downloads/',
+  // Ad creatives, shown on Learn and linked from campaigns.
+  '/ads/',
   '/ganacsi/',
   // Public market data the blurred terminal draws with. Read-only.
   '/api/perps/markets',
@@ -81,7 +83,7 @@ export function middleware(request: NextRequest) {
       url.pathname = '/baro';
       return NextResponse.rewrite(url, { request: { headers: learnHeaders(request) } });
     }
-    if (STATIC_FILES.test(pathname)) return NextResponse.next();
+    if (STATIC_FILES.test(pathname) || pathname.startsWith('/ads/')) return NextResponse.next();
     return NextResponse.redirect(`${EXCHANGE_ORIGIN}${pathname}${search}`, 308);
   }
 

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { Info } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme';
 import { LanguageSwitcher } from '@/components/language-switcher';
@@ -48,7 +48,10 @@ export async function generateMetadata(): Promise<Metadata> {
  */
 export default async function LearnPage() {
   const t = await getTranslations('learn');
+  const locale = await getLocale();
   const lessons = await lessonTitles();
+  // The ad creative, in the reader's language.
+  const banner = `/ads/ftl-exchange-banner-${locale === 'en' ? 'en' : 'so'}.jpg`;
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--canvas)]">
@@ -117,30 +120,29 @@ export default async function LearnPage() {
           <LearnLessons />
         </div>
 
-        <section
-          aria-labelledby="exchange-cta"
-          className="rounded-[var(--radius-xl)] border border-[var(--accent-border)] bg-[var(--surface)] p-6 sm:p-8"
-        >
+        <section aria-labelledby="exchange-cta" className="space-y-2.5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-subtle)]">
             {t('exchange.label')}
           </p>
-          <div className="mt-2 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="max-w-xl">
-              <h2 id="exchange-cta" className="text-[20px] font-semibold tracking-[-0.01em] text-[var(--text)]">
-                {t('exchange.title')}
-              </h2>
-              <p className="mt-1.5 text-[13.5px] leading-relaxed text-[var(--text-muted)]">{t('exchange.body')}</p>
-            </div>
-            <div className="flex shrink-0 flex-col items-start gap-1.5 sm:items-end">
-              <a
-                href={EXCHANGE_URL}
-                className="whitespace-nowrap rounded-[var(--radius-md)] bg-[var(--accent)] px-4 py-2.5 text-[13.5px] font-semibold text-[var(--text-inverse)] hover:bg-[var(--accent-hover)]"
-              >
-                {t('exchange.cta')}
-              </a>
-              <p className="text-[11.5px] text-[var(--text-subtle)]">{t('exchange.note')}</p>
-            </div>
-          </div>
+          <a
+            href={EXCHANGE_URL}
+            className="block overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
+          >
+            {/* The creative carries its own risk line, so it stands alone if reposted. */}
+            <img
+              src={banner}
+              alt={`${t('exchange.title')} ${t('exchange.cta')}`}
+              width={1200}
+              height={628}
+              className="block h-auto w-full"
+            />
+          </a>
+          <h2 id="exchange-cta" className="sr-only">
+            {t('exchange.title')}
+          </h2>
+          <p className="max-w-[80ch] text-[12.5px] leading-relaxed text-[var(--text-subtle)]">
+            {t('exchange.body')}
+          </p>
         </section>
 
         <section className="flex flex-col items-start gap-3 border-t border-[var(--border)] pt-10 sm:flex-row sm:items-center sm:justify-between">
