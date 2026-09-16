@@ -37,9 +37,9 @@ export async function generateMetadata(): Promise<Metadata> {
  * know without asking: this is FTL Learn, trading is a different product, a
  * Learn account cannot trade, and enabling trading is a separate application.
  *
- * One labelled advertisement for FTL Exchange runs at the top of the page,
- * with a slim strip pinned to the bottom of the screen that stays while the
- * lessons scroll. Both say it is a separate product whose trading needs its
+ * One labelled advertisement for FTL Exchange runs above the header, and a
+ * second, different creative is pinned to the bottom of the screen and stays
+ * while the lessons scroll. Both say it is a separate product whose trading needs its
  * own application, review and approval. The optional free Learn account sits
  * at the foot of the page.
  *
@@ -52,10 +52,38 @@ export default async function LearnPage() {
   const locale = await getLocale();
   const lessons = await lessonTitles();
   // The ad creative, in the reader's language.
-  const banner = `/ads/ftl-exchange-banner-${locale === 'en' ? 'en' : 'so'}.jpg`;
+  const lang = locale === 'en' ? 'en' : 'so';
+  const banner = `/ads/ftl-exchange-banner-${lang}.jpg`;
+  // A different creative for the pinned strip: wide, short, its own wording.
+  const strip = `/ads/ftl-exchange-strip-${lang}.jpg`;
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--canvas)]">
+      <section aria-labelledby="exchange-cta" className="mx-auto w-full max-w-6xl space-y-2.5 px-4 pt-4 sm:px-6">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-subtle)]">
+          {t('exchange.label')}
+        </p>
+        <a
+          href={EXCHANGE_URL}
+          className="block overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
+        >
+          {/* The creative carries its own risk line, so it stands alone if reposted. */}
+          <img
+            src={banner}
+            alt={`${t('exchange.title')} ${t('exchange.cta')}`}
+            width={1200}
+            height={628}
+            className="block h-auto w-full"
+          />
+        </a>
+        <h2 id="exchange-cta" className="sr-only">
+          {t('exchange.title')}
+        </h2>
+        <p className="max-w-[80ch] text-[12.5px] leading-relaxed text-[var(--text-subtle)]">
+          {t('exchange.body')}
+        </p>
+        </section>
+
       <header className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--canvas)]/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <span className="whitespace-nowrap text-[15px] font-semibold tracking-[-0.01em] text-[var(--text)]">
@@ -75,31 +103,6 @@ export default async function LearnPage() {
       </header>
 
       <main className="mx-auto w-full max-w-6xl flex-1 space-y-10 px-4 py-10 sm:px-6 sm:py-14">
-        <section aria-labelledby="exchange-cta" className="space-y-2.5">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-subtle)]">
-            {t('exchange.label')}
-          </p>
-          <a
-            href={EXCHANGE_URL}
-            className="block overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
-          >
-            {/* The creative carries its own risk line, so it stands alone if reposted. */}
-            <img
-              src={banner}
-              alt={`${t('exchange.title')} ${t('exchange.cta')}`}
-              width={1200}
-              height={628}
-              className="block h-auto w-full"
-            />
-          </a>
-          <h2 id="exchange-cta" className="sr-only">
-            {t('exchange.title')}
-          </h2>
-          <p className="max-w-[80ch] text-[12.5px] leading-relaxed text-[var(--text-subtle)]">
-            {t('exchange.body')}
-          </p>
-        </section>
-
         <section className="grid items-center gap-10 md:grid-cols-[minmax(0,1fr)_auto]">
           <div className="max-w-2xl">
             <p className="text-[12px] font-medium uppercase tracking-[0.12em] text-[var(--accent-text)]">{t('hero.eyebrow')}</p>
@@ -167,21 +170,30 @@ export default async function LearnPage() {
         aria-label={t('exchange.label')}
         className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--border)] bg-[var(--canvas)]/95 backdrop-blur"
       >
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-2.5 sm:px-6">
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-subtle)]">
-              {t('exchange.label')}
-            </p>
-            <p className="truncate text-[12.5px] text-[var(--text-muted)]">{t('exchange.title')}</p>
-          </div>
-          <a
-            href={EXCHANGE_URL}
-            className="shrink-0 whitespace-nowrap rounded-[var(--radius-md)] bg-[var(--accent)] px-3.5 py-2 text-[12.5px] font-semibold text-[var(--text-inverse)] hover:bg-[var(--accent-hover)]"
-          >
-            {t('exchange.cta')}
-          </a>
-        </div>
+        <a href={EXCHANGE_URL} className="mx-auto block max-w-6xl px-4 py-2 sm:px-6">
+          {/* Its own creative, wider than it is tall. On a phone the same ad is
+              set as text, because cropping a 8:1 image loses the offer. */}
+          <img
+            src={strip}
+            alt={`${t('exchange.title')} ${t('exchange.cta')}`}
+            width={1600}
+            height={200}
+            className="hidden h-auto w-full rounded-[var(--radius-sm)] sm:block"
+          />
+          <span className="flex items-center justify-between gap-3 sm:hidden">
+            <span className="min-w-0">
+              <span className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-subtle)]">
+                {t('exchange.label')}
+              </span>
+              <span className="block truncate text-[12.5px] text-[var(--text-muted)]">{t('exchange.title')}</span>
+            </span>
+            <span className="shrink-0 whitespace-nowrap rounded-[var(--radius-md)] bg-[var(--accent)] px-3.5 py-2 text-[12.5px] font-semibold text-[var(--text-inverse)]">
+              {t('exchange.cta')}
+            </span>
+          </span>
+        </a>
       </aside>
+
       <footer className="border-t border-[var(--border)] pb-24 pt-8">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <p className="max-w-[80ch] text-[12px] leading-relaxed text-[var(--text-subtle)]">{t('footer')}</p>
