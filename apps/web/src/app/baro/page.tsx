@@ -37,10 +37,11 @@ export async function generateMetadata(): Promise<Metadata> {
  * know without asking: this is FTL Learn, trading is a different product, a
  * Learn account cannot trade, and enabling trading is a separate application.
  *
- * Below the lessons sit two links, both labelled for what they are: the
- * optional free Learn account, and — now that the exchange is authorised to
- * advertise — FTL Exchange's own sign-up, marked as a separate product with
- * its own application, review and approval before any trading is enabled.
+ * Between the lesson index and the lessons themselves runs one labelled
+ * advertisement for FTL Exchange — now that the exchange is authorised to
+ * advertise — marked as a separate product with its own application, review
+ * and approval before any trading is enabled. The optional free Learn account
+ * sits at the foot of the page.
  *
  * The header holds only the brand, language, theme and that account link: the
  * lesson titles are long in Somali and belong in the lesson index below, not
@@ -116,10 +117,6 @@ export default async function LearnPage() {
           </ol>
         </nav>
 
-        <div className="space-y-12">
-          <LearnLessons />
-        </div>
-
         <section aria-labelledby="exchange-cta" className="space-y-2.5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-subtle)]">
             {t('exchange.label')}
@@ -144,6 +141,10 @@ export default async function LearnPage() {
             {t('exchange.body')}
           </p>
         </section>
+
+        <div className="space-y-12">
+          <LearnLessons />
+        </div>
 
         <section className="flex flex-col items-start gap-3 border-t border-[var(--border)] pt-10 sm:flex-row sm:items-center sm:justify-between">
           <div className="max-w-xl">
