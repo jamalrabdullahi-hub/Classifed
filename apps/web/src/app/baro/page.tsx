@@ -53,36 +53,50 @@ export default async function LearnPage() {
   const lessons = await lessonTitles();
   // The ad creative, in the reader's language.
   const lang = locale === 'en' ? 'en' : 'so';
-  const banner = `/ads/ftl-exchange-banner-${lang}.jpg`;
+  // Compact horizontal creative: the full 1200x628 banner filled the whole
+  // first screen, which buried the lessons.
+  const banner = `/ads/ftl-exchange-compact-${lang}.jpg`;
   // A different creative for the pinned strip: wide, short, its own wording.
   const strip = `/ads/ftl-exchange-strip-${lang}.jpg`;
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--canvas)]">
-      <section aria-labelledby="exchange-cta" className="mx-auto w-full max-w-6xl space-y-2.5 px-4 pt-4 sm:px-6">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-subtle)]">
+      <section aria-labelledby="exchange-cta" className="mx-auto w-full max-w-6xl space-y-2 px-4 pt-3 sm:px-6">
+        <p className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-[var(--text-subtle)]">
           {t('exchange.label')}
         </p>
         <a
           href={EXCHANGE_URL}
-          className="block overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
+          className="block overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
         >
-          {/* The creative carries its own risk line, so it stands alone if reposted. */}
+          {/* The creative carries its own risk line, so it stands alone if reposted.
+              Below 640px it is replaced by text: a 5:1 image would be unreadable. */}
           <img
             src={banner}
             alt={`${t('exchange.title')} ${t('exchange.cta')}`}
-            width={1200}
-            height={628}
-            className="block h-auto w-full"
+            width={1400}
+            height={260}
+            className="hidden h-auto w-full sm:block"
           />
+          <span className="flex items-center justify-between gap-3 bg-[var(--surface)] px-3.5 py-3 sm:hidden">
+            <span className="min-w-0">
+              <span className="block text-[13.5px] font-semibold text-[var(--text)]">{t('exchange.title')}</span>
+              <span className="block text-[11.5px] leading-snug text-[var(--text-subtle)]">{t('exchange.note')}</span>
+            </span>
+            <span className="shrink-0 whitespace-nowrap rounded-[var(--radius-md)] bg-[var(--accent)] px-3 py-1.5 text-[12px] font-semibold text-[var(--text-inverse)]">
+              {t('exchange.cta')}
+            </span>
+          </span>
         </a>
         <h2 id="exchange-cta" className="sr-only">
           {t('exchange.title')}
         </h2>
-        <p className="max-w-[80ch] text-[12.5px] leading-relaxed text-[var(--text-subtle)]">
+        {/* On a phone the same point is made by the notice below, and this
+            paragraph would double the ad's height. */}
+        <p className="hidden max-w-[80ch] text-[11.5px] leading-relaxed text-[var(--text-subtle)] sm:block">
           {t('exchange.body')}
         </p>
-        </section>
+      </section>
 
       <header className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--canvas)]/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
