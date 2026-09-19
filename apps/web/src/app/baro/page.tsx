@@ -5,6 +5,7 @@ import { ThemeToggle } from '@/components/theme';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { LearnLessons, lessonTitles } from '@/components/learn/lessons';
 import { HeroEmblem } from './infographics';
+import { LEARN_ARTICLES } from '@/content/learn-articles';
 
 const CANONICAL = 'https://learn.ftlexchange.com/';
 
@@ -60,7 +61,31 @@ export default async function LearnPage() {
   const strip = `/ads/ftl-exchange-strip-${lang}.jpg`;
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--canvas)]">
+    <div lang="so" className="flex min-h-screen flex-col bg-[var(--canvas)]">
+      <script
+        type="application/ld+json"
+        // Built from our own constants, not user input.
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify([
+            {
+              '@context': 'https://schema.org',
+              '@type': 'WebSite',
+              name: 'FTL Learn',
+              url: CANONICAL,
+              inLanguage: 'so',
+              description: t('meta.description'),
+            },
+            {
+              '@context': 'https://schema.org',
+              '@type': 'Organization',
+              name: 'FTL',
+              url: 'https://ftlexchange.com',
+              logo: 'https://ftlexchange.com/icon-512.png',
+              areaServed: 'SO',
+            },
+          ]),
+        }}
+      />
       <section aria-labelledby="exchange-cta" className="mx-auto w-full max-w-6xl space-y-2 px-4 pt-3 sm:px-6">
         <p className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-[var(--text-subtle)]">
           {t('exchange.label')}
@@ -157,6 +182,23 @@ export default async function LearnPage() {
               </li>
             ))}
           </ol>
+        </nav>
+
+        {/* The Somali articles: one question per page, each its own URL for search. */}
+        <nav aria-label="Maqaallo">
+          <p className="mb-3 text-[11.5px] font-semibold uppercase tracking-[0.1em] text-[var(--text-subtle)]">Maqaallo</p>
+          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {LEARN_ARTICLES.map((article) => (
+              <li key={article.slug}>
+                <a
+                  href={`https://learn.ftlexchange.com/${article.slug}`}
+                  className="block h-full rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] p-3.5 transition-colors hover:border-[var(--border-strong)]"
+                >
+                  <span className="block text-[13.5px] font-medium leading-snug text-[var(--text)]">{article.title}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
         </nav>
 
         <div className="space-y-12">

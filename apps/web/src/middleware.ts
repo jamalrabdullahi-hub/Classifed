@@ -1,14 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { LEARN_ARTICLE_SLUGS } from '@/content/learn-articles';
 
 /**
  * Host routing, and the exchange's sign-in wall.
  *
  * ## learn.ftlexchange.com
  *
- * A separate educational site with no accounts: only its root is served
- * (rewritten to `/baro`). Any other path on that host redirects to the same
- * path on ftlexchange.com. Learn's one link to the exchange is a labelled
- * "Open an FTLexchange account" button; nothing else crosses over.
+ * The educational site. Its root is rewritten to `/baro`, and each Somali
+ * article lives at `/<slug>` (served by `/baro/<slug>`). Any other path on
+ * that host redirects to the same path on ftlexchange.com.
  *
  * ## ftlexchange.com
  *
@@ -48,6 +48,7 @@ const PUBLIC_PREFIXES = [
   '/api/assetlinks',
   '/.well-known/',
   '/downloads/',
+  '/baro/',
   // Ad creatives, shown on Learn and linked from campaigns.
   '/ads/',
   '/ganacsi/',
@@ -84,7 +85,22 @@ export function middleware(request: NextRequest) {
       return NextResponse.rewrite(url, { request: { headers: learnHeaders(request) } });
     }
     if (STATIC_FILES.test(pathname) || pathname.startsWith('/ads/')) return NextResponse.next();
+    // Articles live at learn.ftlexchange.com/<slug>, served by /baro/<slug>.
+    const slug = pathname.slice(1);
+    if (LEARN_ARTICLE_SLUGS.includes(slug)) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/baro/${slug}`;
+      return NextResponse.rewrite(url, { request: { headers: learnHeaders(request) } });
+    }
     return NextResponse.redirect(`${EXCHANGE_ORIGIN}${pathname}${search}`, 308);
+  }
+
+  if (pathname.startsWith('/baro/')) {
+    // One address per article: the Learn host.
+    if (host.endsWith('ftlexchange.com')) {
+      return NextResponse.redirect(`https://${LEARN_HOST}/${pathname.slice('/baro/'.length)}`, 308);
+    }
+    return NextResponse.next({ request: { headers: learnHeaders(request) } });
   }
 
   if (pathname === '/baro') {

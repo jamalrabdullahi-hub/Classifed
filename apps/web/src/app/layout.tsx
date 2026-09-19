@@ -79,6 +79,13 @@ export async function generateMetadata(): Promise<Metadata> {
     // Still unlaunched. The card matters for links shared privately, indexing
     // does not.
     robots: { index: false, follow: false },
+    // Search Console / Bing Webmaster ownership, set in the server .env.
+    verification: {
+      google: process.env.GOOGLE_SITE_VERIFICATION || undefined,
+      other: process.env.BING_SITE_VERIFICATION
+        ? { 'msvalidate.01': process.env.BING_SITE_VERIFICATION }
+        : undefined,
+    },
     openGraph: {
       type: 'website',
       locale,
