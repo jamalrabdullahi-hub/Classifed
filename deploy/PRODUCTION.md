@@ -313,6 +313,80 @@ Server side, three things:
 
 3. **Nothing else.** The app loads the live site, so every web deploy updates it.
 
+## Who may reach what
+
+Three layers, outermost first. The point of the outer two is that a request
+from a country FLT does not serve should never cost the origin any work.
+
+### 1. Cloudflare: block the interactive surface by country
+
+Security → WAF → Custom rules → Create rule, named `Serve only where FLT
+operates`, action **Block**, expression:
+
+```
+(http.host eq "ftlexchange.com"
+ and not ip.geoip.country in {"SO" "KE" "ET" "DJ" "UG" "TZ" "SS" "EG" "SA" "AE" "KW" "QA" "BH" "OM" "TR" "JO" "LB" "SE" "NO" "DK" "FI" "GB" "NL" "DE" "CH" "IE" "BE" "AT" "IT" "FR" "US" "CA" "AU" "NZ"}
+ and not starts_with(http.request.uri.path, "/baro")
+ and not starts_with(http.request.uri.path, "/ganacsi")
+ and not starts_with(http.request.uri.path, "/ads/")
+ and not starts_with(http.request.uri.path, "/downloads/")
+ and not starts_with(http.request.uri.path, "/_next/")
+ and http.request.uri.path ne "/"
+ and http.request.uri.path ne "/robots.txt"
+ and http.request.uri.path ne "/sitemap.xml"
+ and http.request.uri.path ne "/privacy"
+ and http.request.uri.path ne "/terms"
+ and http.request.uri.path ne "/app"
+ and not cf.client.bot)
+```
+
+`learn.ftlexchange.com` is deliberately absent: Learn and its Somali articles
+stay readable everywhere, which is what keeps them indexed. `not cf.client.bot`
+keeps Google and Bing out of the block whatever country they crawl from.
+
+### 2. The application repeats the rule
+
+`apps/web/src/middleware.ts` reads Cloudflare's `CF-IPCountry` header and
+applies `@flt/core/domain/geo`: outside the served list, the public pages still
+render, while sign-in, sign-up, every signed-in page and every API answer 451 or
+bounce to the home page. With no header (local development, a direct origin
+request) nothing is blocked. So a Cloudflare rule that is deleted by accident
+does not reopen the product.
+
+### 3. The admin panel is not for the internet
+
+`admin.ftlexchange.com` currently answers anyone who finds it. Close it with
+either:
+
+- **Cloudflare Access** (preferred): Zero Trust → Access → Applications → add
+  `admin.ftlexchange.com`, policy *Allow* → *Emails* → your operators. Everyone
+  else never reaches nginx.
+- **An IP allowlist**: uncomment and edit the `allow`/`deny` lines in the
+  `admin.ftlexchange.com` server block in `deploy/ftlexchange.com.nginx.conf`,
+  then `nginx -t && systemctl reload nginx`.
+
+## Sign-up abuse
+
+Registration refuses undeliverable domains (RFC 2606: example.com, .test,
+.invalid, localhost) and public disposable inboxes
+(`packages/core/src/domain/email-domains.ts`), on top of the honeypot, the
+fill-time check and the per-IP rate limit. Identity verification now requires a
+confirmed email address, so a scripted submission cannot reach the reviewer.
+
+Turn on Turnstile as well: set `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`
+in the server `.env` (widget hostname `ftlexchange.com`) and restart `flt-web`.
+
+Admin → Needs attention lists every account created in the last 24 hours as soon
+as ten arrive within an hour, or any one of them uses a domain on the blocked
+list. To clear out accounts created before these rules existed:
+
+```bash
+sudo -u postgres psql -d flt_exchange -f /opt/flt-exchange/deploy/cleanup-probe-accounts.sql
+```
+
+It suspends them, revokes their sessions and rejects their verification
+submissions, and stops if any of them holds a balance.
+
 ## Learn and signup protection
 
 **Learn** (`learn.ftlexchange.com`) is a separate educational site served by the

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { LEARN_ARTICLE_SLUGS } from '@/content/learn-articles';
+import { isServedCountry, isWorldReadablePath, requestCountry } from '@flt/core/domain/geo';
 
 /**
  * Host routing, and the exchange's sign-in wall.
@@ -13,7 +14,9 @@ import { LEARN_ARTICLE_SLUGS } from '@/content/learn-articles';
  * ## ftlexchange.com
  *
  * Signed out, a visitor can reach sign-in, sign-up, password recovery, email
- * confirmation and the legal pages. Every other page redirects to sign-in and
+ * confirmation and the legal pages — and only from a country FLT serves
+ * (`@flt/core/domain/geo`); everywhere else may read the public pages but
+ * cannot sign in, register or call an API. Every other page redirects to sign-in and
  * every API outside `/api/auth` answers 401. This checks only that a session
  * cookie is present — the edge has no database — so every page and route still
  * resolves the session itself.
@@ -107,6 +110,25 @@ export function middleware(request: NextRequest) {
     if (host.endsWith('ftlexchange.com')) return NextResponse.redirect(`https://${LEARN_HOST}/`, 308);
     // Local development serves Learn in place.
     return NextResponse.next({ request: { headers: learnHeaders(request) } });
+  }
+
+  /*
+   * Geography. The probes that spammed sign-ups came from countries FLT does
+   * not serve and is not licensed in. Reading stays open everywhere — the
+   * Learn articles and the public pages are how search engines find FLT — but
+   * signing in, signing up and every API are served only where FLT operates.
+   */
+  if (!isServedCountry(requestCountry(request.headers)) && !isWorldReadablePath(pathname)) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json(
+        { error: { code: 'REGION_UNAVAILABLE', message: 'FLT is not available in your region.' } },
+        { status: 451 },
+      );
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = '/';
+    url.search = '';
+    return NextResponse.redirect(url, 307);
   }
 
   const signedIn = Boolean(request.cookies.get(SESSION_COOKIE)?.value);

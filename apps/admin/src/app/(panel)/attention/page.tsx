@@ -16,6 +16,7 @@ import {
   truncateMiddle,
 } from '@flt/ui';
 import { AttentionActions } from './attention-actions';
+import { blockedEmailReason } from '@flt/core/domain/email-domains';
 import { DeletionActions } from './deletion-actions';
 import { listOpenDeletionRequests } from '@flt/core/services/account-deletion';
 import { requireAdminPage } from '@/server/session';
@@ -68,7 +69,7 @@ const MAX_SWEEP_ATTEMPTS = 3;
 export default async function AttentionPage() {
   await requireAdminPage();
 
-  const [stuckWithdrawals, strandedDeposits, unsettled, deletions] = await Promise.all([
+  const [stuckWithdrawals, strandedDeposits, unsettled, deletions, recentSignups] = await Promise.all([
     /**
      * A broadcast whose outcome is unknown. The worker checks the chain for a
      * matching transfer and only re-queues when it can prove nothing left; one
@@ -110,10 +111,27 @@ export default async function AttentionPage() {
 
     /** Account deletion requests: the account is already suspended and signed out. */
     listOpenDeletionRequests(),
+
+    /**
+     * Sign-ups in the last day. Normal growth is a handful; a burst of fresh
+     * accounts on throwaway domains is sign-up spam, and it showed up here
+     * first the last time it happened.
+     */
+    prisma.user.findMany({
+      where: { createdAt: { gte: new Date(Date.now() - 24 * 3_600_000) } },
+      select: { id: true, email: true, createdAt: true, emailVerifiedAt: true },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    }),
   ]);
 
+  const lastHour = recentSignups.filter((row) => ageHours(row.createdAt) <= 1);
+  const suspectSignups = recentSignups.filter((row) => blockedEmailReason(row.email) !== null);
+  const signupSpike = lastHour.length >= 10 || suspectSignups.length > 0;
+
   const total =
-    stuckWithdrawals.length + strandedDeposits.length + unsettled.length + deletions.length;
+    stuckWithdrawals.length + strandedDeposits.length + unsettled.length + deletions.length +
+    (signupSpike ? 1 : 0);
 
   return (
     <div className="space-y-5">
@@ -280,6 +298,48 @@ export default async function AttentionPage() {
           </CardContent>
         </Card>
       ) : null}
+      {signupSpike ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Sign-ups worth a look</CardTitle>
+            <Badge tone={suspectSignups.length > 0 ? 'negative' : 'warning'}>{recentSignups.length}</Badge>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="max-w-[80ch] text-[12px] leading-relaxed text-[var(--text-muted)]">
+              {recentSignups.length} account{recentSignups.length === 1 ? '' : 's'} created in the last 24 hours,
+              {' '}{lastHour.length} in the last hour. Registration refuses undeliverable and disposable domains, so
+              anything flagged below was created before that rule or found a domain the list does not know. Suspend
+              them from the account page; nothing here can trade or withdraw without passing verification.
+            </p>
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Account</TH>
+                  <TH>Email confirmed</TH>
+                  <TH>Flag</TH>
+                  <TH>Age</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {recentSignups.slice(0, 25).map((row) => {
+                  const flag = blockedEmailReason(row.email);
+                  return (
+                    <TR key={row.id}>
+                      <TD>{row.email}</TD>
+                      <TD>{row.emailVerifiedAt ? 'Yes' : 'No'}</TD>
+                      <TD className="text-[11px]">
+                        {flag ? <Badge tone="negative">{flag}</Badge> : '—'}
+                      </TD>
+                      <TD className="num text-[var(--text-subtle)]">{describeAge(ageHours(row.createdAt))}</TD>
+                    </TR>
+                  );
+                })}
+              </TBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {deletions.length > 0 ? (
         <Card>
           <CardHeader>

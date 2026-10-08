@@ -211,8 +211,14 @@ describe('verification gates trading', () => {
     expect(mayTrade(user)).toBe(false);
     expect(() => assertMayTrade(user)).toThrow(/verification/i);
 
+    // Verification needs a confirmed address, as it does in the product.
+    const confirmed = await prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerifiedAt: new Date() },
+    });
+
     await submitKyc(
-      user,
+      confirmed,
       {
         legalFirstName: 'Test',
         legalLastName: 'User',

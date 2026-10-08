@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { env } from '@flt/config';
+import { ValidationError } from '@flt/core/domain';
+import { blockedEmailReason } from '@flt/core/domain/email-domains';
 import { signupBotSignal } from '@flt/core/domain/signup-signals';
 import { assertPasswordPolicy, register, RateLimits } from '@flt/core/services';
 import { mailProvider, provisionWalletsForUser } from '@flt/providers';
@@ -27,6 +29,9 @@ import { assertTurnstile } from '@/server/turnstile';
  *
  * ## Automated signups
  *
+ * Undeliverable domains (example.com and the rest of RFC 2606) and public
+ * disposable inboxes are refused outright — see `blockedEmailReason`.
+ *
  * Three layers, cheapest first: the per-IP rate limit, the honeypot and
  * fill-time signals (`signupBotSignal`), and Cloudflare Turnstile when it is
  * configured. A honeypot or timing hit gets the ordinary success message and
@@ -53,6 +58,20 @@ export const POST = handler(
     if (signal) {
       console.warn(`[register] dropped likely automated signup (${signal}) from ${context.ip ?? 'unknown ip'}`);
       return GENERIC_RESPONSE;
+    }
+
+    /*
+     * An address that can never receive mail, or a public throwaway inbox.
+     * Said plainly rather than swallowed: a person who typed example.com by
+     * mistake deserves to know, and a script learns nothing it did not already
+     * know from the domain it chose.
+     */
+    const blocked = blockedEmailReason(body.email);
+    if (blocked === 'undeliverable') {
+      throw new ValidationError('That email address cannot receive mail. Use an address you can open.');
+    }
+    if (blocked === 'disposable') {
+      throw new ValidationError('Temporary email addresses are not accepted. Use a permanent address.');
     }
 
     await assertTurnstile(body.turnstileToken, context.ip ?? null);

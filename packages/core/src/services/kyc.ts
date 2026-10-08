@@ -94,6 +94,15 @@ export async function submitKyc(
   input: SubmitKycInput,
   metadata: { ip?: string | null; userAgent?: string | null; requestId?: string },
 ): Promise<KycProfile> {
+  /*
+   * A confirmed email first. Verification is the one queue where a human
+   * spends real time, and an unconfirmed address is how scripted submissions
+   * reached it: two of them did before this check existed.
+   */
+  if (!user.emailVerifiedAt) {
+    throw new ValidationError('Confirm your email address before submitting identity verification.');
+  }
+
   const existing = await prisma.kycProfile.findUnique({ where: { userId: user.id } });
 
   if (existing) {
